@@ -1,178 +1,395 @@
 
 local S = mobs.intllib
 
--- Npc by TenPlus1
+-- Advanced NPC by Zorman2000
+-- Based on original NPC by Tenplus1 
+npc = {}
 
--- NPC Chat code by Zorman2000
--- Chat system consists of chatline and options objects that are re-used to create a conversation. 
--- The objects are the following:
--- 
--- chatline = { text = "", options = {}, name = "", flag = "" }
---  1. text: What the NPC says on this chat line
---  2. options: What the player can answer to the chat line. Options are of another type of chat lines.
---              If you want the player to have no options to answer, set to nil
---  3. name: The name of the NPC that will use this line. Use this when you want a specific NPC
---           to speak this line.
---  4. flag: When the NPC speaks this line, this flag will be set into the entity's metadata.
---
--- options = { opt = "", answer = { chatline }
---  1. opt: The text that the player can say to the NPC
---  2. answer: A chatline object (as described above)
--- 
--- Example of conversation hierarchy
--- chat_options = {
---  	chatline1 = { text = "Q1", options = { 
---  		option1 = { opt = "O1", answer = { 
---  			chatline = { text = "A1", options = nil } 
---  		} 
---  	},
---  	chatline2 = { text = "Q2", options = nil }
---  }
+-- Constants
+npc.FEMALE = "female"
+npc.MALE = "male"
+npc.ITEM_GIFT_EFFECT = 2.5
+npc.RELATIONSHIP_PHASE1_LIMIT = 10
+npc.RELATIONSHIP_PHASE2_LIMIT = 25
+npc.RELATIONSHIP_PHASE3_LIMIT = 45
+npc.RELATIONSHIP_PHASE4_LIMIT = 70
+npc.RELATIONSHIP_PHASE5_LIMIT = 100
 
-local chat_options = {
-	{ text = "Don't talk with me know, please", options = nil, name = "Angry Guy" },
-	{ text = "Hello, how are you doing?", options = {
-			{ opt = "Good", answer = 
-				{ text = "That's good. Take care of yourself.", options = nil } 
-			},
-			{ opt = "Great! And you?", answer = 
-				{ text = "I'm doing well, thank you. See ya around!", options = nil }
-			},
-			{ opt = "Not so well...", answer = 
-				{ text = "Hey, why not feeling good? What's wrong?", options = {
-						{ opt = "Not your business!", answer = 
-							{ text = "So rude! Don't speak to me anymore!", options = nil, flag = "not_speak" } 
-						},
-						{ opt = "It's nothing! But thank you for asking!", answer = 
-							{ text = "Ok my friend. See ya around!", options = nil }
-						},
-					}
-				}
-			}
-		}
-	},
-	{ text = "I'm thinking of buying something but not sure...", options = nil },
-	{ text = "I have traveled around the world and only like this place...", options = nil }
+npc.FAVORITE_ITEMS = {
+  female = {
+    child = {
+      "farming:cotton",
+      "farming:bread",
+      "default:apple",
+      "default:gold_ingot",
+      "default:steel_ingot",
+      "default:diamond"
+    },
+    adult = {
+      "default:apple",
+      "farming:bread",
+      "mobs:meat",
+      "default:pick_steel",
+      "default:shovel_steel",
+      "default:sword_steel"
+    }
+  },
+  male = {
+    child = {
+      "farming:cotton",
+      "farming:bread",
+      "default:apple",
+      "default:gold_ingot",
+      "default:steel_ingot",
+      "default:diamond"
+    },
+    adult = {
+      "default:apple",
+      "farming:bread",
+      "mobs:meat",
+      "default:pick_steel",
+      "default:shovel_steel",
+      "default:sword_steel"
+    }
+  }
 }
 
-
-local options = {"Question 1","Question 2","Question 3","Question 4"}
-
----------------------------------------------------------------------
--- Creates a formspec for dialog
---------------------------------------------------------------------
-local function create_formspec(options, close_option) 
-	local options_length = table.getn(options) + 1	
-	local formspec_height = (options_length * 0.7) + 1
-	local formspec = "size[7,"..tostring(formspec_height).."]"
-	for i, opt in ipairs(options) do
-		local y = 0.7;
-		if i > 1 then
-			y = (y * i)
-		end
-		formspec = formspec.."button[0.5,"..y..";6,0.5;opt"..tostring(i)..";"..options[i].opt.."]"
-	end
-	formspec = formspec.."button_exit[0.5,"..(formspec_height - 1)..";6,0.5;exit;"..close_option.."]"
-	return formspec
-end
-
----------------------------------------------------------------------
--- Returns a random chatline for unimportant NPCs
----------------------------------------------------------------------
-local function get_random_chatline(chat_options)
-	local chat_options_length = table.getn(chat_options)
-	local random_option = math.random(1, chat_options_length - 1)
-	local found = false
-	while found == false do
-		for i,chatline in ipairs(chat_options) do
-			if i == random_option and chatline.name == nil then
-				found = true
-				return chatline
-			end
-		end
-	end
-end
-
----------------------------------------------------------------------
--- Returns all chatlines for a specific NPC
----------------------------------------------------------------------
-local function get_chatline_for_npc(chat_options, npc_name)
-	local result = {}
-	for i,chatline in ipairs(chat_options) do
-		if chatline.name == npc_name then
-			table.insert(result, chatline)
-		end
-	end
-	return result
-end
-
------------------------------------------------------------------------------
--- Functions for rotating NPC to look at player (taken from the API itself)
------------------------------------------------------------------------------
-local atan = function(x)
-	if x ~= x then
-		return 0
-	else
-		return math.atan(x)
-	end
-end
-
-
-local function rotate_npc_to_player(self)
-	local s = self.object:getpos()
-	local objs = minetest.get_objects_inside_radius(s, 4)
-	local lp = nil
-	local yaw = 0
-	
-	for n = 1, #objs do
-		if objs[n]:is_player() then
-			lp = objs[n]:getpos()
-			break
-		end
-	end
-	if lp then
-		local vec = {
-			x = lp.x - s.x,
-			y = lp.y - s.y,
-			z = lp.z - s.z
-		}
-
-		yaw = (atan(vec.z / vec.x) + math.pi / 2) - self.rotate
-
-		if lp.x > s.x then
-			yaw = yaw + math.pi
-		end
-	end
-	self.object:setyaw(yaw)
-end
-
----------------------------------------------------------------------
--- Drives conversation
----------------------------------------------------------------------
-local function show_chat_option(npc_name, self, player_name, chat_options, close_option)
-	rotate_npc_to_player(self)
-	self.order = "stand"
-	
-	local chatline = get_random_chatline(chat_options)
-	minetest.chat_send_player(player_name, chatline.text)
-	if chatline.options ~= nil then
-		minetest.log("Current options: "..dump(chatline.options))
-		local formspec = create_formspec(chatline.options, close_option)
-		minetest.show_formspec(player_name, "rndform", formspec)
-	end
-	
-	self.order = "follow"
-end
-
-
-
+-- TODO: Complete responses for female and males, both adult and child
+npc.GIFT_RESPONSES = {
+  female = {
+    child = {
+    },
+    adult = {
+      {
+        phase1 = "Thank you!",
+        phase2 = "It is very appreciated! Thanks!",
+        phase3 = "Thank you! You definetely are special...",
+        phase4 = "Awww, you are so great!",
+        phase5 = "Oh, so cute! Thank you! I love you!",
+        phase6 = "Thank you my dear! You are the greatest husband!"
+      },
+      {
+        phase1 = "Thank you!",
+        phase2 = "It is very appreciated! Thanks!",
+        phase3 = "Thank you! You definetely are special...",
+        phase4 = "Awww, you are so great!",
+        phase5 = "Oh, so cute! Thank you! I love you!",
+        phase6 = "Thank you my dear! You are the greatest husband!"
+      },
+      {
+        phase1 = "Thank you!",
+        phase2 = "It is very appreciated! Thanks!",
+        phase3 = "Thank you! You definetely are special...",
+        phase4 = "Awww, you are so great!",
+        phase5 = "Oh, so cute! Thank you! I love you!",
+        phase6 = "Thank you my dear! You are the greatest husband!"
+      },
+      {
+        phase1 = "Thank you!",
+        phase2 = "It is very appreciated! Thanks!",
+        phase3 = "Thank you! You definetely are special...",
+        phase4 = "Awww, you are so great!",
+        phase5 = "Oh, so cute! Thank you! I love you!",
+        phase6 = "Thank you my dear! You are the greatest husband!"
+      },
+      {
+        phase1 = "Thank you!",
+        phase2 = "It is very appreciated! Thanks!",
+        phase3 = "Thank you! You definetely are special...",
+        phase4 = "Awww, you are so great!",
+        phase5 = "Oh, so cute! Thank you! I love you!",
+        phase6 = "Thank you my dear! You are the greatest husband!"
+      }
+    }
+  },
+  male = {
+    
+  }
+}
 
 mobs.npc_drops = {
 	"default:pick_steel", "mobs:meat", "default:sword_steel",
 	"default:shovel_steel", "farming:bread", "bucket:bucket_water"
 }
 
-mobs:register_mob("mobs_npc:npc", {
+
+-- General functions
+-- Gets name of player or NPC
+local function get_entity_name(entity)
+  if entity:is_player() then
+    return entity:get_player_name()
+  else
+    return entity:get_luaentity().nametag
+  end
+end
+
+-- Returns the item "wielded" by player or NPC
+-- TODO: Implement NPC
+local function get_entity_wielded_item(entity)
+  if entity:is_player() then
+    return entity:get_wielded_item()
+  end
+end
+
+
+-- Functions on right click
+---------------------------------------------------------------------------------------
+-- Gift and relationship system
+---------------------------------------------------------------------------------------
+-- Each NPCs has 2 favorite and 2 disliked items. These items are chosen at spawn
+-- time and will be re-chosen when the age changes (from child to adult, for example).
+-- The items are chosen from the npc.FAVORITE_ITEMS table, and depends on sex and age.
+-- A player, via right-click, or another NPC, can gift an item to a NPC. In the case
+-- of the player, the player will give one of the currently wielded item. Gifts can be
+-- given only once per some time period, the NPC will reject the given item if still 
+-- the period isn't over.
+-- If the NPC is neutral on the item (meanining it's neither favorite or disliked), it 
+-- is possible it will not accept it, and the relationship the giver has with the NPC
+-- will be unchanged.
+-- In the other hand, if the item given its a favorite, the relationship points the NPC
+-- has with giver will increase by a given amount, depending on favoriteness. Favorite 1
+-- will increase the relationship by 2 * npc.ITEM_GIFT_EFFECT, and favorite 2 only by
+-- npc.ITEM_GIFT_EFFECT. Similarly, if the item given is a disliked item, the NPC will
+-- not take it, and its relationship points with the giver will decrease by 2 or 1 times
+-- npc.ITEM_GIFT_EFFECT.
+
+-- Relationship functions
+
+---------------------------------------------------------------------------------------
+-- Creates a relationship with a given player or NPC
+local function create_relationship(self, clicker_name)
+  local count = #self.relationships
+  self.relationships[count + 1] = {
+    name = clicker_name,
+    points = 0
+  }
+end
+
+-- Returns a relationship points
+local function get_relationship_points(self, clicker_name)
+  for i = 1, #self.relationships do
+    if self.relationships[i].name == clicker_name then
+      return self.relationships[i].points
+    end
+  end
+  return nil
+end
+
+-- Updates relationship with given points
+local function update_relationship(self, clicker_name, modifier)
+  for i = 1, #self.relationships do
+    if self.relationships[i].name == clicker_name then
+      self.relationships[i].points = self.relationships[i].points + modifier
+      return
+    end
+  end
+end
+
+-- Checks if a relationship with given player or NPC exists
+local function check_relationship_exists(self, clicker_name)
+  for i = 1, #self.relationships do
+    if self.relationships[i].name == clicker_name then
+      return true
+    end
+  end
+  return false
+end
+
+-- Gifts functions
+---------------------------------------------------------------------------------------
+
+-- This function selects two random items from the npc.favorite_items table
+-- It checks both for age and for sex for choosing the items
+local function select_random_favorite_items(sex, is_child)
+  local result = {}
+  local items = {}
+  
+  -- Filter sex
+  if sex == npc.FEMALE then
+    items = npc.FAVORITE_ITEMS.female
+  else
+    items = npc.FAVORITE_ITEMS.male
+  end
+  -- Filter age
+  if is_child then 
+    items = items.child
+  else
+    items = items.adult
+  end
+  
+  result.fav1 = items[math.random(1, #items)]
+  result.fav2 = items[math.random(1, #items)]
+  return result
+end
+
+-- Displays message and hearts depending on relationship level
+local function show_receive_gift_reaction(self, clicker_name) 
+  local points = get_relationship_points(self, clicker_name)
+  
+  local chat_messages = {}
+  if self.sex == npc.FEMALE then
+    if self.child == true then
+      -- TODO: Implement child responses
+    else
+      chat_messages = npc.GIFT_RESPONSES.female.adult[1]
+      minetest.log(dump(chat_messages))
+    end
+  end
+  
+  local pos = self.object:getpos()
+  local message_to_send = ""
+  
+  -- Positive relationship reactions
+  if points >= 0 then
+    if points < npc.RELATIONSHIP_PHASE1_LIMIT then
+      message_to_send = chat_messages.phase1
+    elseif points < npc.RELATIONSHIP_PHASE2_LIMIT then
+      message_to_send = chat_messages.phase2
+    elseif points < npc.RELATIONSHIP_PHASE3_LIMIT then
+      message_to_send = chat_messages.phase3
+      effect({x = pos.x, y = pos.y + 1, z = pos.z}, 2, "heart.png")
+    elseif points < npc.RELATIONSHIP_PHASE4_LIMIT then
+      message_to_send = chat_messages.phase4
+      effect({x = pos.x, y = pos.y + 1, z = pos.z}, 4, "heart.png")
+    elseif points < npc.RELATIONSHIP_PHASE5_LIMIT then
+      message_to_send = chat_messages.phase5
+      effect({x = pos.x, y = pos.y + 1, z = pos.z}, 6, "heart.png")
+    -- This will show when players are married
+    elseif points > npc.RELATIONSHIP_PHASE5_LIMIT then
+      message_to_send = chat_messages.phase6
+      effect({x = pos.x, y = pos.y + 1, z = pos.z}, 8, "heart.png")
+    end
+    -- Send message
+    minetest.chat_send_player(clicker_name, message_to_send)
+  -- Relationship is in negative state
+  elseif points < 0 then
+    
+  end
+  
+end
+
+-- Receive gift function; applies relationship points as explained above
+-- Also, creates a relationship object if not present
+local function receive_gift(self, clicker)  
+  -- Return if clicker is not offering an item
+  local item = get_entity_wielded_item(clicker)
+  if item:get_name() == "" then return false end
+  
+  -- Get clicker name
+  local clicker_name = get_entity_name(clicker)
+  
+  -- If NPC received a gift, then reject any more gifts for now
+  if self.gift_data.gift_timer_value < self.gift_data.gift_interval then
+    minetest.chat_send_player(clicker_name, "Thanks, but I don't need anything for now")
+    return false
+  end
+  
+  -- Create relationship if it doesn't exists
+  if check_relationship_exists(self, clicker_name) == false then
+    create_relationship(self, clicker_name)
+  end
+  
+  -- If NPC is ready for marriage, do no accept anything else but the ring,
+  -- and that with only a certain chance. The self.owner is to whom is married
+  -- this NPC... he he.
+  minetest.log(get_relationship_points(self, clicker_name))
+  if get_relationship_points(self, clicker_name) >= npc.RELATIONSHIP_PHASE5_LIMIT 
+    and self.owner ~= clicker_name
+    and item:get_name() ~= "advanced_npc:marriage_ring" then
+    minetest.chat_send_player(clicker_name, "Thank you my love, but I think that you have given me")
+    minetest.chat_send_player(clicker_name, "enough gifts for now. Maybe we should go a step further")
+    self.gift_data.gift_timer_value = 0
+    return true
+  elseif get_relationship_points(self, clicker_name) >= npc.RELATIONSHIP_PHASE5_LIMIT 
+    and item:get_name() == "advanced_npc:marriage_ring" then
+    -- If the player/entity is offering a marriage ring, then NPC will accept with a 50%
+    -- chance to marry the clicker
+    local receive_chance = math.random(1, 10)
+    -- Receive ring and get married
+    if receive_chance < 6 then
+      minetest.chat_send_player(clicker_name, "Oh, oh you make me so happy! Yes! I will marry you!")
+      -- Get ring
+      item:take_item()
+      clicker:set_wielded_item(item)
+      -- Show marriage reaction
+      local pos = self.object:getpos()
+      effect({x = pos.x, y = pos.y + 1, z = pos.z}, 20, "heart.png", 4)
+      -- Give 100 points, so NPC is really happy on marriage
+      update_relationship(self, clicker_name, 100)
+      -- This sets the married state, for now. Hehe
+      self.owner = clicker_name
+      self.gift_data.gift_timer_value = 0
+      return true
+    -- Reject ring for now
+    else 
+      minetest.chat_send_player(clicker_name, "Dear, I feel the same as you. But maybe not yet...")
+      self.gift_data.gift_timer_value = 0
+      return true
+    end
+  end
+  
+  -- Modifies relationship depending on given item
+  local modifier = 0
+  local take = true
+  local show_reaction = false
+  
+  if item:get_name() == self.gift_data.favorite_items.fav1 then
+    modifier = 2 * npc.ITEM_GIFT_EFFECT
+    show_reaction = true
+  elseif item:get_name() == self.gift_data.favorite_items.fav2 then 
+    modifier = npc.ITEM_GIFT_EFFECT
+    show_reaction = true
+  else
+    -- If item is not a favorite or a dislike, then receive chance
+    -- if 70%
+      local receive_chance = math.random(1,10)
+      if receive_chance < 7 then
+        minetest.chat_send_player(clicker_name, "Thanks. I will find some use for this.")
+      else
+        minetest.chat_send_player(clicker_name, "Thank you, but no, I have no use for this.")
+        take = false
+      end
+      show_reaction = false
+  end
+  
+  -- Take item if NPC accepted it
+  if take == true then
+    item:take_item()
+    clicker:set_wielded_item(item)
+  end
+  
+  -- Show NPC reaction to gift
+  if show_reaction == true then
+    show_receive_gift_reaction(self, clicker_name)
+  end
+  
+  -- Update relationship status
+  update_relationship(self, clicker_name, modifier)
+  
+  minetest.log(dump(self))
+  self.gift_data.gift_timer_value = 0
+  return true  
+end
+
+-- Chat functions
+
+local function start_chat(self, clicker)
+  local name = get_entity_name(clicker)
+  -- Married player can tell NPC to follow or to stay at a given place
+  -- TODO: Improve this. There should be a dialogue box for this
+  if self.owner and self.owner == name then
+		if self.order == "follow" then
+			self.order = "stand"
+			minetest.chat_send_player(name, S("Ok dear, I will wait here for you."))
+		else
+			self.order = "follow"
+			minetest.chat_send_player(name, S("Let's go honey!"))
+		end
+	end
+end
+
+
+mobs:register_mob("advanced_npc:npc", {
 	type = "npc",
 	passive = false,
 	damage = 3,
@@ -190,11 +407,11 @@ mobs:register_mob("mobs_npc:npc", {
 	mesh = "character.b3d",
 	drawtype = "front",
 	textures = {
-		{"mobs_npc.png"},
-		{"mobs_npc2.png"}, -- female by nuttmeg20
+		{"mobs_npc_male1.png"},
+		{"mobs_npc_female1.png"}, -- female by nuttmeg20
 	},
 	child_texture = {
-		{"mobs_npc_baby.png"}, -- derpy baby by AmirDerAssassine
+		{"mobs_npc_baby_male1.png"}, -- derpy baby by AmirDerAssassine
 	},
 	makes_footstep_sound = true,
 	sounds = {},
@@ -213,7 +430,7 @@ mobs:register_mob("mobs_npc:npc", {
 	water_damage = 0,
 	lava_damage = 2,
 	light_damage = 0,
-	follow = {"farming:bread", "mobs:meat", "default:diamond"},
+	--follow = {"farming:bread", "mobs:meat", "default:diamond"},
 	view_range = 15,
 	owner = "",
 	order = "follow",
@@ -233,92 +450,92 @@ mobs:register_mob("mobs_npc:npc", {
 	},
 	on_rightclick = function(self, clicker)
 
-		-- feed to heal npc
-		if mobs:feed_tame(self, clicker, 8, true, true) then
-			return
-		end
-
 		local item = clicker:get_wielded_item()
 		local name = clicker:get_player_name()
-
-		-- right clicking with gold lump drops random item from mobs.npc_drops
-		if item:get_name() == "default:gold_lump" then
-
-			if not minetest.setting_getbool("creative_mode") then
-				item:take_item()
-				clicker:set_wielded_item(item)
-			end
-
-			local pos = self.object:getpos()
-
-			pos.y = pos.y + 0.5
-
-			minetest.add_item(pos, {
-				name = mobs.npc_drops[math.random(1, #mobs.npc_drops)]
-			})
-
-			minetest.chat_send_player(name, S("NPC dropped you an item for gold!"))
-
-			return
-		end
-		
-		-- See chat
-		--show_chat_option(self.nametag, self, name, chat_options, "Nevermind") 
-
-		-- capture npc with net or lasso
-		mobs:capture_mob(self, clicker, 0, 5, 80, false, nil)
-
-		-- by right-clicking owner can switch npc between follow and stand
-		if self.owner and self.owner == name then
-
-			if self.order == "follow" then
-				self.order = "stand"
-
-				minetest.chat_send_player(name, S("NPC stands still."))
-			else
-				self.order = "follow"
-
-				minetest.chat_send_player(name, S("NPC will follow you."))
-			end
-		end
+    
+    minetest.log(dump(self))
+    
+    -- Receive gift or start chat
+    if receive_gift(self, clicker) == false then
+        start_chat(self, clicker)
+    end  
 
 	end,
 })
 
---mobs:register_spawn("mobs:npc", {"default:dirt_with_grass"}, 20, 0, 7000, 1, 31000)
---mobs:spawn_specific("mobs:npc", {"default:brick"}, {"air"}, 0, 15, 1, 1, 1, 0, 200, true)
+-- This function checks for "female" text on the texture name
+local function is_female_texture(textures)
+  for i = 1, #textures do
+    if string.find(textures[i], "female") ~= nil then
+      return true
+    end
+  end
+  return false
+end
 
---mobs:register_spawn("mobs:npc", {"mg_villages:plotmarker"}, 20, 0, 1, 7000, 31000)
---mobs:spawn_specific("mobs:npc", {"mg_villages:plotmarker"}, {"air"}, 0, 15, 30, 1, 100, 0, 200, true)
+local function npc_spawn(self, pos)
+  minetest.log("Spawning new NPC:")
+  local ent = self:get_luaentity()
+  ent.nametag = "Kio"
+  
+  -- Determine sex based on textures
+  if (is_female_texture(ent.base_texture)) then
+    ent.sex = npc.FEMALE
+  else
+    ent.sex = npc.MALE
+  end
+  
+  -- Initialize all gift data
+  ent.gift_data = {
+    -- Choose favorite items
+    favorite_items = select_random_favorite_items(ent.sex, ent.child),
+    -- How frequent can the NPC receive a gift
+    gift_interval = 10,
+    -- Current timer count since last gift
+    gift_timer_value = 0
+  }
+  
+  -- Timer function for gifts
+  ent.on_step = function(self, dtime)
+    if self.gift_data.gift_timer_value < self.gift_data.gift_interval then
+      self.gift_data.gift_timer_value = self.gift_data.gift_timer_value + dtime
+      minetest.log(dump(self.gift_data.gift_timer_value))
+    end
+  end
+  
+  -- Initialize relationships object
+  ent.relationships = {}
+  
+  minetest.log(dump(ent))
+end
 
-minetest.register_abm({
-	label = "NPC spawning",
-	nodenames = {"mg_villages:plotmarker"},
-	neighbors = {"air"},
-	interval = 30,
-	chance = 25,
-	catch_up = false,
-
-	action = function(pos, node, active_object_count, active_object_count_wider)
-		if active_object_count_wider > 20 then
-			return
-		end
-		minetest.log("Spawning NPC on: "..dump(pos.x)..", "..dump(pos.y + 1)..", "..dump(pos.z))
-		minetest.log("Active Object count: "..dump(active_object_count))
-		minetest.log("Wider object count: "..dump(active_object_count_wider))
-		pos.y = pos.y + 1
-		local mob = minetest.add_entity(pos, "mobs_npc:npc")
-		local ent = mob:get_luaentity()
-
-		if not ent then
-			mob:remove()
-			return
-		end
-	end
+-- Spawn
+mobs:spawn({
+	name = "advanced_npc:npc",
+	nodes = {"default:stone"},
+	min_light = 3,
+	active_object_count = 1,
+  interval = 5,
+  chance = 1,
+	--max_height = 0,
+	on_spawn = npc_spawn,
 })
 
-
-mobs:register_egg("mobs_npc:npc", S("Npc"), "default_brick.png", 1)
+mobs:register_egg("advanced_npc:npc", S("Npc"), "default_brick.png", 1)
 
 -- compatibility
-mobs:alias_mob("mobs:npc", "mobs_npc:npc")
+mobs:alias_mob("mobs:npc", "advanced_npc:npc")
+
+-- Marriage ring
+minetest.register_craftitem("advanced_npc:marriage_ring", {
+	description = S("Marriage Ring"),
+	inventory_image = "diamond_ring.png",
+})
+
+-- Marriage ring craft recipe
+minetest.register_craft({
+	output = "advanced_npc:marriage_ring",
+	recipe = { {"", "", ""},
+             {"", "default:diamond", ""},
+             {"", "default:gold_ingot", ""} },
+})
