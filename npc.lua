@@ -17,49 +17,26 @@ npc.RELATIONSHIP_PHASE5_LIMIT = 100
 
 npc.FAVORITE_ITEMS = {
   female = {
-    child = {
-      "farming:cotton",
-      "farming:bread",
-      "default:apple",
-      "default:gold_ingot",
-      "default:steel_ingot",
-      "default:diamond"
-    },
-    adult = {
       "default:apple",
       "farming:bread",
       "mobs:meat",
       "default:pick_steel",
       "default:shovel_steel",
       "default:sword_steel"
-    }
   },
   male = {
-    child = {
-      "farming:cotton",
-      "farming:bread",
-      "default:apple",
-      "default:gold_ingot",
-      "default:steel_ingot",
-      "default:diamond"
-    },
-    adult = {
       "default:apple",
       "farming:bread",
       "mobs:meat",
       "default:pick_steel",
       "default:shovel_steel",
       "default:sword_steel"
-    }
   }
 }
 
 -- TODO: Complete responses for female and males, both adult and child
 npc.GIFT_RESPONSES = {
   female = {
-    child = {
-    },
-    adult = {
       {
         phase1 = "Thank you!",
         phase2 = "It is very appreciated! Thanks!",
@@ -100,7 +77,6 @@ npc.GIFT_RESPONSES = {
         phase5 = "Oh, so cute! Thank you! I love you!",
         phase6 = "Thank you my dear! You are the greatest husband!"
       }
-    }
   },
   male = {
     
@@ -200,7 +176,7 @@ end
 
 -- This function selects two random items from the npc.favorite_items table
 -- It checks both for age and for sex for choosing the items
-local function select_random_favorite_items(sex, is_child)
+local function select_random_favorite_items(sex)
   local result = {}
   local items = {}
   
@@ -209,12 +185,6 @@ local function select_random_favorite_items(sex, is_child)
     items = npc.FAVORITE_ITEMS.female
   else
     items = npc.FAVORITE_ITEMS.male
-  end
-  -- Filter age
-  if is_child then 
-    items = items.child
-  else
-    items = items.adult
   end
   
   result.fav1 = items[math.random(1, #items)]
@@ -228,12 +198,8 @@ local function show_receive_gift_reaction(self, clicker_name)
   
   local chat_messages = {}
   if self.sex == npc.FEMALE then
-    if self.child == true then
-      -- TODO: Implement child responses
-    else
-      chat_messages = npc.GIFT_RESPONSES.female.adult[1]
+      chat_messages = npc.GIFT_RESPONSES.female[1]
       minetest.log(dump(chat_messages))
-    end
   end
   
   local pos = self.object:getpos()
@@ -488,7 +454,7 @@ local function npc_spawn(self, pos)
   -- Initialize all gift data
   ent.gift_data = {
     -- Choose favorite items
-    favorite_items = select_random_favorite_items(ent.sex, ent.child),
+    favorite_items = select_random_favorite_items(ent.sex),
     -- How frequent can the NPC receive a gift
     gift_interval = 10,
     -- Current timer count since last gift
