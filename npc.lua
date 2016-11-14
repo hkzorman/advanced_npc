@@ -427,6 +427,15 @@ mobs:register_mob("advanced_npc:npc", {
     end  
 
 	end,
+	do_custom = function(self, dtime)
+	
+		-- Timer function for gifts
+		if self.gift_data.gift_timer_value < self.gift_data.gift_interval then
+			self.gift_data.gift_timer_value = self.gift_data.gift_timer_value + dtime
+			minetest.log(dump(self.gift_data.gift_timer_value))
+		end
+		
+	end
 })
 
 -- This function checks for "female" text on the texture name
@@ -461,18 +470,12 @@ local function npc_spawn(self, pos)
     gift_timer_value = 0
   }
   
-  -- Timer function for gifts
-  ent.on_step = function(self, dtime)
-    if self.gift_data.gift_timer_value < self.gift_data.gift_interval then
-      self.gift_data.gift_timer_value = self.gift_data.gift_timer_value + dtime
-      minetest.log(dump(self.gift_data.gift_timer_value))
-    end
-  end
-  
   -- Initialize relationships object
   ent.relationships = {}
   
   minetest.log(dump(ent))
+  
+  ent.object:set_properties(ent)
 end
 
 -- Spawn
