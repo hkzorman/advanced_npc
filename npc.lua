@@ -9,6 +9,9 @@ npc = {}
 npc.FEMALE = "female"
 npc.MALE = "male"
 npc.ITEM_GIFT_EFFECT = 2.5
+-- Expected values for these are 720 each respectively
+npc.GIFT_TIMER_INTERVAL = 2
+npc.RELATIONSHIP_DECREASE_TIMER_INTERVAL = 60
 npc.RELATIONSHIP_PHASE = {}
 -- Define phases
 npc.RELATIONSHIP_PHASE["phase1"] = {limit = 10}
@@ -258,11 +261,11 @@ local function create_relationship(self, clicker_name)
     -- Relationship phase, used for items and for phrases
     phase = "phase1",
     -- How frequent can the NPC receive a gift
-    gift_interval = 1,
+    gift_interval = npc.GIFT_TIMER_INTERVAL,
     -- Current timer count since last gift
     gift_timer_value = 0,
     -- The amount of time without providing gift or talking that will decrease relationship points
-    relationship_decrease_interval = 5,
+    relationship_decrease_interval = npc.RELATIONSHIP_DECREASE_TIMER_INTERVAL,
     -- Current timer count for relationship decrease
     relationship_decrease_timer_value = 0
   }
