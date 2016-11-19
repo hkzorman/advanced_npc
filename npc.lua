@@ -9,90 +9,107 @@ npc = {}
 npc.FEMALE = "female"
 npc.MALE = "male"
 npc.ITEM_GIFT_EFFECT = 2.5
-npc.RELATIONSHIP_PHASE = {
-   phase1 = {limit = 10},
-   phase2 = {limit = 25},
-   phase3 = {limit = 45},
-   phase4 = {limit = 70},
-   phase5 = {limit = 100}
-}
+npc.RELATIONSHIP_PHASE = {}
+-- Define phases
+npc.RELATIONSHIP_PHASE["phase1"] = {limit = 10}
+npc.RELATIONSHIP_PHASE["phase2"] = {limit = 25}
+npc.RELATIONSHIP_PHASE["phase3"] = {limit = 45}
+npc.RELATIONSHIP_PHASE["phase4"] = {limit = 70}
+npc.RELATIONSHIP_PHASE["phase5"] = {limit = 100}
 
 npc.FAVORITE_ITEMS = {
+  female = {},
+  male = {}
+}
+-- Define items by phase
+-- Female
+npc.FAVORITE_ITEMS.female["phase1"] = {
+  {item = "default:apple",        
+   response = "Hey, I really wanted an apple, thank you!"},
+  {item = "farming:bread",
+   response = "Thanks, you didn't have to, but thanks..."}
+}
+npc.FAVORITE_ITEMS.female["phase2"] = {
+  {item = "farming:cotton",        
+   response = "This is going to be very helpful, thank you!"},
+  {item = "wool:wool",
+   response = "Thanks, you didn't have to, but thanks..."}
+}
+npc.FAVORITE_ITEMS.female["phase3"] = {
+  {item = "default:apple",        
+   response = "Hey, I really wanted an apple, thank you!"},
+  {item = "farming:bread",
+   response = "Thanks, you didn't have to, but thanks..."}
+}
+npc.FAVORITE_ITEMS.female["phase4"] = {
+  {item = "default:apple",        
+   response = "Hey, I really wanted an apple, thank you!"},
+  {item = "farming:bread",
+   response = "Thanks, you didn't have to, but thanks..."}
+}
+npc.FAVORITE_ITEMS.female["phase5"] = {
+  {item = "default:apple",        
+   response = "Hey, I really wanted an apple, thank you!"},
+  {item = "farming:bread",
+   response = "Thanks, you didn't have to, but thanks..."}
+}
+npc.FAVORITE_ITEMS.female["phase6"] = {
+  {item = "default:apple",        
+   response = "Hey, I really wanted an apple, thank you!"},
+  {item = "farming:bread",
+   response = "Thanks, you didn't have to, but thanks..."}
+}
+-- Male
+npc.FAVORITE_ITEMS.male["phase1"] = {
+  {item = "default:apple",        
+   response = "Hey, I really wanted an apple, thank you!"},
+  {item = "farming:bread",
+   response = "Thanks, you didn't have to, but thanks..."}
+}
+npc.FAVORITE_ITEMS.male["phase2"] = {
+  {item = "farming:cotton",        
+   response = "This is going to be very helpful, thank you!"},
+  {item = "wool:wool",
+   response = "Thanks, you didn't have to, but thanks..."}
+}
+npc.FAVORITE_ITEMS.male["phase3"] = {
+  {item = "default:apple",        
+   response = "Hey, I really wanted an apple, thank you!"},
+  {item = "farming:bread",
+   response = "Thanks, you didn't have to, but thanks..."}
+}
+npc.FAVORITE_ITEMS.male["phase4"] = {
+  {item = "default:apple",        
+   response = "Hey, I really wanted an apple, thank you!"},
+  {item = "farming:bread",
+   response = "Thanks, you didn't have to, but thanks..."}
+}
+npc.FAVORITE_ITEMS.male["phase5"] = {
+  {item = "default:apple",        
+   response = "Hey, I really wanted an apple, thank you!"},
+  {item = "farming:bread",
+   response = "Thanks, you didn't have to, but thanks..."}
+}
+npc.FAVORITE_ITEMS.male["phase6"] = {
+  {item = "default:apple",        
+   response = "You always know what I want to eat honey... thanks!"},
+  {item = "farming:bread",
+   response = "Thanks, you didn't have to, but thanks..."}
+}
+
+-- Disliked items
+npc.DISLIKED_ITEMS = {
   female = {
-     phase1 = {
-        {item = "default:apple",        
-         response = "Hey, I really wanted an apple, thank you!"},
-        {item = "farming:bread",
-         response = "Thanks, you didn't have to, but thanks..."}
-     },
-     phase2 = {
-        {item = "farming:cotton",        
-         response = "This is going to be very helpful, thank you!"},
-        {item = "wool:wool",
-         response = "Thanks, you didn't have to, but thanks..."}
-     },
-     phase3 = {
-        {item = "default:apple",        
-         response = "Hey, I really wanted an apple, thank you!"},
-        {item = "farming:bread",
-         response = "Thanks, you didn't have to, but thanks..."}
-     },
-     phase4 = {
-        {item = "default:apple",        
-         response = "Hey, I really wanted an apple, thank you!"},
-        {item = "farming:bread",
-         response = "Thanks, you didn't have to, but thanks..."}
-     },
-     phase5 = {
-        {item = "default:apple",        
-         response = "Hey, I really wanted an apple, thank you!"},
-        {item = "farming:bread",
-         response = "Thanks, you didn't have to, but thanks..."}
-     },
-     phase6 = {
-        {item = "default:apple",        
-         response = "Hey, I really wanted an apple, thank you!"},
-        {item = "farming:bread",
-         response = "Thanks, you didn't have to, but thanks..."}
-     }
+    {item = "default:stone",        
+     response = "Stone, oh... why do you give me this?"},
+    {item = "default:cobble",
+     response = "Cobblestone? No, no, why?"}
   },
   male = {
-      phase1 = {
-        {item = "default:apple",        
-         response = "Hey, I really wanted an apple, thank you!"},
-        {item = "farming:bread",
-         response = "Thanks, you didn't have to, but thanks..."}
-     },
-     phase2 = {
-        {item = "farming:cotton",        
-         response = "This is going to be very helpful, thank you!"},
-        {item = "wool:wool",
-         response = "Thanks, you didn't have to, but thanks..."}
-     },
-     phase3 = {
-        {item = "default:apple",        
-         response = "Hey, I really wanted an apple, thank you!"},
-        {item = "farming:bread",
-         response = "Thanks, you didn't have to, but thanks..."}
-     },
-     phase4 = {
-        {item = "default:apple",        
-         response = "Hey, I really wanted an apple, thank you!"},
-        {item = "farming:bread",
-         response = "Thanks, you didn't have to, but thanks..."}
-     },
-     phase5 = {
-        {item = "default:apple",        
-         response = "Hey, I really wanted an apple, thank you!"},
-        {item = "farming:bread",
-         response = "Thanks, you didn't have to, but thanks..."}
-     },
-     phase6 = {
-        {item = "default:apple",        
-         response = "Hey, I really wanted an apple, thank you!"},
-        {item = "farming:bread",
-         response = "Thanks, you didn't have to, but thanks..."}
-     }
+    {item = "default:stone",        
+     response = "Bah! Stone? I don't need this thing!"},
+    {item = "default:cobble",
+     response = "Cobblestone!? Wow, you sure think a lot before giving a gift..."}
   }
 }
        
@@ -121,10 +138,51 @@ local function get_entity_wielded_item(entity)
 end
 
 -- Function to get relationship phase
-local function npc.get_relationship_phase(points)
-	 --if (points)
+function npc.get_relationship_phase(points)
+	if points > npc.RELATIONSHIP_PHASE["phase5"].limit then
+    return "phase6"
+  elseif points > npc.RELATIONSHIP_PHASE["phase4"].limit then
+    return "phase5"
+  elseif points > npc.RELATIONSHIP_PHASE["phase3"].limit then
+    return "phase4"
+  elseif points > npc.RELATIONSHIP_PHASE["phase2"].limit then
+    return "phase3"
+  elseif points > npc.RELATIONSHIP_PHASE["phase1"].limit then
+    return "phase2"
+  else
+    return "phase1"
+  end
 end
 
+-- Returns the response message for a given item
+function npc.get_response_for_favorite_item(item_name, sex, phase)
+  local items = npc.FAVORITE_ITEMS.female
+  if sex == npc.MALE then
+    items = npc.FAVORITE_ITEMS.male
+  end
+
+  for i = 1, #items[phase] do
+    if items[phase][i].item == item_name then
+      return items[phase][i].response
+    end
+  end
+  return nil
+end 
+
+-- Returns the response message for a disliked item
+function npc.get_response_for_disliked_item(item_name, sex)
+  local items = npc.DISLIKED_ITEMS.female
+  if sex == npc.MALE then
+    items = npc.DISLIKED_ITEMS.male
+  end
+
+  for i = 1, #items do
+    if items[i].item == item_name then
+      return items[i].response
+    end
+  end
+  return nil
+end 
 
 -- Functions on right click
 ---------------------------------------------------------------------------------------
@@ -148,17 +206,67 @@ end
 -- npc.ITEM_GIFT_EFFECT.
 
 -- Relationship functions
-
 ---------------------------------------------------------------------------------------
+
+-- This function selects two random items from the npc.favorite_items table
+-- It checks for sex and phase for choosing the items
+local function select_random_favorite_items(sex, phase)
+  local result = {}
+  local items = {}
+  
+  -- Filter sex
+  if sex == npc.FEMALE then
+    items = npc.FAVORITE_ITEMS.female
+  else
+    items = npc.FAVORITE_ITEMS.male
+  end
+
+  -- Select the phase
+  items = items[phase]
+  
+  result.fav1 = items[math.random(1, #items)].item
+  result.fav2 = items[math.random(1, #items)].item
+  return result
+end
+
+-- This function selects two random items from the npc.disliked_items table
+-- It checks for sex and phase for choosing the items
+local function select_random_disliked_items(sex)
+  local result = {}
+  local items = {}
+  
+  -- Filter sex
+  if sex == npc.FEMALE then
+    items = npc.DISLIKED_ITEMS.female
+  else
+    items = npc.DISLIKED_ITEMS.male
+  end
+
+  result.dis1 = items[math.random(1, #items)].item
+  result.dis2 = items[math.random(1, #items)].item
+  return result
+end
+
 -- Creates a relationship with a given player or NPC
 local function create_relationship(self, clicker_name)
   local count = #self.relationships
   self.relationships[count + 1] = {
+    -- Player or NPC name with whom the relationship is with
     name = clicker_name,
+    -- Relationship points
     points = 0,
-    phase = npc.RELATIONSHIP_PHASE[phase1]
+    -- Relationship phase, used for items and for phrases
+    phase = "phase1",
+    -- How frequent can the NPC receive a gift
+    gift_interval = 1,
+    -- Current timer count since last gift
+    gift_timer_value = 0,
+    -- The amount of time without providing gift or talking that will decrease relationship points
+    relationship_decrease_interval = 5,
+    -- Current timer count for relationship decrease
+    relationship_decrease_timer_value = 0
   }
-end9
+end
 
 -- Returns a relationship points
 local function get_relationship_points(self, clicker_name)
@@ -175,9 +283,18 @@ local function update_relationship(self, clicker_name, modifier)
   for i = 1, #self.relationships do
     if self.relationships[i].name == clicker_name then
       self.relationships[i].points = self.relationships[i].points + modifier
-      return
+      local current_phase = self.relationships[i].phase
+      self.relationships[i].phase = npc.get_relationship_phase(self.relationships[i].points)
+      if current_phase ~= self.relationships[i].phase then
+        self.gift_data.favorite_items = 
+          select_random_favorite_items(self.sex, self.relationships[i].phase)
+        return true
+      end
+      return false
     end
   end
+  -- Relationship not found, huge error
+  return nil
 end
 
 -- Checks if a relationship with given player or NPC exists
@@ -190,65 +307,59 @@ local function check_relationship_exists(self, clicker_name)
   return false
 end
 
+-- Checks if NPC can receive gifts
+local function check_npc_can_receive_gift(self, clicker_name)
+  for i = 1, #self.relationships do
+    if self.relationships[i].name == clicker_name then
+      return self.relationships[i].gift_timer_value >= self.relationships[i].gift_interval
+    end
+  end
+  -- Not found
+  return nil
+end
+
+-- Resets the gift timer
+local function reset_gift_timer(self, clicker_name)
+  for i = 1, #self.relationships do
+    if self.relationships[i].name == clicker_name then
+      self.relationships[i].gift_timer_value = 0
+      return
+    end
+  end
+end
+
 -- Gifts functions
 ---------------------------------------------------------------------------------------
-
--- This function selects two random items from the npc.favorite_items table
--- It checks both for age and for sex for choosing the items
-local function select_random_favorite_items(sex)
-  local result = {}
-  local items = {}
-  
-  -- Filter sex
-  if sex == npc.FEMALE then
-    items = npc.FAVORITE_ITEMS.female
-  else
-    items = npc.FAVORITE_ITEMS.male
-  end
-  
-  result.fav1 = items[math.random(1, #items)]
-  result.fav2 = items[math.random(1, #items)]
-  return result
-end
   
 -- Displays message and hearts depending on relationship level
-local function show_receive_gift_reaction(self, clicker_name) 
+local function show_receive_gift_reaction(self, item_name, modifier, clicker_name, phase_change) 
   local points = get_relationship_points(self, clicker_name)
   
-  local chat_messages = {}
-  if self.sex == npc.FEMALE then
-      chat_messages = npc.GIFT_RESPONSES.female[1]
-      minetest.log(dump(chat_messages))
-  end
-  
-  local pos = self.object:getpos()
-  local message_to_send = ""
-  
-  -- Positive relationship reactions
-  if points >= 0 then
-    if points < npc.RELATIONSHIP_PHASE1_LIMIT then
-      message_to_send = chat_messages.phase1
-    elseif points < npc.RELATIONSHIP_PHASE2_LIMIT then
-      message_to_send = chat_messages.phase2
-    elseif points < npc.RELATIONSHIP_PHASE3_LIMIT then
-      message_to_send = chat_messages.phase3
+  local pos = self.object:getpos()  
+  -- Positive modifier (favorite items) reactions
+  if modifier >= 0 then
+    local phase = npc.get_relationship_phase(points)
+    if phase == "phase3" then
       effect({x = pos.x, y = pos.y + 1, z = pos.z}, 2, "heart.png")
-    elseif points < npc.RELATIONSHIP_PHASE4_LIMIT then
-      message_to_send = chat_messages.phase4
+    elseif phase == "phase4" then
       effect({x = pos.x, y = pos.y + 1, z = pos.z}, 4, "heart.png")
-    elseif points < npc.RELATIONSHIP_PHASE5_LIMIT then
-      message_to_send = chat_messages.phase5
+    elseif phase == "phase5" then
       effect({x = pos.x, y = pos.y + 1, z = pos.z}, 6, "heart.png")
-    -- This will show when players are married
-    elseif points > npc.RELATIONSHIP_PHASE5_LIMIT then
-      message_to_send = chat_messages.phase6
+    elseif phase == "phase6" then
       effect({x = pos.x, y = pos.y + 1, z = pos.z}, 8, "heart.png")
     end
+    if phase_change then
+      local number_code = phase:byte(phase:len()) - 1
+      phase = "phase"..string.char(number_code)
+    end
     -- Send message
+    local message_to_send = npc.get_response_for_favorite_item(item_name, self.sex, phase)
     minetest.chat_send_player(clicker_name, message_to_send)
-  -- Relationship is in negative state
-  elseif points < 0 then
-    
+  -- Disliked items reactions
+  elseif modifier < 0 then
+    effect({x = pos.x, y = pos.y + 1, z = pos.z}, 8, "smoke.png")
+    local message_to_send = npc.get_response_for_disliked_item(item_name, self.sex)
+    minetest.chat_send_player(clicker_name, message_to_send)
   end
   
 end
@@ -263,39 +374,43 @@ local function receive_gift(self, clicker)
   -- Get clicker name
   local clicker_name = get_entity_name(clicker)
   
-  -- If NPC received a gift, then reject any more gifts for now
-  if self.gift_data.gift_timer_value < self.gift_data.gift_interval then
-    minetest.chat_send_player(clicker_name, "Thanks, but I don't need anything for now")
-    return false
-  end
-  
   -- Create relationship if it doesn't exists
   if check_relationship_exists(self, clicker_name) == false then
     create_relationship(self, clicker_name)
+  end
+
+  -- If NPC received a gift from this person, then reject any more gifts for now
+  if check_npc_can_receive_gift(self, clicker_name) == false then
+    minetest.chat_send_player(clicker_name, "Thanks, but I don't need anything for now")
+    return false
   end
   
   -- If NPC is ready for marriage, do no accept anything else but the ring,
   -- and that with only a certain chance. The self.owner is to whom is married
   -- this NPC... he he.
-  minetest.log(get_relationship_points(self, clicker_name))
-  if get_relationship_points(self, clicker_name) >= npc.RELATIONSHIP_PHASE5_LIMIT 
+  if get_relationship_points(self, clicker_name) >= npc.RELATIONSHIP_PHASE["phase5"].limit 
     and self.owner ~= clicker_name
     and item:get_name() ~= "advanced_npc:marriage_ring" then
-    minetest.chat_send_player(clicker_name, "Thank you my love, but I think that you have given me")
-    minetest.chat_send_player(clicker_name, "enough gifts for now. Maybe we should go a step further")
-    self.gift_data.gift_timer_value = 0
+    minetest.chat_send_player(clicker_name, 
+      "Thank you my love, but I think that you have given me")
+    minetest.chat_send_player(clicker_name, 
+      "enough gifts for now. Maybe we should go a step further")
+    -- Reset gift timer
+    reset_gift_timer(self, clicker_name)
     return true
-  elseif get_relationship_points(self, clicker_name) >= npc.RELATIONSHIP_PHASE5_LIMIT 
+  elseif get_relationship_points(self, clicker_name) >= npc.RELATIONSHIP_PHASE["phase5"].limit 
     and item:get_name() == "advanced_npc:marriage_ring" then
     -- If the player/entity is offering a marriage ring, then NPC will accept with a 50%
     -- chance to marry the clicker
     local receive_chance = math.random(1, 10)
     -- Receive ring and get married
     if receive_chance < 6 then
-      minetest.chat_send_player(clicker_name, "Oh, oh you make me so happy! Yes! I will marry you!")
+      minetest.chat_send_player(clicker_name, 
+        "Oh, oh you make me so happy! Yes! I will marry you!")
       -- Get ring
       item:take_item()
       clicker:set_wielded_item(item)
+      -- TODO: Implement marriage event
       -- Show marriage reaction
       local pos = self.object:getpos()
       effect({x = pos.x, y = pos.y + 1, z = pos.z}, 20, "heart.png", 4)
@@ -303,14 +418,31 @@ local function receive_gift(self, clicker)
       update_relationship(self, clicker_name, 100)
       -- This sets the married state, for now. Hehe
       self.owner = clicker_name
-      self.gift_data.gift_timer_value = 0
-      return true
     -- Reject ring for now
     else 
-      minetest.chat_send_player(clicker_name, "Dear, I feel the same as you. But maybe not yet...")
-      self.gift_data.gift_timer_value = 0
-      return true
+      minetest.chat_send_player(clicker_name, 
+        "Dear, I feel the same as you. But maybe not yet...")
+    
     end
+    -- Reset gift timer
+    reset_gift_timer(self, clicker_name)
+    return true
+  end
+  -- Marriage gifts: except for disliked items, all product a 0.5 * npc.ITEM_GIFT_EFFECT
+  -- Disliked items cause only a -1 point effect
+  if get_relationship_points(self, clicker_name) >= npc.RELATIONSHIP_PHASE["phase5"].limit then
+    local modifier = 0.5 * npc.ITEM_GIFT_EFFECT
+    -- Check for disliked items
+    if item:get_name() == self.gift_data.disliked_items.dis1 
+      or item:get_name() == self.gift_data.disliked_items.dis2 then
+      modifier = -1
+    end
+    
+    update_relationship(self, clicker_name, modifier)
+    show_receive_gift_reaction(self, item:get_name(), modifier, clicker_name, false)
+    -- Reset gift timer
+    reset_gift_timer(self, clicker_name)
+    return true
   end
   
   -- Modifies relationship depending on given item
@@ -323,6 +455,12 @@ local function receive_gift(self, clicker)
     show_reaction = true
   elseif item:get_name() == self.gift_data.favorite_items.fav2 then 
     modifier = npc.ITEM_GIFT_EFFECT
+    show_reaction = true
+  elseif item:get_name() == self.gift_data.disliked_items.dis1 then
+    modifier = (-2) * npc.ITEM_GIFT_EFFECT
+    show_reaction = true
+  elseif item:get_name() == self.gift_data.disliked_items.dis2 then 
+    modifier = (-1) * npc.ITEM_GIFT_EFFECT
     show_reaction = true
   else
     -- If item is not a favorite or a dislike, then receive chance
@@ -343,16 +481,17 @@ local function receive_gift(self, clicker)
     clicker:set_wielded_item(item)
   end
   
-  -- Show NPC reaction to gift
+  -- Update relationship status
+  local is_phase_changed = update_relationship(self, clicker_name, modifier)
+
+   -- Show NPC reaction to gift
   if show_reaction == true then
-    show_receive_gift_reaction(self, clicker_name)
+    show_receive_gift_reaction(self, item:get_name(), modifier, clicker_name, is_phase_changed)
   end
   
-  -- Update relationship status
-  update_relationship(self, clicker_name, modifier)
-  
   minetest.log(dump(self))
-  self.gift_data.gift_timer_value = 0
+  -- Reset gift timer
+  reset_gift_timer(self, clicker_name)
   return true  
 end
 
@@ -447,13 +586,33 @@ mobs:register_mob("advanced_npc:npc", {
 
 	end,
 	do_custom = function(self, dtime)
-	
 		-- Timer function for gifts
-		if self.gift_data.gift_timer_value < self.gift_data.gift_interval then
-			self.gift_data.gift_timer_value = self.gift_data.gift_timer_value + dtime
-			minetest.log(dump(self.gift_data.gift_timer_value))
-		end
-		
+    for i = 1, #self.relationships do
+      local relationship = self.relationships[i]
+      -- Gift timer check
+      if relationship.gift_timer_value < relationship.gift_interval then
+        relationship.gift_timer_value = relationship.gift_timer_value + dtime
+      -- Relationship decrease timer
+      else
+        if relationship.relationship_decrease_timer_value 
+            < relationship.relationship_decrease_interval then
+          relationship.relationship_decrease_timer_value = 
+            relationship.relationship_decrease_timer_value + dtime
+        else
+          -- Check if married to decrease half
+          if relationship.phase == "phase6" then
+            -- Avoid going below the marriage phase limit
+            if (relationship.points - 0.5) >= npc.RELATIONSHIP_PHASE["phase5"] then
+              relationship.points = relationship.points - 0.5
+            end
+          else
+            relationship.points = relationship.points - 1
+          end
+          relationship.relationship_decrease_timer_value = 0
+          minetest.log(dump(self))
+        end
+      end
+    end		
 	end
 })
 
@@ -481,12 +640,10 @@ local function npc_spawn(self, pos)
   
   -- Initialize all gift data
   ent.gift_data = {
-    -- Choose favorite items
-    favorite_items = select_random_favorite_items(ent.sex),
-    -- How frequent can the NPC receive a gift
-    gift_interval = 10,
-    -- Current timer count since last gift
-    gift_timer_value = 0
+    -- Choose favorite items. Choose phase1 per default
+    favorite_items = select_random_favorite_items(ent.sex, "phase1"),
+    -- Choose disliked items. Choose phase1 per default
+    disliked_items = select_random_disliked_items(ent.sex),
   }
   
   -- Initialize relationships object
