@@ -9,80 +9,93 @@ npc = {}
 npc.FEMALE = "female"
 npc.MALE = "male"
 npc.ITEM_GIFT_EFFECT = 2.5
-npc.RELATIONSHIP_PHASE1_LIMIT = 10
-npc.RELATIONSHIP_PHASE2_LIMIT = 25
-npc.RELATIONSHIP_PHASE3_LIMIT = 45
-npc.RELATIONSHIP_PHASE4_LIMIT = 70
-npc.RELATIONSHIP_PHASE5_LIMIT = 100
+npc.RELATIONSHIP_PHASE = {
+   phase1 = {limit = 10},
+   phase2 = {limit = 25},
+   phase3 = {limit = 45},
+   phase4 = {limit = 70},
+   phase5 = {limit = 100}
+}
 
 npc.FAVORITE_ITEMS = {
   female = {
-      "default:apple",
-      "farming:bread",
-      "mobs:meat",
-      "default:pick_steel",
-      "default:shovel_steel",
-      "default:sword_steel"
+     phase1 = {
+        {item = "default:apple",        
+         response = "Hey, I really wanted an apple, thank you!"},
+        {item = "farming:bread",
+         response = "Thanks, you didn't have to, but thanks..."}
+     },
+     phase2 = {
+        {item = "farming:cotton",        
+         response = "This is going to be very helpful, thank you!"},
+        {item = "wool:wool",
+         response = "Thanks, you didn't have to, but thanks..."}
+     },
+     phase3 = {
+        {item = "default:apple",        
+         response = "Hey, I really wanted an apple, thank you!"},
+        {item = "farming:bread",
+         response = "Thanks, you didn't have to, but thanks..."}
+     },
+     phase4 = {
+        {item = "default:apple",        
+         response = "Hey, I really wanted an apple, thank you!"},
+        {item = "farming:bread",
+         response = "Thanks, you didn't have to, but thanks..."}
+     },
+     phase5 = {
+        {item = "default:apple",        
+         response = "Hey, I really wanted an apple, thank you!"},
+        {item = "farming:bread",
+         response = "Thanks, you didn't have to, but thanks..."}
+     },
+     phase6 = {
+        {item = "default:apple",        
+         response = "Hey, I really wanted an apple, thank you!"},
+        {item = "farming:bread",
+         response = "Thanks, you didn't have to, but thanks..."}
+     }
   },
   male = {
-      "default:apple",
-      "farming:bread",
-      "mobs:meat",
-      "default:pick_steel",
-      "default:shovel_steel",
-      "default:sword_steel"
+      phase1 = {
+        {item = "default:apple",        
+         response = "Hey, I really wanted an apple, thank you!"},
+        {item = "farming:bread",
+         response = "Thanks, you didn't have to, but thanks..."}
+     },
+     phase2 = {
+        {item = "farming:cotton",        
+         response = "This is going to be very helpful, thank you!"},
+        {item = "wool:wool",
+         response = "Thanks, you didn't have to, but thanks..."}
+     },
+     phase3 = {
+        {item = "default:apple",        
+         response = "Hey, I really wanted an apple, thank you!"},
+        {item = "farming:bread",
+         response = "Thanks, you didn't have to, but thanks..."}
+     },
+     phase4 = {
+        {item = "default:apple",        
+         response = "Hey, I really wanted an apple, thank you!"},
+        {item = "farming:bread",
+         response = "Thanks, you didn't have to, but thanks..."}
+     },
+     phase5 = {
+        {item = "default:apple",        
+         response = "Hey, I really wanted an apple, thank you!"},
+        {item = "farming:bread",
+         response = "Thanks, you didn't have to, but thanks..."}
+     },
+     phase6 = {
+        {item = "default:apple",        
+         response = "Hey, I really wanted an apple, thank you!"},
+        {item = "farming:bread",
+         response = "Thanks, you didn't have to, but thanks..."}
+     }
   }
 }
-
--- TODO: Complete responses for female and males, both adult and child
-npc.GIFT_RESPONSES = {
-  female = {
-      {
-        phase1 = "Thank you!",
-        phase2 = "It is very appreciated! Thanks!",
-        phase3 = "Thank you! You definetely are special...",
-        phase4 = "Awww, you are so great!",
-        phase5 = "Oh, so cute! Thank you! I love you!",
-        phase6 = "Thank you my dear! You are the greatest husband!"
-      },
-      {
-        phase1 = "Thank you!",
-        phase2 = "It is very appreciated! Thanks!",
-        phase3 = "Thank you! You definetely are special...",
-        phase4 = "Awww, you are so great!",
-        phase5 = "Oh, so cute! Thank you! I love you!",
-        phase6 = "Thank you my dear! You are the greatest husband!"
-      },
-      {
-        phase1 = "Thank you!",
-        phase2 = "It is very appreciated! Thanks!",
-        phase3 = "Thank you! You definetely are special...",
-        phase4 = "Awww, you are so great!",
-        phase5 = "Oh, so cute! Thank you! I love you!",
-        phase6 = "Thank you my dear! You are the greatest husband!"
-      },
-      {
-        phase1 = "Thank you!",
-        phase2 = "It is very appreciated! Thanks!",
-        phase3 = "Thank you! You definetely are special...",
-        phase4 = "Awww, you are so great!",
-        phase5 = "Oh, so cute! Thank you! I love you!",
-        phase6 = "Thank you my dear! You are the greatest husband!"
-      },
-      {
-        phase1 = "Thank you!",
-        phase2 = "It is very appreciated! Thanks!",
-        phase3 = "Thank you! You definetely are special...",
-        phase4 = "Awww, you are so great!",
-        phase5 = "Oh, so cute! Thank you! I love you!",
-        phase6 = "Thank you my dear! You are the greatest husband!"
-      }
-  },
-  male = {
-    
-  }
-}
-
+       
 mobs.npc_drops = {
 	"default:pick_steel", "mobs:meat", "default:sword_steel",
 	"default:shovel_steel", "farming:bread", "bucket:bucket_water"
@@ -105,6 +118,11 @@ local function get_entity_wielded_item(entity)
   if entity:is_player() then
     return entity:get_wielded_item()
   end
+end
+
+-- Function to get relationship phase
+local function npc.get_relationship_phase(points)
+	 --if (points)
 end
 
 
@@ -137,9 +155,10 @@ local function create_relationship(self, clicker_name)
   local count = #self.relationships
   self.relationships[count + 1] = {
     name = clicker_name,
-    points = 0
+    points = 0,
+    phase = npc.RELATIONSHIP_PHASE[phase1]
   }
-end
+end9
 
 -- Returns a relationship points
 local function get_relationship_points(self, clicker_name)
@@ -191,7 +210,7 @@ local function select_random_favorite_items(sex)
   result.fav2 = items[math.random(1, #items)]
   return result
 end
-
+  
 -- Displays message and hearts depending on relationship level
 local function show_receive_gift_reaction(self, clicker_name) 
   local points = get_relationship_points(self, clicker_name)
