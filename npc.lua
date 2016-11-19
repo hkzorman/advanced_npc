@@ -314,7 +314,12 @@ end
 local function check_npc_can_receive_gift(self, clicker_name)
   for i = 1, #self.relationships do
     if self.relationships[i].name == clicker_name then
-      return self.relationships[i].gift_timer_value >= self.relationships[i].gift_interval
+      -- This checks avoid married NPC to receive from others
+      if clicker_name == self.is_married_to then
+        return self.relationships[i].gift_timer_value >= self.relationships[i].gift_interval
+      else
+        return false
+      end
     end
   end
   -- Not found
@@ -594,9 +599,13 @@ mobs:register_mob("advanced_npc:npc", {
     minetest.log(dump(self))
     
     -- Receive gift or start chat
-    if receive_gift(self, clicker) == false then
-        start_chat(self, clicker)
-    end  
+    if self.can_have_relationship then
+      if receive_gift(self, clicker) == false then
+          start_chat(self, clicker)
+      end
+    else
+      start_chat(self, clicker)
+    end
 
 	end,
 	do_custom = function(self, dtime)
@@ -640,6 +649,12 @@ local function is_female_texture(textures)
   return false
 end
 
+-- Choose whether NPC can have relationships. Only 30% of NPCs cannot have relationships
+local function can_have_relationships()
+  local chance = math.random(1,10)
+  return chance > 3
+end
+
 local function npc_spawn(self, pos)
   minetest.log("Spawning new NPC:")
   local ent = self:get_luaentity()
@@ -660,11 +675,18 @@ local function npc_spawn(self, pos)
     disliked_items = select_random_disliked_items(ent.sex),
   }
   
+  -- Flag that determines if NPC can have a relationship
+  ent.can_have_relationship = can_have_relationships()
+
   -- Initialize relationships object
   ent.relationships = {}
+
+  -- Determines if NPC is married or not
+  ent.is_married_to = nil
   
   minetest.log(dump(ent))
   
+  -- Refreshes entity
   ent.object:set_properties(ent)
 end
 
