@@ -326,6 +326,7 @@ local function reset_gift_timer(self, clicker_name)
   for i = 1, #self.relationships do
     if self.relationships[i].name == clicker_name then
       self.relationships[i].gift_timer_value = 0
+      self.relationships[i].relationship_decrease_timer_value = 0
       return
     end
   end
@@ -439,10 +440,20 @@ local function receive_gift(self, clicker)
     if item:get_name() == self.gift_data.disliked_items.dis1 
       or item:get_name() == self.gift_data.disliked_items.dis2 then
       modifier = -1
+      show_receive_gift_reaction(self, item:get_name(), modifier, clicker_name, false)
+    elseif item:get_name() == self.gift_data.favorite_items.fav1 
+      or item:get_name() == self.gift_data.favorite_items.fav2 then
+      -- Favorite item reaction
+      show_receive_gift_reaction(self, item:get_name(), modifier, clicker_name, false)
+    else
+      -- Neutral item reaction 
+      minetest.chat_send_player(clicker_name, "Thank you honey!")
     end
-    
+    -- Take item
+    item:take_item()
+    clicker:set_wielded_item(item)
+    -- Update relationship
     update_relationship(self, clicker_name, modifier)
-    show_receive_gift_reaction(self, item:get_name(), modifier, clicker_name, false)
     -- Reset gift timer
     reset_gift_timer(self, clicker_name)
     return true
@@ -605,7 +616,7 @@ mobs:register_mob("advanced_npc:npc", {
           -- Check if married to decrease half
           if relationship.phase == "phase6" then
             -- Avoid going below the marriage phase limit
-            if (relationship.points - 0.5) >= npc.RELATIONSHIP_PHASE["phase5"] then
+            if (relationship.points - 0.5) >= npc.RELATIONSHIP_PHASE["phase5"].limit then
               relationship.points = relationship.points - 0.5
             end
           else
