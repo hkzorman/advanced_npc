@@ -24,33 +24,6 @@
 --  	chatline2 = { text = "Q2", options = nil }
 --  }
 
-local chat_options = {
-	{ text = "Don't talk with me know, please", options = nil, name = "Angry Guy" },
-	{ text = "Hello, how are you doing?", options = {
-			{ opt = "Good", answer = 
-				{ text = "That's good. Take care of yourself.", options = nil } 
-			},
-			{ opt = "Great! And you?", answer = 
-				{ text = "I'm doing well, thank you. See ya around!", options = nil }
-			},
-			{ opt = "Not so well...", answer = 
-				{ text = "Hey, why not feeling good? What's wrong?", options = {
-						{ opt = "Not your business!", answer = 
-							{ text = "So rude! Don't speak to me anymore!", options = nil, flag = "not_speak" } 
-						},
-						{ opt = "It's nothing! But thank you for asking!", answer = 
-							{ text = "Ok my friend. See ya around!", options = nil }
-						},
-					}
-				}
-			}
-		}
-	},
-	{ text = "I'm thinking of buying something but not sure...", options = nil },
-	{ text = "I have traveled around the world and only like this place...", options = nil }
-}
-
-
 local options = {"Question 1","Question 2","Question 3","Question 4"}
 
 ---------------------------------------------------------------------
