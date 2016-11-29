@@ -28,8 +28,13 @@ local options = {"Question 1","Question 2","Question 3","Question 4"}
 
 npc.dialogue = {}
 
-npc.dialogue.YES_GIFT_ANSWER_LABEL = "Yes, give wielded item"
-npc.dialogue.NO_GIFT_ANSWER_LAEBL = "Nevermind"
+npc.dialogue.YES_GIFT_ANSWER_LABEL_PREFIX = "Yes, give "
+npc.dialogue.NEGATIVE_ANSWER_LABEL = "Nevermind"
+
+-- This table contains the answers of dialogue boxes
+npc.dialogue.dialogue_results = {
+	yes_no_dialogue = {}
+}
 
 ---------------------------------------------------------------------
 -- Creates a formspec for dialog
@@ -50,15 +55,21 @@ local function create_formspec(options, close_option)
 end
 
 -- New function for getting dialogue formspec
-function npc.dialogue.show_yes_no_dialogue(prompt, player_name)
-	
-
+function npc.dialogue.show_yes_no_dialogue(prompt, 
+										   positive_answer_label,
+										   negative_answer_label,
+										   player_name)
 	-- Send prompt message to player
 	minetest.chat_send_player(player_name, prompt)
 
-	dialogue_form:show(player_name)
+	local formspec = "size[7, 2.4]"..
+						"button[0.5, 0.7; 6, 0.5; yes_option; "..positive_answer_label.." ]"..
+						"button_exit[0.5, 1.4; 6, 0.5; no_option; "..negative_answer_label.." ]"	
 
-	return dialogue_result
+	-- Create entry into responses table
+	npc.dialogue.dialogue_results[player_name] = nil
+
+	minetest.show_formspec(player_name, "advanced_npc:yes_no", formspec)
 end
 
 ---------------------------------------------------------------------
@@ -131,3 +142,23 @@ local function show_chat_option(npc_name, self, player_name, chat_options, close
 	
 	self.order = "follow"
 end
+
+-- Handler for chat formspec
+minetest.register_on_player_receive_fields(function (player, formname, fields)
+	-- Additional checks for other forms should be handled here
+	if formname ~= "advanced_npc:yes_no" then
+		return false
+	end
+	minetest.log(player:get_player_name().." current response: "..dump(npc.dialogue.dialogue_results[player:get_player_name()]))
+
+	if fields then
+		minetest.log(dump(fields))
+		if fields.yes_option then
+			npc.dialogue.dialogue_results[player:get_player_name()] = true
+		elseif fields.no_option then
+			npc.dialogue.dialogue_results[player:get_player_name()] = false
+		end
+		minetest.log(player:get_player_name().." after response: "..dump(npc.dialogue.dialogue_results[player:get_player_name()]))
+	end
+
+end)
