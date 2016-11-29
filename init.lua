@@ -1,6 +1,9 @@
 
 local path = minetest.get_modpath("advanced_npc")
 
+-- Load SmartFS library by rubenwardy
+dofile(path .. "lib/smartfs.lua")
+
 -- Intllib
 local S
 if minetest.get_modpath("intllib") then
@@ -24,7 +27,8 @@ end
 mobs.intllib = S
 
 -- NPC
-dofile(path .. "/npc.lua") -- TenPlus1
+dofile(path .. "/npc.lua")
+dofile(path .. "/chat.lua")
 --dofile(path .. "/trader.lua")
 
 print (S("[MOD] Advanced NPC loaded"))

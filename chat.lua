@@ -44,22 +44,14 @@ local function create_formspec(options, close_option)
 	return formspec
 end
 
----------------------------------------------------------------------
--- Returns a random chatline for unimportant NPCs
----------------------------------------------------------------------
-local function get_random_chatline(chat_options)
-	local chat_options_length = table.getn(chat_options)
-	local random_option = math.random(1, chat_options_length - 1)
-	local found = false
-	while found == false do
-		for i,chatline in ipairs(chat_options) do
-			if i == random_option and chatline.name == nil then
-				found = true
-				return chatline
-			end
-		end
-	end
-end
+-- New function for getting dialogue formspec
+local l = smartfs.create("smartfs:load", function(state)
+	state:load(minetest.get_modpath("smartfs").."/docs/example.smartfs")
+	state:get("btn"):click(function(self,state)
+		print("Button clicked!")
+	end)
+	return true
+end)
 
 ---------------------------------------------------------------------
 -- Returns all chatlines for a specific NPC
