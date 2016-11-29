@@ -1,9 +1,6 @@
 
 local path = minetest.get_modpath("advanced_npc")
 
--- Load SmartFS library by rubenwardy
-dofile(path .. "/lib/smartfs.lua")
-
 -- Intllib
 local S
 if minetest.get_modpath("intllib") then
