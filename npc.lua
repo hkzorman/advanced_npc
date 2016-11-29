@@ -124,7 +124,7 @@ mobs.npc_drops = {
 
 -- General functions
 -- Gets name of player or NPC
-local function get_entity_name(entity)
+function npc.get_entity_name(entity)
   if entity:is_player() then
     return entity:get_player_name()
   else
@@ -314,8 +314,9 @@ end
 local function check_npc_can_receive_gift(self, clicker_name)
   for i = 1, #self.relationships do
     if self.relationships[i].name == clicker_name then
-      -- This checks avoid married NPC to receive from others
-      if clicker_name == self.is_married_to then
+      -- Checks avoid married NPC to receive from others
+      if self.is_married_to == nil 
+        or (self.is_married ~= nil and self.is_married_to == clicker_name) then 
         return self.relationships[i].gift_timer_value >= self.relationships[i].gift_interval
       else
         return false
@@ -381,7 +382,7 @@ local function receive_gift(self, clicker)
   if item:get_name() == "" then return false end
   
   -- Get clicker name
-  local clicker_name = get_entity_name(clicker)
+  local clicker_name = npc.get_entity_name(clicker)
   
   -- Create relationship if it doesn't exists
   if check_relationship_exists(self, clicker_name) == false then
@@ -517,7 +518,7 @@ end
 -- Chat functions
 
 local function start_chat(self, clicker)
-  local name = get_entity_name(clicker)
+  local name = npc.get_entity_name(clicker)
   -- Married player can tell NPC to follow or to stay at a given place
   -- TODO: Improve this. There should be a dialogue box for this
   if self.owner and self.owner == name then
@@ -600,6 +601,11 @@ mobs:register_mob("advanced_npc:npc", {
     
     -- Receive gift or start chat
     if self.can_have_relationship then
+      -- Show dialogue to confirm that player is giving item as gift
+      -- local result = npc.dialogue.show_yes_no_dialogue(
+      --   "Do you want to give your currently wielded item to "..self.nametag.."?",
+      --   name)
+      -- minetest.log("Dialogue outcome: "..dump(result))
       if receive_gift(self, clicker) == false then
           start_chat(self, clicker)
       end
@@ -615,8 +621,8 @@ mobs:register_mob("advanced_npc:npc", {
       -- Gift timer check
       if relationship.gift_timer_value < relationship.gift_interval then
         relationship.gift_timer_value = relationship.gift_timer_value + dtime
-      -- Relationship decrease timer
       else
+        -- Relationship decrease timer
         if relationship.relationship_decrease_timer_value 
             < relationship.relationship_decrease_interval then
           relationship.relationship_decrease_timer_value = 

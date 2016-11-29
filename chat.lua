@@ -24,7 +24,27 @@
 --  	chatline2 = { text = "Q2", options = nil }
 --  }
 
-local options = {"Question 1","Question 2","Question 3","Question 4"}
+local options = {"Question 1","Question 2","Question 3","Question 4"} 
+
+npc.dialogue = {}
+
+npc.dialogue.YES_GIFT_ANSWER_LABEL = "Yes, give wielded item"
+npc.dialogue.NO_GIFT_ANSWER_LAEBL = "Nevermind"
+
+-- Yes/No dialogue declaration
+npc.dialogue.gift_dialogue = smartfs.create("advanced_npc:gift_dialogue", function(state)
+	state:size(7, 2.4)
+	state:button(0.5, 0.7, 6, 0.5, "yes_option", npc.dialogue.YES_GIFT_ANSWER_LABEL)
+	state:button(0.5, 1.4, 6, 0.5, "no_option", npc.dialogue.NO_GIFT_ANSWER_LAEBL, true) 
+
+	local dialogue_result
+	state:get("yes_option"):click(function(self, state)
+		dialogue_result = true
+	end)
+	state:get("no_option"):click(function(self, state)
+		dialogue_result = false
+	end)
+end)
 
 ---------------------------------------------------------------------
 -- Creates a formspec for dialog
@@ -45,13 +65,16 @@ local function create_formspec(options, close_option)
 end
 
 -- New function for getting dialogue formspec
-local l = smartfs.create("smartfs:load", function(state)
-	state:load(minetest.get_modpath("smartfs").."/docs/example.smartfs")
-	state:get("btn"):click(function(self,state)
-		print("Button clicked!")
-	end)
-	return true
-end)
+function npc.dialogue.show_yes_no_dialogue(prompt, player_name)
+	local dialogue_form = npc.dialogue.gift_dialogue
+
+	-- Send prompt message to player
+	minetest.chat_send_player(player_name, prompt)
+
+	dialogue_form:show(player_name)
+
+	return dialogue_result
+end
 
 ---------------------------------------------------------------------
 -- Returns all chatlines for a specific NPC
