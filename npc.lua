@@ -599,16 +599,24 @@ mobs:register_mob("advanced_npc:npc", {
     
     minetest.log(dump(self))
     
-    -- Receive gift or start chat
-    if self.can_have_relationship then
+    -- Receive gift or start chat. If player has no item in hand
+    -- then it is going to start chat directly
+    if self.can_have_relationship and item:to_table() ~= nil then
       -- Show dialogue to confirm that player is giving item as gift
-      npc.dialogue.show_yes_no_dialogue("Do you want to give this item to NPC?",
-                                        "Yes, I want to give it!",
-                                        npc.dialogue.NEGATIVE_ANSWER_LABEL,
-                                        name)
-      if receive_gift(self, clicker) == false then
+      npc.dialogue.show_yes_no_dialogue(
+        "Do you want to give this item to "..self.nametag.."?",
+        "Yes, I want to give it!",
+        function()
+          if receive_gift(self, clicker) == false then
+            start_chat(self, clicker)
+          end
+        end,
+        npc.dialogue.NEGATIVE_ANSWER_LABEL,
+        function()
           start_chat(self, clicker)
-      end
+        end,
+        name
+      )
     else
       start_chat(self, clicker)
     end

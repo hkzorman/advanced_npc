@@ -57,17 +57,24 @@ end
 -- New function for getting dialogue formspec
 function npc.dialogue.show_yes_no_dialogue(prompt, 
 										   positive_answer_label,
+										   positive_callback,
 										   negative_answer_label,
+										   negative_callback,
 										   player_name)
 	-- Send prompt message to player
 	minetest.chat_send_player(player_name, prompt)
 
-	local formspec = "size[7, 2.4]"..
-						"button[0.5, 0.7; 6, 0.5; yes_option; "..positive_answer_label.." ]"..
-						"button_exit[0.5, 1.4; 6, 0.5; no_option; "..negative_answer_label.." ]"	
+	local formspec = "size[7,2.4]"..
+						"button_exit[0.5,0.65;6,0.5;yes_option;"..positive_answer_label.."]"..
+						"button_exit[0.5,1.45;6,0.5;no_option;"..negative_answer_label.."]"	
 
 	-- Create entry into responses table
-	npc.dialogue.dialogue_results[player_name] = nil
+	npc.dialogue.dialogue_results.yes_no_dialogue[1] = {
+		name = player_name, 
+		response = "",
+		yes_callback = positive_callback,
+		no_callback = negative_callback
+	}
 
 	minetest.show_formspec(player_name, "advanced_npc:yes_no", formspec)
 end
@@ -143,22 +150,35 @@ local function show_chat_option(npc_name, self, player_name, chat_options, close
 	self.order = "follow"
 end
 
+-- Function to get response by player name
+local function get_yes_no_dialogue_response_by_player_name(player_name)
+	for i = 1,#npc.dialogue.dialogue_results.yes_no_dialogue do
+		local current_result = npc.dialogue.dialogue_results.yes_no_dialogue[i]
+		if current_result.name == player_name then
+			return current_result
+		end
+	end
+	return nil
+end
+
 -- Handler for chat formspec
 minetest.register_on_player_receive_fields(function (player, formname, fields)
 	-- Additional checks for other forms should be handled here
-	if formname ~= "advanced_npc:yes_no" then
-		return false
-	end
-	minetest.log(player:get_player_name().." current response: "..dump(npc.dialogue.dialogue_results[player:get_player_name()]))
+	if formname == "advanced_npc:yes_no" then
+		local player_name = player:get_player_name()
 
-	if fields then
-		minetest.log(dump(fields))
-		if fields.yes_option then
-			npc.dialogue.dialogue_results[player:get_player_name()] = true
-		elseif fields.no_option then
-			npc.dialogue.dialogue_results[player:get_player_name()] = false
+		if fields then
+			local player_response = get_yes_no_dialogue_response_by_player_name(player_name)
+			if fields.yes_option then
+				player_response.response = true
+				player_response.yes_callback()
+			elseif fields.no_option then
+				player_response.response = false
+				player_response.no_callback()
+			end
+			minetest.log(player_name.." chose response: "
+				..dump(get_yes_no_dialogue_response_by_player_name(player_name).response))
 		end
-		minetest.log(player:get_player_name().." after response: "..dump(npc.dialogue.dialogue_results[player:get_player_name()]))
 	end
 
 end)
