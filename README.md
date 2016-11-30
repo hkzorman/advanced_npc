@@ -15,7 +15,7 @@ Phase 1: Gifts and relationships: In progress
 - Eventually, an NPC can fall in love with that player and marry him/her
 - Relationships among NPCs should be possible too
 
-Phase 2: Dialogues
+Phase 2: Dialogues: In progress
 - NPCs should be able to perform complex dialogues:
   - Specific dialogues on certain environment flag (so that events can change what an NPC says
   - Answers and responses by player
