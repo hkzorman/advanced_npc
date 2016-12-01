@@ -4,7 +4,7 @@
 npc.data = {}
 
 npc.data.DIALOGUES = {
-	female = {}
+	female = {},
 	male = {}
 }
 
@@ -33,8 +33,8 @@ npc.data.DIALOGUES.female["phase1"] = {
 				text = "No, never before",
 				action_type = "function",
 				action = function(player_name, item)
-					minetest.chat_send_player(player_name, "Oh, never? How come! You should.
-						\nHere, take this. It will guide you to the sea...")
+					minetest.chat_send_player(player_name, "Oh, never? How come! You should."..
+						"\nHere, take this. It will guide you to the sea...")
 				end
 			},
 			{

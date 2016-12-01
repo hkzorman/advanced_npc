@@ -613,17 +613,17 @@ mobs:register_mob("advanced_npc:npc", {
         npc.dialogue.POSITIVE_GIFT_ANSWER_PREFIX..item_name,
         function()
           if receive_gift(self, clicker) == false then
-            start_chat(self, clicker)
+            npc.dialogue.start_dialogue(self, clicker)
           end
         end,
         npc.dialogue.NEGATIVE_ANSWER_LABEL,
         function()
-          start_chat(self, clicker)
+          npc.dialogue.start_dialogue(self, clicker)
         end,
         name
       )
     else
-      start_chat(self, clicker)
+      npc.dialogue.start_dialogue(self, clicker)
     end
 
 	end,
@@ -702,6 +702,9 @@ local function npc_spawn(self, pos)
 
   -- Determines if NPC is married or not
   ent.is_married_to = nil
+
+  -- Initialize dialogues
+  ent.dialogues = npc.dialogue.select_random_dialogues_for_npc(ent.sex, "phase1")
   
   minetest.log(dump(ent))
   

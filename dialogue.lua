@@ -5,6 +5,9 @@ npc.dialogue = {}
 npc.dialogue.POSITIVE_GIFT_ANSWER_PREFIX = "Yes, give "
 npc.dialogue.NEGATIVE_ANSWER_LABEL = "Nevermind"
 
+npc.dialogue.MIN_DIALOGUES = 2
+npc.dialogue.MAX_DIALOGUES = 4
+
 -- This table contains the answers of dialogue boxes
 npc.dialogue.dialogue_results = {
 	yes_no_dialogue = {}
@@ -30,7 +33,7 @@ local function create_formspec(options, close_option)
 	return formspec
 end
 
--- New function for getting dialogue formspec
+-- This function is used for showing a yes/no dialogue formspec
 function npc.dialogue.show_yes_no_dialogue(prompt, 
 										   positive_answer_label,
 										   positive_callback,
@@ -55,15 +58,43 @@ function npc.dialogue.show_yes_no_dialogue(prompt,
 end
 
 -- Dialogue methods
--- Returns all chatlines for a specific NPC
-function npc.dialogue.select_random_dialogues_for_npc(sex, )
+-- Select random dialogue objects for an NPC based on sex
+-- and the relationship phase with player
+function npc.dialogue.select_random_dialogues_for_npc(sex, phase)
 	local result = {}
-	for i,chatline in ipairs(chat_options) do
-		if chatline.name == npc_name then
-			table.insert(result, chatline)
-		end
+	local dialogues = npc.data.DIALOGUES.female
+	if sex == npc.MALE then
+		dialogues = npc.data.DIALOGUES.male
 	end
+	dialogues = dialogues[phase]
+
+	-- Determine how many dialogue lines the NPC will have
+	local number_of_dialogues = math.random(npc.dialogue.MIN_DIALOGUES, npc.dialogue.MAX_DIALOGUES)
+
+	for i = 1,number_of_dialogues do
+		result[i] = dialogues[math.random(1, #dialogues)]
+	end
+
 	return result
+end
+
+-- This function will choose randomly a dialogue from the NPC data
+-- and process it. 
+function npc.dialogue.start_dialogue(self, player)
+	-- Choose a dialogue randomly
+	local dialogue = self.dialogues[math.random(1, #self.dialogues)]
+	npc.dialogue.process_dialogue(dialogue, player:get_player_name())
+end
+
+-- This function processes a dialogue object and performs
+-- actions depending on what is defined in the object 
+function npc.dialogue.process_dialogue(dialogue, player_name)
+	-- Send dialogue line
+	if dialogue.text then
+		minetest.chat_send_player(player_name, dialogue.text)
+	end
+	-- TODO: Add support for flag, multi-option dialogue
+	-- and their actions
 end
 
 -----------------------------------------------------------------------------

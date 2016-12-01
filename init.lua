@@ -25,7 +25,7 @@ mobs.intllib = S
 
 -- NPC
 dofile(path .. "/npc.lua")
-dofile(path .. "/chat.lua")
+dofile(path .. "/dialogue.lua")
 dofile(path .. "/random_data.lua")
 --dofile(path .. "/trader.lua")
 
