@@ -24,11 +24,9 @@
 --  	chatline2 = { text = "Q2", options = nil }
 --  }
 
-local options = {"Question 1","Question 2","Question 3","Question 4"} 
-
 npc.dialogue = {}
 
-npc.dialogue.YES_GIFT_ANSWER_LABEL_PREFIX = "Yes, give "
+npc.dialogue.POSITIVE_GIFT_ANSWER_PREFIX = "Yes, give "
 npc.dialogue.NEGATIVE_ANSWER_LABEL = "Nevermind"
 
 -- This table contains the answers of dialogue boxes
@@ -61,12 +59,11 @@ function npc.dialogue.show_yes_no_dialogue(prompt,
 										   negative_answer_label,
 										   negative_callback,
 										   player_name)
-	-- Send prompt message to player
-	minetest.chat_send_player(player_name, prompt)
 
-	local formspec = "size[7,2.4]"..
-						"button_exit[0.5,0.65;6,0.5;yes_option;"..positive_answer_label.."]"..
-						"button_exit[0.5,1.45;6,0.5;no_option;"..negative_answer_label.."]"	
+	local formspec = "size[7,3]"..
+					 "label[0.5,0.1;"..prompt.."]"..
+						"button_exit[0.5,1.15;6,0.5;yes_option;"..positive_answer_label.."]"..
+						"button_exit[0.5,1.95;6,0.5;no_option;"..negative_answer_label.."]"	
 
 	-- Create entry into responses table
 	npc.dialogue.dialogue_results.yes_no_dialogue[1] = {
