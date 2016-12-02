@@ -10,6 +10,7 @@ npc.dialogue.MAX_DIALOGUES = 4
 
 -- This table contains the answers of dialogue boxes
 npc.dialogue.dialogue_results = {
+	options_dialogue = {},
 	yes_no_dialogue = {}
 }
 
@@ -17,20 +18,28 @@ npc.dialogue.dialogue_results = {
 -- The dialogue boxes are used for the player to interact with the
 -- NPC in dialogues.
 --------------------------------------------------------------------
--- Multi-option dialogue
-local function create_formspec(options, close_option) 
-	local options_length = table.getn(options) + 1	
-	local formspec_height = (options_length * 0.7) + 1
+-- Creates and shows a multi-option dialogue based on the number of responses
+-- that the dialogue object contains
+function npc.dialogue.show_options_dialogue(responses, dismiss_option_label, player_name) 
+	local options_length = table.getn(responses) + 1	
+	local formspec_height = (options_length * 0.7) + 0.7
 	local formspec = "size[7,"..tostring(formspec_height).."]"
-	for i, opt in ipairs(options) do
+
+	for i = 1, #responses do
 		local y = 0.7;
 		if i > 1 then
 			y = (y * i)
 		end
-		formspec = formspec.."button[0.5,"..y..";6,0.5;opt"..tostring(i)..";"..options[i].opt.."]"
+		formspec = formspec.."button_exit[0.5,"..(y - 0.5)..";6,0.5;opt"..tostring(i)..";"..responses[i].text.."]"
 	end
-	formspec = formspec.."button_exit[0.5,"..(formspec_height - 1)..";6,0.5;exit;"..close_option.."]"
-	return formspec
+	formspec = formspec.."button_exit[0.5,"..(formspec_height - 0.7)..";6,0.5;exit;"..dismiss_option_label.."]"
+
+	-- Create entry on options_dialogue table
+	npc.dialogue.dialogue_results.options_dialogue[player_name] = {
+		options = responses
+	}
+
+	minetest.show_formspec(player_name, "advanced_npc:options", formspec)
 end
 
 -- This function is used for showing a yes/no dialogue formspec
@@ -47,9 +56,7 @@ function npc.dialogue.show_yes_no_dialogue(prompt,
 						"button_exit[0.5,1.95;6,0.5;no_option;"..negative_answer_label.."]"	
 
 	-- Create entry into responses table
-	npc.dialogue.dialogue_results.yes_no_dialogue[1] = {
-		name = player_name, 
-		response = "",
+	npc.dialogue.dialogue_results.yes_no_dialogue[player_name] = {
 		yes_callback = positive_callback,
 		no_callback = negative_callback
 	}
@@ -92,6 +99,15 @@ function npc.dialogue.process_dialogue(dialogue, player_name)
 	-- Send dialogue line
 	if dialogue.text then
 		minetest.chat_send_player(player_name, dialogue.text)
+	end
+
+	-- Check if there are responses, then show multi-option dialogue if there are
+	if dialogue.responses then
+		npc.dialogue.show_options_dialogue(
+			dialogue.responses, 
+			npc.dialogue.NEGATIVE_ANSWER_LABEL,
+			player_name
+		)
 	end
 	-- TODO: Add support for flag, multi-option dialogue
 	-- and their actions
@@ -137,52 +153,45 @@ local function rotate_npc_to_player(self)
 	self.object:setyaw(yaw)
 end
 
----------------------------------------------------------------------
--- Drives conversation
----------------------------------------------------------------------
-local function show_chat_option(npc_name, self, player_name, chat_options, close_option)
-	rotate_npc_to_player(self)
-	self.order = "stand"
-	
-	local chatline = get_random_chatline(chat_options)
-	minetest.chat_send_player(player_name, chatline.text)
-	if chatline.options ~= nil then
-		minetest.log("Current options: "..dump(chatline.options))
-		local formspec = create_formspec(chatline.options, close_option)
-		minetest.show_formspec(player_name, "rndform", formspec)
-	end
-	
-	self.order = "follow"
-end
-
--- Function to get response by player name
-local function get_yes_no_dialogue_response_by_player_name(player_name)
-	for i = 1,#npc.dialogue.dialogue_results.yes_no_dialogue do
-		local current_result = npc.dialogue.dialogue_results.yes_no_dialogue[i]
-		if current_result.name == player_name then
-			return current_result
-		end
-	end
-	return nil
-end
-
 -- Handler for chat formspec
 minetest.register_on_player_receive_fields(function (player, formname, fields)
 	-- Additional checks for other forms should be handled here
+	-- Handle yes/no dialogue
 	if formname == "advanced_npc:yes_no" then
 		local player_name = player:get_player_name()
 
 		if fields then
-			local player_response = get_yes_no_dialogue_response_by_player_name(player_name)
+			local player_response = npc.dialogue.dialogue_results.yes_no_dialogue[player_name]
 			if fields.yes_option then
-				player_response.response = true
 				player_response.yes_callback()
 			elseif fields.no_option then
-				player_response.response = false
 				player_response.no_callback()
 			end
-			minetest.log(player_name.." chose response: "
-				..dump(get_yes_no_dialogue_response_by_player_name(player_name).response))
+		end
+	end
+
+	-- Manage options dialogue
+	if formname == "advanced_npc:options" then
+		local player_name = player:get_player_name()
+
+		if fields then
+			-- Get player response
+			local player_response = npc.dialogue.dialogue_results.options_dialogue[player_name]
+
+			for i = 1, #player_response.options do
+				local button_label = "opt"..tostring(i)
+				if fields[button_label] then
+					if player_response.options[i].action_type == "dialogue" then
+						-- Process dialogue object
+						npc.dialogue.process_dialogue(player_response.options[i].action, player_name)
+					elseif player_response.options[i].action_type == "function" then
+						-- Execute function
+						-- Bug: for some reason function is null
+						player_response.options[i].action()
+					end
+					return
+				end
+			end
 		end
 	end
 

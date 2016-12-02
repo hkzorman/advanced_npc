@@ -233,7 +233,8 @@ local function select_random_favorite_items(sex, phase)
 end
 
 -- This function selects two random items from the npc.disliked_items table
--- It checks for sex and phase for choosing the items
+-- It checks for sex for choosing the items. They stay the same for all
+-- phases
 local function select_random_disliked_items(sex)
   local result = {}
   local items = {}
@@ -267,7 +268,9 @@ local function create_relationship(self, clicker_name)
     -- The amount of time without providing gift or talking that will decrease relationship points
     relationship_decrease_interval = npc.RELATIONSHIP_DECREASE_TIMER_INTERVAL,
     -- Current timer count for relationship decrease
-    relationship_decrease_timer_value = 0
+    relationship_decrease_timer_value = 0,
+    -- Current timer count since last time player talked to NPC
+    talk_timer_value = 0
   }
 end
 
@@ -327,12 +330,33 @@ local function check_npc_can_receive_gift(self, clicker_name)
   return nil
 end
 
+-- Checks if relationship can be updated by talking
+local function check_relationship_by_talk_timer_ready(self, clicker_name)
+  for i = 1, #self.relationships do
+    if self.relationships[i].name == clicker_name then
+      return self.relationships[i].talk_timer_value >= self.relationships[i].gift_interval
+    end
+  end
+  -- Not found
+  return nil
+end
+
 -- Resets the gift timer
 local function reset_gift_timer(self, clicker_name)
   for i = 1, #self.relationships do
     if self.relationships[i].name == clicker_name then
       self.relationships[i].gift_timer_value = 0
       self.relationships[i].relationship_decrease_timer_value = 0
+      return
+    end
+  end
+end
+
+-- Resets the talk timer
+local function reset_talk_timer(self, clicker_name)
+  for i = 1, #self.relationships do
+    if self.relationships[i].name == clicker_name then
+      self.relationships[i].talk_timer_value = 0
       return
     end
   end
@@ -529,7 +553,22 @@ end
 
 -- Relationships are slowly increased by talking, increases by +0.2.
 -- Talking to married NPC increases relationship by +1 
-local function dialogue_relationship_update(self, clicker_name)
+-- TODO: This needs a timer as the gift timer. NPC will talk anyways
+-- but relationship will not increase.
+local function dialogue_relationship_update(self, clicker)
+  -- Get clicker name
+  local clicker_name = npc.get_entity_name(clicker)
+
+  -- Check if relationship can be updated via talk
+  if check_relationship_by_talk_timer_ready(self, clicker_name) == false then
+    return
+  end
+  
+  -- Create relationship if it doesn't exists
+  if check_relationship_exists(self, clicker_name) == false then
+    create_relationship(self, clicker_name)
+  end
+
   local modifier = 0.2
   if self.is_married_to ~= nil and clicker_name == self.is_married_to then
     modifier = 1
@@ -537,23 +576,31 @@ local function dialogue_relationship_update(self, clicker_name)
   -- Update relationship
   update_relationship(self, clicker_name, modifier)
 
+  -- Resert timers
+  reset_talk_timer(self, clicker_name)
   reset_relationship_decrease_timer(self, clicker_name)
 end
 
 -- Chat functions
-local function start_chat(self, clicker)
-  local name = npc.get_entity_name(clicker)
+local function start_dialogue(self, clicker)
+
+  -- Call chat function as normal
+  npc.dialogue.start_dialogue(self, clicker)
+
+  -- Check and update relationship if needed
+  dialogue_relationship_update(self, clicker)
+
   -- Married player can tell NPC to follow or to stay at a given place
   -- TODO: Improve this. There should be a dialogue box for this
-  if self.owner and self.owner == name then
-		if self.order == "follow" then
-			self.order = "stand"
-			minetest.chat_send_player(name, S("Ok dear, I will wait here for you."))
-		else
-			self.order = "follow"
-			minetest.chat_send_player(name, S("Let's go honey!"))
-		end
-	end
+  -- if self.owner and self.owner == name then
+	-- 	if self.order == "follow" then
+	-- 		self.order = "stand"
+	-- 		minetest.chat_send_player(name, S("Ok dear, I will wait here for you."))
+	-- 	else
+	-- 		self.order = "follow"
+	-- 		minetest.chat_send_player(name, S("Let's go honey!"))
+	-- 	end
+	-- end
 end
 
 
@@ -639,12 +686,12 @@ mobs:register_mob("advanced_npc:npc", {
         end,
         npc.dialogue.NEGATIVE_ANSWER_LABEL,
         function()
-          npc.dialogue.start_dialogue(self, clicker)
+          start_dialogue(self, clicker)
         end,
         name
       )
     else
-      npc.dialogue.start_dialogue(self, clicker)
+      start_dialogue(self, clicker)
     end
 
 	end,
@@ -655,6 +702,10 @@ mobs:register_mob("advanced_npc:npc", {
       -- Gift timer check
       if relationship.gift_timer_value < relationship.gift_interval then
         relationship.gift_timer_value = relationship.gift_timer_value + dtime
+      elseif relationship.talk_timer_value < relationship.gift_interval then
+        -- Relationship talk timer - only allows players to increase relationship
+        -- by talking on the same intervals as gifts
+        relationship.talk_timer_value = relationship.talk_timer_value + dtime
       else
         -- Relationship decrease timer
         if relationship.relationship_decrease_timer_value 
