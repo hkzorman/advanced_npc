@@ -338,6 +338,16 @@ local function reset_gift_timer(self, clicker_name)
   end
 end
 
+-- Resets the relationshop decrease timer
+local function reset_relationship_decrease_timer(self, clicker_name)
+  for i = 1, #self.relationships do
+    if self.relationships[i].name == clicker_name then
+      self.relationships[i].relationship_decrease_timer_value = 0
+      return
+    end
+  end
+end
+
 -- Gifts functions
 ---------------------------------------------------------------------------------------
   
@@ -363,6 +373,8 @@ local function show_receive_gift_reaction(self, item_name, modifier, clicker_nam
       phase = "phase"..string.char(number_code)
     end
     -- Send message
+    -- TODO: There might be an error with getting the message...
+    minetest.log("Item_name: "..dump(item_name)..", sex: "..dump(self.sex)..", phase: "..dump(phase))
     local message_to_send = npc.get_response_for_favorite_item(item_name, self.sex, phase)
     minetest.chat_send_player(clicker_name, message_to_send)
   -- Disliked items reactions
@@ -515,8 +527,20 @@ local function receive_gift(self, clicker)
   return true  
 end
 
--- Chat functions
+-- Relationships are slowly increased by talking, increases by +0.2.
+-- Talking to married NPC increases relationship by +1 
+local function dialogue_relationship_update(self, clicker_name)
+  local modifier = 0.2
+  if self.is_married_to ~= nil and clicker_name == self.is_married_to then
+    modifier = 1
+  end
+  -- Update relationship
+  update_relationship(self, clicker_name, modifier)
 
+  reset_relationship_decrease_timer(self, clicker_name)
+end
+
+-- Chat functions
 local function start_chat(self, clicker)
   local name = npc.get_entity_name(clicker)
   -- Married player can tell NPC to follow or to stay at a given place
@@ -605,16 +629,13 @@ mobs:register_mob("advanced_npc:npc", {
       -- Get item name
       local item = minetest.registered_items[item:get_name()]
       local item_name = item.description
-      minetest.log(dump(npc.dialogue.POSITIVE_GIFT_ANSWER_PREFIX))
-      minetest.log(dump(item_name))
+
       -- Show dialogue to confirm that player is giving item as gift
       npc.dialogue.show_yes_no_dialogue(
         "Do you want to give "..item_name.." to "..self.nametag.."?",
         npc.dialogue.POSITIVE_GIFT_ANSWER_PREFIX..item_name,
         function()
-          if receive_gift(self, clicker) == false then
-            npc.dialogue.start_dialogue(self, clicker)
-          end
+          receive_gift(self, clicker)
         end,
         npc.dialogue.NEGATIVE_ANSWER_LABEL,
         function()
