@@ -30,9 +30,11 @@ function npc.dialogue.show_options_dialogue(self, responses, dismiss_option_labe
 		if i > 1 then
 			y = (y * i)
 		end
-		formspec = formspec.."button_exit[0.5,"..(y - 0.5)..";6,0.5;opt"..tostring(i)..";"..responses[i].text.."]"
+		formspec = formspec.."button_exit[0.5,"
+			..(y - 0.5)..";6,0.5;opt"..tostring(i)..";"..responses[i].text.."]"
 	end
-	formspec = formspec.."button_exit[0.5,"..(formspec_height - 0.7)..";6,0.5;exit;"..dismiss_option_label.."]"
+	formspec = formspec.."button_exit[0.5,"
+		..(formspec_height - 0.7)..";6,0.5;exit;"..dismiss_option_label.."]"
 
 	-- Create entry on options_dialogue table
 	npc.dialogue.dialogue_results.options_dialogue[player_name] = {
@@ -68,39 +70,61 @@ end
 -- Dialogue methods
 -- Select random dialogue objects for an NPC based on sex
 -- and the relationship phase with player
-function npc.dialogue.select_random_dialogues_for_npc(sex, phase)
-	local result = {}
-	local dialogues = npc.data.DIALOGUES.female
-	if sex == npc.MALE then
-		dialogues = npc.data.DIALOGUES.male
-	end
-	dialogues = dialogues[phase]
+function npc.dialogue.select_random_dialogues_for_npc(sex, 
+													  phase, 
+													  favorite_items, 
+													  disliked_items, 
+													  only_hints)
+	local result = {
+		normal = {},
+		hints = {}
+	}
 
-	-- Determine how many dialogue lines the NPC will have
-	local number_of_dialogues = math.random(npc.dialogue.MIN_DIALOGUES, npc.dialogue.MAX_DIALOGUES)
-
-	minetest.log("Dialogues by string: "..dump(dialogues["1"]))
-	minetest.log("Dialogues by int: "..dump(dialogues[1]))
-	minetest.log("Dialogues: "..dump(dialogues))
-
-	for i = 1,number_of_dialogues do
-		local dialogue_id = math.random(1, #dialogues)
-		result[i] = dialogues[dialogue_id] 
-
-		-- Check if this particular dialogue has responses
-		if result[i].responses then
-			-- Check each response to see if they have action_type == "function".
-			-- This way the indices for this particular response will be stored
-			-- and the function can be retrieved for execution later.
-			for key,value in ipairs(result[i].responses) do
-				if value.action_type == "function" then
-					result[i].responses[key].dialogue_id = dialogue_id
-					result[i].responses[key].response_id = key
-					minetest.log("Storing dialogue and response id: "..dump(result[i].responses[key]))
-				end
-			end
-
+	if only_hints == false then
+		local dialogues = npc.data.DIALOGUES.female
+		if sex == npc.MALE then
+			dialogues = npc.data.DIALOGUES.male
 		end
+		dialogues = dialogues[phase]
+
+		-- Determine how many dialogue lines the NPC will have
+		local number_of_dialogues = math.random(npc.dialogue.MIN_DIALOGUES, npc.dialogue.MAX_DIALOGUES)
+
+		for i = 1,number_of_dialogues do
+			local dialogue_id = math.random(1, #dialogues)
+			result.normal[i] = dialogues[dialogue_id] 
+
+			-- Check if this particular dialogue has responses
+			if result.normal[i].responses then
+				-- Check each response to see if they have action_type == "function".
+				-- This way the indices for this particular response will be stored
+				-- and the function can be retrieved for execution later.
+				for key,value in ipairs(result.normal[i].responses) do
+					if value.action_type == "function" then
+						result.normal[i].responses[key].dialogue_id = dialogue_id
+						result.normal[i].responses[key].response_id = key
+						minetest.log("Storing dialogue and response id: "
+							..dump(result.normal[i].responses[key]))
+					end
+				end
+
+			end
+		end
+	end
+
+	-- Add item hints.
+	-- Favorite items
+	for i = 1, 2 do
+		result.hints[i] = {}
+		result.hints[i].text = 
+			npc.get_hint_for_favorite_item(favorite_items["fav"..tostring(i)], sex, phase)
+	end
+
+	-- Disliked items
+	for i = 3, 4 do
+		result.hints[i] = {}
+		result.hints[i].text = 
+			npc.get_hint_for_disliked_item(disliked_items["dis"..tostring(i-2)], sex)
 	end
 
 	return result
@@ -112,7 +136,14 @@ function npc.dialogue.start_dialogue(self, player)
 	-- Choose a dialogue randomly
 	-- TODO: Add support for favorite items hints
 	--       Add support for flags
-	local dialogue = self.dialogues[math.random(1, #self.dialogues)]
+	local dialogue = {}
+	local chance = math.random(1, 100)
+	if chance < 90 then
+		dialogue = self.dialogues.normal[math.random(1, #self.dialogues.normal)]
+	elseif chance >= 90 then
+		dialogue = self.dialogues.hints[math.random(1, 4)]
+	end
+
 	npc.dialogue.process_dialogue(self, dialogue, player:get_player_name())
 end
 
