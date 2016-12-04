@@ -6,7 +6,8 @@ The goal of this mod is to be able to have live villages in Minetest. These NPCs
 
 Current roadmap:
 
-# Version 1.0
+Version 1.0
+-----------
 Phase 1: Gifts and relationships: In progress
 - NPCs should be able to receive items
 - NPCs will have favorite and disliked items
@@ -36,7 +37,8 @@ Phase 5: Activities and jobs
   
 Phase 6: Advanced spawners for villages
 
-# Version 2.0
+Version 2.0
+-----------
 Phase 7: Make NPCs scriptable
 
 Phase 8: Improve NPCs so that they can be farmers, lumberjacks and miners
@@ -45,7 +47,8 @@ Phase 9: Improve NPCs so that they can tame and own farm animals
 
 Phase 10: Improve NPCs so that they can run on carts, boats and (maybe) horses
 
-# Version 3.0
+Version 3.0
+-----------
 Phase 11: Integrate with commerce mod
 
 Phase 12: Improve relationships for obtaining more benefits from a married NPC
@@ -53,3 +56,22 @@ Phase 12: Improve relationships for obtaining more benefits from a married NPC
 Phase 13: Improve AI to include support for house families
 
 Phase 14: Improve AI to create village communities
+
+
+License for Code
+----------------
+
+Copyright (C) 2016 Zorman2000
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <http://www.gnu.org/licenses/>.
