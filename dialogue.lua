@@ -20,7 +20,7 @@ npc.dialogue.dialogue_results = {
 --------------------------------------------------------------------
 -- Creates and shows a multi-option dialogue based on the number of responses
 -- that the dialogue object contains
-function npc.dialogue.show_options_dialogue(responses, dismiss_option_label, player_name) 
+function npc.dialogue.show_options_dialogue(self, responses, dismiss_option_label, player_name) 
 	local options_length = table.getn(responses) + 1	
 	local formspec_height = (options_length * 0.7) + 0.7
 	local formspec = "size[7,"..tostring(formspec_height).."]"
@@ -36,6 +36,7 @@ function npc.dialogue.show_options_dialogue(responses, dismiss_option_label, pla
 
 	-- Create entry on options_dialogue table
 	npc.dialogue.dialogue_results.options_dialogue[player_name] = {
+		npc = self,
 		options = responses
 	}
 
@@ -78,8 +79,28 @@ function npc.dialogue.select_random_dialogues_for_npc(sex, phase)
 	-- Determine how many dialogue lines the NPC will have
 	local number_of_dialogues = math.random(npc.dialogue.MIN_DIALOGUES, npc.dialogue.MAX_DIALOGUES)
 
+	minetest.log("Dialogues by string: "..dump(dialogues["1"]))
+	minetest.log("Dialogues by int: "..dump(dialogues[1]))
+	minetest.log("Dialogues: "..dump(dialogues))
+
 	for i = 1,number_of_dialogues do
-		result[i] = dialogues[math.random(1, #dialogues)]
+		local dialogue_id = math.random(1, #dialogues)
+		result[i] = dialogues[dialogue_id] 
+
+		-- Check if this particular dialogue has responses
+		if result[i].responses then
+			-- Check each response to see if they have action_type == "function".
+			-- This way the indices for this particular response will be stored
+			-- and the function can be retrieved for execution later.
+			for key,value in ipairs(result[i].responses) do
+				if value.action_type == "function" then
+					result[i].responses[key].dialogue_id = dialogue_id
+					result[i].responses[key].response_id = key
+					minetest.log("Storing dialogue and response id: "..dump(result[i].responses[key]))
+				end
+			end
+
+		end
 	end
 
 	return result
@@ -90,12 +111,12 @@ end
 function npc.dialogue.start_dialogue(self, player)
 	-- Choose a dialogue randomly
 	local dialogue = self.dialogues[math.random(1, #self.dialogues)]
-	npc.dialogue.process_dialogue(dialogue, player:get_player_name())
+	npc.dialogue.process_dialogue(self, dialogue, player:get_player_name())
 end
 
 -- This function processes a dialogue object and performs
 -- actions depending on what is defined in the object 
-function npc.dialogue.process_dialogue(dialogue, player_name)
+function npc.dialogue.process_dialogue(self, dialogue, player_name)
 	-- Send dialogue line
 	if dialogue.text then
 		minetest.chat_send_player(player_name, dialogue.text)
@@ -104,6 +125,7 @@ function npc.dialogue.process_dialogue(dialogue, player_name)
 	-- Check if there are responses, then show multi-option dialogue if there are
 	if dialogue.responses then
 		npc.dialogue.show_options_dialogue(
+			self,
 			dialogue.responses, 
 			npc.dialogue.NEGATIVE_ANSWER_LABEL,
 			player_name
@@ -185,9 +207,23 @@ minetest.register_on_player_receive_fields(function (player, formname, fields)
 						-- Process dialogue object
 						npc.dialogue.process_dialogue(player_response.options[i].action, player_name)
 					elseif player_response.options[i].action_type == "function" then
+						-- Execute function - get it directly from definition
+						-- Find NPC relationship phase with player
+						local phase = nil
+						for i = 1, #player_response.npc.relationships do
+							if player_name == player_response.npc.relationships[i].name then
+								phase = player_response.npc.relationships[i].phase
+								break
+							end
+						end
+
+						-- Get dialogues for sex and phase
+						local dialogues = npc.data.DIALOGUES[player_response.npc.sex][phase]
+
 						-- Execute function
-						-- Bug: for some reason function is null
-						player_response.options[i].action()
+						dialogues[player_response.options[i].dialogue_id]
+							.responses[player_response.options[i].response_id]
+							.action(player_response.npc, player_name)
 					end
 					return
 				end
