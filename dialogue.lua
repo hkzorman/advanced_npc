@@ -110,6 +110,8 @@ end
 -- and process it. 
 function npc.dialogue.start_dialogue(self, player)
 	-- Choose a dialogue randomly
+	-- TODO: Add support for favorite items hints
+	--       Add support for flags
 	local dialogue = self.dialogues[math.random(1, #self.dialogues)]
 	npc.dialogue.process_dialogue(self, dialogue, player:get_player_name())
 end
@@ -131,8 +133,6 @@ function npc.dialogue.process_dialogue(self, dialogue, player_name)
 			player_name
 		)
 	end
-	-- TODO: Add support for flag, multi-option dialogue
-	-- and their actions
 end
 
 -----------------------------------------------------------------------------
@@ -205,7 +205,10 @@ minetest.register_on_player_receive_fields(function (player, formname, fields)
 				if fields[button_label] then
 					if player_response.options[i].action_type == "dialogue" then
 						-- Process dialogue object
-						npc.dialogue.process_dialogue(player_response.options[i].action, player_name)
+						minetest.log("Action: "..dump(player_response.options[i]))
+						npc.dialogue.process_dialogue(player_response.npc, 
+													  player_response.options[i].action, 
+													  player_name)
 					elseif player_response.options[i].action_type == "function" then
 						-- Execute function - get it directly from definition
 						-- Find NPC relationship phase with player
