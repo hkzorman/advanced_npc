@@ -375,8 +375,15 @@ local function update_relationship(self, clicker_name, modifier)
       local current_phase = self.relationships[i].phase
       self.relationships[i].phase = npc.get_relationship_phase_by_points(self.relationships[i].points)
       if current_phase ~= self.relationships[i].phase then
+        -- Re-select favorite items per new phase
         self.gift_data.favorite_items = 
           select_random_favorite_items(self.sex, self.relationships[i].phase)
+        -- Re-select dialogues per new
+        self.dialogues =
+          npc.dialogue.select_random_dialogues_for_npc(self.sex, 
+                                                       self.relationships[i].phase,
+                                                       self.gift_data.favorite_items,
+                                                       self.gift_data.disliked_items)
         return true
       end
       return false

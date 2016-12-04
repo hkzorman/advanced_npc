@@ -55,6 +55,87 @@ npc.data.DIALOGUES.female["phase1"] = {
 	}
 }
 
+-- Phase 2
+npc.data.DIALOGUES.female["phase2"] = {
+	[1] = {
+		text = "Hey buddy!"
+	},
+	[2] = {
+		text = "Hey buddy!"
+	},
+	[3] = {
+		text = "Hey buddy!"
+	},
+	[4] = {
+		text = "Hey buddy!"
+	}
+}
+
+-- Phase 3
+npc.data.DIALOGUES.female["phase3"] = {
+	[1] = {
+		text = "Hi there! Great to see you!"
+	},
+	[2] = {
+		text = "Hi there! Great to see you!"
+	},
+	[3] = {
+		text = "Hi there! Great to see you!"
+	},
+	[4] = {
+		text = "Hi there! Great to see you!"
+	}
+}
+
+-- Phase 4
+npc.data.DIALOGUES.female["phase4"] = {
+	[1] = {
+		text = "I was honestly looking forward to talk to you!"
+	},
+	[2] = {
+		text = "I was honestly looking forward to talk to you!"
+	},
+	[3] = {
+		text = "I was honestly looking forward to talk to you!"
+	},
+	[4] = {
+		text = "I was honestly looking forward to talk to you!"
+	}
+}
+
+-- Phase 5
+npc.data.DIALOGUES.female["phase5"] = {
+	[1] = {
+		text = "You are the love of my life"
+	},
+	[2] = {
+		text = "You are the love of my life"
+	},
+	[3] = {
+		text = "You are the love of my life"
+	},
+	[4] = {
+		text = "You are the love of my life"
+	}
+}
+
+-- Phase 6
+npc.data.DIALOGUES.female["phase6"] = {
+	[1] = {
+		text = "You are the best thing that has happened to me!"
+	},
+	[2] = {
+		text = "You are the best thing that has happened to me!"
+	},
+	[3] = {
+		text = "You are the best thing that has happened to me!"
+	},
+	[4] = {
+		text = "You are the best thing that has happened to me!"
+	},
+}
+
+
 -- Male dialogue options defined by phase
 -- Phase 1
 npc.data.DIALOGUES.male["phase1"] = {
@@ -99,4 +180,84 @@ npc.data.DIALOGUES.male["phase1"] = {
 			}
 		}
 	}
+}
+
+-- Phase 2
+npc.data.DIALOGUES.male["phase2"] = {
+	[1] = {
+		text = "Hey buddy!"
+	},
+	[2] = {
+		text = "Hey buddy!"
+	},
+	[3] = {
+		text = "Hey buddy!"
+	},
+	[4] = {
+		text = "Hey buddy!"
+	}
+}
+
+-- Phase 3
+npc.data.DIALOGUES.male["phase3"] = {
+	[1] = {
+		text = "Hi there! Great to see you!"
+	},
+	[2] = {
+		text = "Hi there! Great to see you!"
+	},
+	[3] = {
+		text = "Hi there! Great to see you!"
+	},
+	[4] = {
+		text = "Hi there! Great to see you!"
+	}
+}
+
+-- Phase 4
+npc.data.DIALOGUES.male["phase4"] = {
+	[1] = {
+		text = "I was honestly looking forward to talk to you!"
+	},
+	[2] = {
+		text = "I was honestly looking forward to talk to you!"
+	},
+	[3] = {
+		text = "I was honestly looking forward to talk to you!"
+	},
+	[4] = {
+		text = "I was honestly looking forward to talk to you!"
+	}
+}
+
+-- Phase 5
+npc.data.DIALOGUES.male["phase5"] = {
+	[1] = {
+		text = "You are the love of my life"
+	},
+	[2] = {
+		text = "You are the love of my life"
+	},
+	[3] = {
+		text = "You are the love of my life"
+	},
+	[4] = {
+		text = "You are the love of my life"
+	}
+}
+
+-- Phase 6
+npc.data.DIALOGUES.male["phase6"] = {
+	[1] = {
+		text = "You are the best thing that has happened to me!"
+	},
+	[2] = {
+		text = "You are the best thing that has happened to me!"
+	},
+	[3] = {
+		text = "You are the best thing that has happened to me!"
+	},
+	[4] = {
+		text = "You are the best thing that has happened to me!"
+	},
 }
