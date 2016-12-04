@@ -143,7 +143,41 @@ npc.DISLIKED_ITEMS = {
      hint = "If I really hate something, that's cobblestone!"}
   }
 }
-       
+
+-- Married NPC dialogue definition
+npc.MARRIED_NPC_DIALOGUE = {
+  text = "Hi darling!",
+  is_married_dialogue = true,
+  responses = {
+    [1] = {
+      text = "Let's talk!",
+      action_type = "function",
+      response_id = 1,
+      action = function(self, player)
+        npc.start_dialogue(self, player, false)
+      end
+    },
+    [2] = {
+      text = "Honey, can you wait for me here?",
+      action_type = "function",
+      response_id = 2,
+      action = function(self, player)
+        self.order = "stand"
+        minetest.chat_send_player(player:get_player_name(), S("Ok dear, I will wait here for you."))
+      end
+    },
+    [3] = {
+      text = "Come with me, please!",
+      action_type = "function",
+      response_id = 3,
+      action = function(self, player)
+        self.order = "follow"
+        minetest.chat_send_player(player:get_player_name(), S("Ok, let's go!"))
+      end
+    }
+  }
+}
+
 mobs.npc_drops = {
 	"default:pick_steel", "mobs:meat", "default:sword_steel",
 	"default:shovel_steel", "farming:bread", "bucket:bucket_water"
@@ -169,7 +203,7 @@ local function get_entity_wielded_item(entity)
 end
 
 -- Function to get relationship phase
-function npc.get_relationship_phase(points)
+function npc.get_relationship_phase_by_points(points)
 	if points > npc.RELATIONSHIP_PHASE["phase5"].limit then
     return "phase6"
   elseif points > npc.RELATIONSHIP_PHASE["phase4"].limit then
@@ -339,7 +373,7 @@ local function update_relationship(self, clicker_name, modifier)
     if self.relationships[i].name == clicker_name then
       self.relationships[i].points = self.relationships[i].points + modifier
       local current_phase = self.relationships[i].phase
-      self.relationships[i].phase = npc.get_relationship_phase(self.relationships[i].points)
+      self.relationships[i].phase = npc.get_relationship_phase_by_points(self.relationships[i].points)
       if current_phase ~= self.relationships[i].phase then
         self.gift_data.favorite_items = 
           select_random_favorite_items(self.sex, self.relationships[i].phase)
@@ -360,6 +394,16 @@ local function check_relationship_exists(self, clicker_name)
     end
   end
   return false
+end
+
+-- Returns the relationship phase given the name of the player
+function npc.get_relationship_phase(self, clicker_name)
+  for i = 1, #self.relationships do
+    if clicker_name == self.relationships[i].name then
+      return self.relationships[i].phase
+    end
+  end
+  return nil
 end
 
 -- Checks if NPC can receive gifts
@@ -431,7 +475,7 @@ local function show_receive_gift_reaction(self, item_name, modifier, clicker_nam
   local pos = self.object:getpos()  
   -- Positive modifier (favorite items) reactions
   if modifier >= 0 then
-    local phase = npc.get_relationship_phase(points)
+    local phase = npc.get_relationship_phase_by_points(points)
     if phase == "phase3" then
       effect({x = pos.x, y = pos.y + 1, z = pos.z}, 2, "heart.png")
     elseif phase == "phase4" then
@@ -631,25 +675,14 @@ local function dialogue_relationship_update(self, clicker)
 end
 
 -- Chat functions
-local function start_dialogue(self, clicker)
+function npc.start_dialogue(self, clicker, show_married_dialogue)
 
   -- Call chat function as normal
-  npc.dialogue.start_dialogue(self, clicker)
+  npc.dialogue.start_dialogue(self, clicker, show_married_dialogue)
 
   -- Check and update relationship if needed
   dialogue_relationship_update(self, clicker)
 
-  -- Married player can tell NPC to follow or to stay at a given place
-  -- TODO: Improve this. There should be a dialogue box for this
-  -- if self.owner and self.owner == name then
-	-- 	if self.order == "follow" then
-	-- 		self.order = "stand"
-	-- 		minetest.chat_send_player(name, S("Ok dear, I will wait here for you."))
-	-- 	else
-	-- 		self.order = "follow"
-	-- 		minetest.chat_send_player(name, S("Let's go honey!"))
-	-- 	end
-	-- end
 end
 
 
@@ -735,12 +768,12 @@ mobs:register_mob("advanced_npc:npc", {
         end,
         npc.dialogue.NEGATIVE_ANSWER_LABEL,
         function()
-          start_dialogue(self, clicker)
+          npc.start_dialogue(self, clicker, true)
         end,
         name
       )
     else
-      start_dialogue(self, clicker)
+      npc.start_dialogue(self, clicker, true)
     end
 
 	end,
@@ -828,8 +861,7 @@ local function npc_spawn(self, pos)
   ent.dialogues = npc.dialogue.select_random_dialogues_for_npc(ent.sex, 
                                                                "phase1",
                                                                ent.gift_data.favorite_items,
-                                                               ent.gift_data.disliked_items,
-                                                               false)
+                                                               ent.gift_data.disliked_items)
   
   minetest.log(dump(ent))
   

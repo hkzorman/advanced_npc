@@ -20,7 +20,11 @@ npc.dialogue.dialogue_results = {
 --------------------------------------------------------------------
 -- Creates and shows a multi-option dialogue based on the number of responses
 -- that the dialogue object contains
-function npc.dialogue.show_options_dialogue(self, responses, dismiss_option_label, player_name) 
+function npc.dialogue.show_options_dialogue(self, 
+																						responses, 
+																						is_married_dialogue,
+																						dismiss_option_label,
+																						player_name) 
 	local options_length = table.getn(responses) + 1	
 	local formspec_height = (options_length * 0.7) + 0.7
 	local formspec = "size[7,"..tostring(formspec_height).."]"
@@ -39,6 +43,7 @@ function npc.dialogue.show_options_dialogue(self, responses, dismiss_option_labe
 	-- Create entry on options_dialogue table
 	npc.dialogue.dialogue_results.options_dialogue[player_name] = {
 		npc = self,
+		is_married_dialogue = is_married_dialogue,
 		options = responses
 	}
 
@@ -70,45 +75,39 @@ end
 -- Dialogue methods
 -- Select random dialogue objects for an NPC based on sex
 -- and the relationship phase with player
-function npc.dialogue.select_random_dialogues_for_npc(sex, 
-													  phase, 
-													  favorite_items, 
-													  disliked_items, 
-													  only_hints)
+function npc.dialogue.select_random_dialogues_for_npc(sex, phase, favorite_items, disliked_items)
 	local result = {
 		normal = {},
 		hints = {}
 	}
 
-	if only_hints == false then
-		local dialogues = npc.data.DIALOGUES.female
-		if sex == npc.MALE then
-			dialogues = npc.data.DIALOGUES.male
-		end
-		dialogues = dialogues[phase]
+	local dialogues = npc.data.DIALOGUES.female
+	if sex == npc.MALE then
+		dialogues = npc.data.DIALOGUES.male
+	end
+	dialogues = dialogues[phase]
 
-		-- Determine how many dialogue lines the NPC will have
-		local number_of_dialogues = math.random(npc.dialogue.MIN_DIALOGUES, npc.dialogue.MAX_DIALOGUES)
+	-- Determine how many dialogue lines the NPC will have
+	local number_of_dialogues = math.random(npc.dialogue.MIN_DIALOGUES, npc.dialogue.MAX_DIALOGUES)
 
-		for i = 1,number_of_dialogues do
-			local dialogue_id = math.random(1, #dialogues)
-			result.normal[i] = dialogues[dialogue_id] 
+	for i = 1,number_of_dialogues do
+		local dialogue_id = math.random(1, #dialogues)
+		result.normal[i] = dialogues[dialogue_id] 
 
-			-- Check if this particular dialogue has responses
-			if result.normal[i].responses then
-				-- Check each response to see if they have action_type == "function".
-				-- This way the indices for this particular response will be stored
-				-- and the function can be retrieved for execution later.
-				for key,value in ipairs(result.normal[i].responses) do
-					if value.action_type == "function" then
-						result.normal[i].responses[key].dialogue_id = dialogue_id
-						result.normal[i].responses[key].response_id = key
-						minetest.log("Storing dialogue and response id: "
-							..dump(result.normal[i].responses[key]))
-					end
+		-- Check if this particular dialogue has responses
+		if result.normal[i].responses then
+			-- Check each response to see if they have action_type == "function".
+			-- This way the indices for this particular response will be stored
+			-- and the function can be retrieved for execution later.
+			for key,value in ipairs(result.normal[i].responses) do
+				if value.action_type == "function" then
+					result.normal[i].responses[key].dialogue_id = dialogue_id
+					result.normal[i].responses[key].response_id = key
+					minetest.log("Storing dialogue and response id: "
+						..dump(result.normal[i].responses[key]))
 				end
-
 			end
+
 		end
 	end
 
@@ -132,11 +131,19 @@ end
 
 -- This function will choose randomly a dialogue from the NPC data
 -- and process it. 
-function npc.dialogue.start_dialogue(self, player)
+function npc.dialogue.start_dialogue(self, player, show_married_dialogue)
 	-- Choose a dialogue randomly
-	-- TODO: Add support for favorite items hints
-	--       Add support for flags
+	-- TODO: Add support for flags
 	local dialogue = {}
+
+	-- Construct dialogue for marriage
+	if npc.get_relationship_phase(self, player:get_player_name()) == "phase6"
+		and show_married_dialogue == true then
+		dialogue = npc.MARRIED_NPC_DIALOGUE
+		npc.dialogue.process_dialogue(self, dialogue, player:get_player_name())
+		return
+	end 
+
 	local chance = math.random(1, 100)
 	if chance < 90 then
 		dialogue = self.dialogues.normal[math.random(1, #self.dialogues.normal)]
@@ -159,7 +166,8 @@ function npc.dialogue.process_dialogue(self, dialogue, player_name)
 	if dialogue.responses then
 		npc.dialogue.show_options_dialogue(
 			self,
-			dialogue.responses, 
+			dialogue.responses,
+			dialogue.is_married_dialogue,
 			npc.dialogue.NEGATIVE_ANSWER_LABEL,
 			player_name
 		)
@@ -243,21 +251,20 @@ minetest.register_on_player_receive_fields(function (player, formname, fields)
 					elseif player_response.options[i].action_type == "function" then
 						-- Execute function - get it directly from definition
 						-- Find NPC relationship phase with player
-						local phase = nil
-						for i = 1, #player_response.npc.relationships do
-							if player_name == player_response.npc.relationships[i].name then
-								phase = player_response.npc.relationships[i].phase
-								break
+						local phase = npc.get_relationship_phase(player_response.npc, player_name)
+						-- Check if NPC is married and the married NPC dialogue should be shown
+						if phase == "phase6" and player_response.is_married_dialogue == true then
+							npc.MARRIED_NPC_DIALOGUE.responses[player_response.options[i].response_id]
+								.action(player_response.npc, player)
+						else
+							-- Get dialogues for sex and phase
+							local dialogues = npc.data.DIALOGUES[player_response.npc.sex][phase]
+
+							-- Execute function
+							dialogues[player_response.options[i].dialogue_id]
+								.responses[player_response.options[i].response_id]
+								.action(player_response.npc, player)
 							end
-						end
-
-						-- Get dialogues for sex and phase
-						local dialogues = npc.data.DIALOGUES[player_response.npc.sex][phase]
-
-						-- Execute function
-						dialogues[player_response.options[i].dialogue_id]
-							.responses[player_response.options[i].response_id]
-							.action(player_response.npc, player_name)
 					end
 					return
 				end

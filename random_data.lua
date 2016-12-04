@@ -32,8 +32,8 @@ npc.data.DIALOGUES.female["phase1"] = {
 			[1] = {
 				text = "No, never before",
 				action_type = "function",
-				action = function(self, player_name)
-					minetest.chat_send_player(player_name, "Oh, never? How come! You should."..
+				action = function(self, player)
+					minetest.chat_send_player(player:get_player_name(), "Oh, never? How come! You should."..
 						"\nHere, take this. It will guide you to the sea...")
 				end
 			},
@@ -79,8 +79,8 @@ npc.data.DIALOGUES.male["phase1"] = {
 			[1] = {
 				text = "No, never before",
 				action_type = "function",
-				action = function(npc, player_name)
-					minetest.chat_send_player(player_name, "Then you are not worth my time.")
+				action = function(npc, player)
+					minetest.chat_send_player(player:get_player_name(), "Then you are not worth my time.")
 				end
 			},
 			[2] = {
