@@ -261,3 +261,129 @@ npc.data.DIALOGUES.male["phase6"] = {
 		text = "You are the best thing that has happened to me!"
 	},
 }
+
+-- Items
+-- Favorite items, disliked items lists
+npc.FAVORITE_ITEMS = {
+  female = {},
+  male = {}
+}
+-- Define items by phase
+-- Female
+npc.FAVORITE_ITEMS.female["phase1"] = {
+  {item = "default:apple",        
+   response = "Hey, I really wanted an apple, thank you!",
+   hint = "I could really do with an apple..."},
+  {item = "farming:bread",
+   response = "Thanks, you didn't have to, but thanks...",
+   hint = "Some fresh bread would be good!"}
+}
+npc.FAVORITE_ITEMS.female["phase2"] = {
+  {item = "farming:cotton",        
+   response = "This is going to be very helpful, thank you!",
+   hint = "If I just had some cotton lying around..."},
+  {item = "wool:white",
+   response = "Thanks, you didn't have to, but thanks...",
+   hint = "Have you seen a white sheep? I need some wool."}
+}
+npc.FAVORITE_ITEMS.female["phase3"] = {
+  {item = "default:apple",        
+   response = "Hey, I really wanted an apple, thank you!",
+   hint = "I could really do with an apple..."},
+  {item = "farming:bread",
+   response = "Thanks, you didn't have to, but thanks...",
+   hint = "Some fresh bread would be good!"}
+}
+npc.FAVORITE_ITEMS.female["phase4"] = {
+  {item = "default:apple",        
+   response = "Hey, I really wanted an apple, thank you!",
+   hint = "I could really do with an apple..."},
+  {item = "farming:bread",
+   response = "Thanks, you didn't have to, but thanks...",
+   hint = "SOme fresh bread would be good!"}
+}
+npc.FAVORITE_ITEMS.female["phase5"] = {
+  {item = "default:apple",        
+   response = "Hey, I really wanted an apple, thank you!",
+   hint = "I could really do with an apple..."},
+  {item = "farming:bread",
+   response = "Thanks, you didn't have to, but thanks...",
+   hint = "Some fresh bread would be good!"}
+}
+npc.FAVORITE_ITEMS.female["phase6"] = {
+  {item = "default:apple",        
+   response = "Hey, I really wanted an apple, thank you!",
+   hint = "I could really do with an apple..."},
+  {item = "farming:bread",
+   response = "Thanks, you didn't have to, but thanks...",
+   hint = "Some fresh bread would be good!"}
+}
+-- Male
+npc.FAVORITE_ITEMS.male["phase1"] = {
+  {item = "default:apple",        
+   response = "Hey, I really wanted an apple, thank you!",
+   hint = "I could really do with an apple..."},
+  {item = "farming:bread",
+   response = "Thanks, you didn't have to, but thanks...",
+   hint = "Some fresh bread would be good!"}
+}
+npc.FAVORITE_ITEMS.male["phase2"] = {
+  {item = "farming:cotton",        
+   response = "This is going to be very helpful, thank you!",
+   hint = "If I just had some cotton lying around..."},
+  {item = "wool:white",
+   response = "Thanks, you didn't have to, but thanks...",
+   hint = "Have you seen a white sheep? I need some wool."}
+}
+npc.FAVORITE_ITEMS.male["phase3"] = {
+  {item = "default:apple",        
+   response = "Hey, I really wanted an apple, thank you!",
+   hint = "I could really do with an apple..."},
+  {item = "farming:bread",
+   response = "Thanks, you didn't have to, but thanks...",
+   hint = "Some fresh bread would be good!"}
+}
+npc.FAVORITE_ITEMS.male["phase4"] = {
+  {item = "default:apple",        
+   response = "Hey, I really wanted an apple, thank you!",
+   hint = "I could really do with an apple..."},
+  {item = "farming:bread",
+   response = "Thanks, you didn't have to, but thanks...",
+   hint = "SOme fresh bread would be good!"}
+}
+npc.FAVORITE_ITEMS.male["phase5"] = {
+  {item = "default:apple",        
+   response = "Hey, I really wanted an apple, thank you!",
+   hint = "I could really do with an apple..."},
+  {item = "farming:bread",
+   response = "Thanks, you didn't have to, but thanks...",
+   hint = "Some fresh bread would be good!"}
+}
+npc.FAVORITE_ITEMS.male["phase6"] = {
+  {item = "default:apple",        
+   response = "Hey, I really wanted an apple, thank you!",
+   hint = "I could really do with an apple..."},
+  {item = "farming:bread",
+   response = "Thanks, you didn't have to, but thanks...",
+   hint = "Some fresh bread would be good!"}
+}
+
+-- Disliked items
+npc.DISLIKED_ITEMS = {
+  female = {
+    {item = "default:stone",        
+     response = "Stone, oh... why do you give me this?",
+     hint = "Why would someone want a stone?"},
+    {item = "default:cobble",
+     response = "Cobblestone? No, no, why?",
+     hint = "Anything worst than stone is cobblestone."}
+  },
+  male = {
+    {item = "default:stone",        
+     response = "Bah! Stone? I don't need this thing!",
+     hint = "Stones are useless!"},
+    {item = "default:cobble",
+     response = "Cobblestone!? Wow, you sure think a lot before giving a gift...",
+     hint = "If I really hate something, that's cobblestone!"}
+  }
+}

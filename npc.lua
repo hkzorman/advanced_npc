@@ -20,130 +20,6 @@ npc.RELATIONSHIP_PHASE["phase3"] = {limit = 45}
 npc.RELATIONSHIP_PHASE["phase4"] = {limit = 70}
 npc.RELATIONSHIP_PHASE["phase5"] = {limit = 100}
 
-npc.FAVORITE_ITEMS = {
-  female = {},
-  male = {}
-}
--- Define items by phase
--- Female
-npc.FAVORITE_ITEMS.female["phase1"] = {
-  {item = "default:apple",        
-   response = "Hey, I really wanted an apple, thank you!",
-   hint = "I could really do with an apple..."},
-  {item = "farming:bread",
-   response = "Thanks, you didn't have to, but thanks...",
-   hint = "Some fresh bread would be good!"}
-}
-npc.FAVORITE_ITEMS.female["phase2"] = {
-  {item = "farming:cotton",        
-   response = "This is going to be very helpful, thank you!",
-   hint = "If I just had some cotton lying around..."},
-  {item = "wool:white",
-   response = "Thanks, you didn't have to, but thanks...",
-   hint = "Have you seen a white sheep? I need some wool."}
-}
-npc.FAVORITE_ITEMS.female["phase3"] = {
-  {item = "default:apple",        
-   response = "Hey, I really wanted an apple, thank you!",
-   hint = "I could really do with an apple..."},
-  {item = "farming:bread",
-   response = "Thanks, you didn't have to, but thanks...",
-   hint = "Some fresh bread would be good!"}
-}
-npc.FAVORITE_ITEMS.female["phase4"] = {
-  {item = "default:apple",        
-   response = "Hey, I really wanted an apple, thank you!",
-   hint = "I could really do with an apple..."},
-  {item = "farming:bread",
-   response = "Thanks, you didn't have to, but thanks...",
-   hint = "SOme fresh bread would be good!"}
-}
-npc.FAVORITE_ITEMS.female["phase5"] = {
-  {item = "default:apple",        
-   response = "Hey, I really wanted an apple, thank you!",
-   hint = "I could really do with an apple..."},
-  {item = "farming:bread",
-   response = "Thanks, you didn't have to, but thanks...",
-   hint = "Some fresh bread would be good!"}
-}
-npc.FAVORITE_ITEMS.female["phase6"] = {
-  {item = "default:apple",        
-   response = "Hey, I really wanted an apple, thank you!",
-   hint = "I could really do with an apple..."},
-  {item = "farming:bread",
-   response = "Thanks, you didn't have to, but thanks...",
-   hint = "Some fresh bread would be good!"}
-}
--- Male
-npc.FAVORITE_ITEMS.male["phase1"] = {
-  {item = "default:apple",        
-   response = "Hey, I really wanted an apple, thank you!",
-   hint = "I could really do with an apple..."},
-  {item = "farming:bread",
-   response = "Thanks, you didn't have to, but thanks...",
-   hint = "Some fresh bread would be good!"}
-}
-npc.FAVORITE_ITEMS.male["phase2"] = {
-  {item = "farming:cotton",        
-   response = "This is going to be very helpful, thank you!",
-   hint = "If I just had some cotton lying around..."},
-  {item = "wool:white",
-   response = "Thanks, you didn't have to, but thanks...",
-   hint = "Have you seen a white sheep? I need some wool."}
-}
-npc.FAVORITE_ITEMS.male["phase3"] = {
-  {item = "default:apple",        
-   response = "Hey, I really wanted an apple, thank you!",
-   hint = "I could really do with an apple..."},
-  {item = "farming:bread",
-   response = "Thanks, you didn't have to, but thanks...",
-   hint = "Some fresh bread would be good!"}
-}
-npc.FAVORITE_ITEMS.male["phase4"] = {
-  {item = "default:apple",        
-   response = "Hey, I really wanted an apple, thank you!",
-   hint = "I could really do with an apple..."},
-  {item = "farming:bread",
-   response = "Thanks, you didn't have to, but thanks...",
-   hint = "SOme fresh bread would be good!"}
-}
-npc.FAVORITE_ITEMS.male["phase5"] = {
-  {item = "default:apple",        
-   response = "Hey, I really wanted an apple, thank you!",
-   hint = "I could really do with an apple..."},
-  {item = "farming:bread",
-   response = "Thanks, you didn't have to, but thanks...",
-   hint = "Some fresh bread would be good!"}
-}
-npc.FAVORITE_ITEMS.male["phase6"] = {
-  {item = "default:apple",        
-   response = "Hey, I really wanted an apple, thank you!",
-   hint = "I could really do with an apple..."},
-  {item = "farming:bread",
-   response = "Thanks, you didn't have to, but thanks...",
-   hint = "Some fresh bread would be good!"}
-}
-
--- Disliked items
-npc.DISLIKED_ITEMS = {
-  female = {
-    {item = "default:stone",        
-     response = "Stone, oh... why do you give me this?",
-     hint = "Why would someone want a stone?"},
-    {item = "default:cobble",
-     response = "Cobblestone? No, no, why?",
-     hint = "Anything worst than stone is cobblestone."}
-  },
-  male = {
-    {item = "default:stone",        
-     response = "Bah! Stone? I don't need this thing!",
-     hint = "Stones are useless!"},
-    {item = "default:cobble",
-     response = "Cobblestone!? Wow, you sure think a lot before giving a gift...",
-     hint = "If I really hate something, that's cobblestone!"}
-  }
-}
-
 -- Married NPC dialogue definition
 npc.MARRIED_NPC_DIALOGUE = {
   text = "Hi darling!",
@@ -178,6 +54,8 @@ npc.MARRIED_NPC_DIALOGUE = {
   }
 }
 
+npc.INVENTORY_ITEM_MAX_STACK = 99
+
 mobs.npc_drops = {
 	"default:pick_steel", "mobs:meat", "default:sword_steel",
 	"default:shovel_steel", "farming:bread", "bucket:bucket_water"
@@ -199,6 +77,106 @@ end
 local function get_entity_wielded_item(entity)
   if entity:is_player() then
     return entity:get_wielded_item()
+  end
+end
+
+-- Inventory functions
+-- NPCs inventories are restrained to 16 slots.
+-- Each slot can hold one item up to 99 count.
+
+-- Utility function to get item name from a string
+local function get_item_name(item_string)
+  return item_string.sub(item_string, 1, item_string.find(" "))
+end
+
+-- Utility function to get item count from a string
+local function get_item_count(item_string)
+  return tonumber(item_string.sub(item_string, item_string.find(" ")))
+end
+
+local function initialize_inventory()
+  return {
+    [1] = "",  [2] = "",  [3] = "",  [4] = "",
+    [5] = "",  [6] = "",  [7] = "",  [8] = "",
+    [9] = "",  [10] = "", [11] = "", [12] = "",
+    [13] = "", [14] = "", [15] = "", [16] = "",
+  }
+end
+
+-- Add an item to inventory. Returns true if add successful
+function npc.add_item_to_inventory(self, item_name, count)
+  -- Check if NPC already has item
+  local existing_item = npc.inventory_contains(self, item_name)
+  if existing_item.item_string ~= nil then
+    -- NPC already has item. Get count and see
+    local existing_count = get_item_count(existing_item.item_string)
+    if (existing_count + count) < npc.INVENTORY_ITEM_MAX_STACK then
+      -- Set item here
+      self.inventory[existing_item.slot] = 
+        get_item_name(existing_item.item_string).." "..tostring(existing_count + count)
+        return true
+    else
+      --Find next free slot
+      for i = 1, self.inventory do
+        if self.inventory[i] == "" then
+          -- Found slot, set item
+          self.inventory[i] = 
+            item_name.." "..tostring((existing_count + count) - npc.INVENTORY_ITEM_MAX_STACK)
+          return true
+        end
+      end
+      -- No free slot found
+      return false
+    end
+  else
+    -- Find a free slot
+    for i = 1, self.inventory do
+      if self.inventory[i] == "" then
+        -- Found slot, set item
+        self.inventory[i] = item_name.." "..tostring(count)
+        return true
+      end
+    end
+    -- No empty slot found
+    return false
+  end
+end
+
+-- Checks if an item is contained in the inventory. Returns
+-- the item string or nil if not found
+function npc.inventory_contains(self, item_name)
+  for key,value in pairs(self.inventory) do
+    if tostring(value).find(item_name) then
+      return {slot=key, item_string=value}
+    end
+  end
+  -- Item not found
+  return nil
+end
+
+-- Removes the item from an NPC inventory and returns the item
+-- with its count (as a string, e.g. "default:apple 2"). Returns
+-- nil if unable to get the item.
+function npc.take_item_from_inventory(self, item_name, count)
+  local existing_item = npc.inventory_contains(self, item_name)
+  if existing_item ~= nil then
+    -- Found item
+    local existing_count = get_item_count(existing_item.item_string)
+    local new_count = existing_count
+    if existing_count - count  < 0 then
+      -- Remove item first
+      self.inventory[existin_item.slot] = ""
+      -- TODO: Support for retrieving from next stack. Too complicated
+      -- and honestly might be unecessary.
+      return item_name.." "..tostring(new_count)
+    else
+      new_count = existing_count - count
+      self.inventory[existing_item.slot] = item_name.." "..new_count
+      return item_name.." "..tostring(count)
+    end
+  else
+    -- Not able to take item because not found
+    return nil
   end
 end
 
@@ -869,6 +847,26 @@ local function npc_spawn(self, pos)
                                                                "phase1",
                                                                ent.gift_data.favorite_items,
                                                                ent.gift_data.disliked_items)
+
+  -- Declare NPC inventory
+  ent.inventory = initialize_inventory()
+
+  ent.trader_data = {
+    -- Type of trader
+    trader_status = npc.trade.get_random_trade_status()
+    -- Items to buy
+    items_to_buy = {},
+    -- Items to sell
+    items_to_sell = {},
+    -- Items to buy change timer
+    change_items_to_buy_timer_value = 0,
+    -- Items to buy change timer interval
+    change_items_to_buy_timer_interval = 20
+  }
+
+  -- Initialize items to buy and items to sell depending on trader status
+  
+
   
   minetest.log(dump(ent))
   
