@@ -116,14 +116,14 @@ function npc.dialogue.select_random_dialogues_for_npc(sex, phase, favorite_items
 	for i = 1, 2 do
 		result.hints[i] = {}
 		result.hints[i].text = 
-			npc.get_hint_for_favorite_item(favorite_items["fav"..tostring(i)], sex, phase)
+			npc.relationships.get_hint_for_favorite_item(favorite_items["fav"..tostring(i)], sex, phase)
 	end
 
 	-- Disliked items
 	for i = 3, 4 do
 		result.hints[i] = {}
 		result.hints[i].text = 
-			npc.get_hint_for_disliked_item(disliked_items["dis"..tostring(i-2)], sex)
+			npc.relationships.get_hint_for_disliked_item(disliked_items["dis"..tostring(i-2)], sex)
 	end
 
 	return result
@@ -137,9 +137,9 @@ function npc.dialogue.start_dialogue(self, player, show_married_dialogue)
 	local dialogue = {}
 
 	-- Construct dialogue for marriage
-	if npc.get_relationship_phase(self, player:get_player_name()) == "phase6"
+	if npc.relationships.get_relationship_phase(self, player:get_player_name()) == "phase6"
 		and show_married_dialogue == true then
-		dialogue = npc.MARRIED_NPC_DIALOGUE
+		dialogue = npc.relationships.MARRIED_NPC_DIALOGUE
 		npc.dialogue.process_dialogue(self, dialogue, player:get_player_name())
 		return
 	end 
@@ -251,10 +251,12 @@ minetest.register_on_player_receive_fields(function (player, formname, fields)
 					elseif player_response.options[i].action_type == "function" then
 						-- Execute function - get it directly from definition
 						-- Find NPC relationship phase with player
-						local phase = npc.get_relationship_phase(player_response.npc, player_name)
+						local phase = 
+							npc.relationships.get_relationship_phase(player_response.npc, player_name)
 						-- Check if NPC is married and the married NPC dialogue should be shown
 						if phase == "phase6" and player_response.is_married_dialogue == true then
-							npc.MARRIED_NPC_DIALOGUE.responses[player_response.options[i].response_id]
+							npc.relationships.MARRIED_NPC_DIALOGUE
+								.responses[player_response.options[i].response_id]
 								.action(player_response.npc, player)
 						else
 							-- Get dialogues for sex and phase
