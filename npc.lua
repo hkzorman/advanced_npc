@@ -44,12 +44,12 @@ end
 
 -- Utility function to get item name from a string
 local function get_item_name(item_string)
-  return item_string.sub(item_string, 1, item_string.find(" "))
+  return item_string.sub(item_string, 1, string.find(item_string, " "))
 end
 
 -- Utility function to get item count from a string
 local function get_item_count(item_string)
-  return tonumber(item_string.sub(item_string, item_string.find(" ")))
+  return tonumber(item_string.sub(item_string, string.find(item_string, " ")))
 end
 
 local function initialize_inventory()
@@ -67,8 +67,9 @@ end
 function npc.add_item_to_inventory(self, item_name, count)
   -- Check if NPC already has item
   local existing_item = npc.inventory_contains(self, item_name)
-  if existing_item.item_string ~= nil then
+  if existing_item ~= nil and existing_item.item_string ~= nil then
     -- NPC already has item. Get count and see
+    minetest.log("What is this? "..dump(existing_item))
     local existing_count = get_item_count(existing_item.item_string)
     if (existing_count + count) < npc.INVENTORY_ITEM_MAX_STACK then
       -- Set item here
@@ -77,7 +78,7 @@ function npc.add_item_to_inventory(self, item_name, count)
         return true
     else
       --Find next free slot
-      for i = 1, self.inventory do
+      for i = 1, #self.inventory do
         if self.inventory[i] == "" then
           -- Found slot, set item
           self.inventory[i] = 
@@ -90,7 +91,7 @@ function npc.add_item_to_inventory(self, item_name, count)
     end
   else
     -- Find a free slot
-    for i = 1, self.inventory do
+    for i = 1, #self.inventory do
       if self.inventory[i] == "" then
         -- Found slot, set item
         self.inventory[i] = item_name.." "..tostring(count)
@@ -106,7 +107,8 @@ end
 -- the item string or nil if not found
 function npc.inventory_contains(self, item_name)
   for key,value in pairs(self.inventory) do
-    if tostring(value).find(item_name) then
+    minetest.log("Key: "..dump(key)..", value: "..dump(value))
+    if value ~= "" and string.find(value, item_name) then
       return {slot=key, item_string=value}
     end
   end
@@ -343,11 +345,12 @@ end
 -- These items are chosen from the favorite items list.
 local function choose_spawn_items(self)
   local number_of_items_to_add = math.random(1, 2)
-  local number_of_items = #npc.FAVORITE_ITEMS[self.sex]
+  local number_of_items = #npc.FAVORITE_ITEMS[self.sex].phase1
+  minetest.log("Number of items: "..dump(number_of_items))
   for i = 1, number_of_items_to_add do
     npc.add_item_to_inventory(
        self,
-       npc.FAVORITE_ITEMS[self.sex][math.random(1, number_of_items)], 
+       npc.FAVORITE_ITEMS[self.sex].phase1[math.random(1, number_of_items)].item, 
        math.random(1,4)
       )
   end

@@ -23,6 +23,8 @@ npc.dialogue.dialogue_results = {
 function npc.dialogue.show_options_dialogue(self, 
 																						responses, 
 																						is_married_dialogue,
+																						is_casual_trade_dialogue,
+																						casual_trade_type,
 																						dismiss_option_label,
 																						player_name) 
 	local options_length = table.getn(responses) + 1	
@@ -44,6 +46,8 @@ function npc.dialogue.show_options_dialogue(self,
 	npc.dialogue.dialogue_results.options_dialogue[player_name] = {
 		npc = self,
 		is_married_dialogue = is_married_dialogue,
+		is_casual_trade_dialogue = is_casual_trade_dialogue,
+		casual_trade_type = casual_trade_type,
 		options = responses
 	}
 
@@ -145,11 +149,26 @@ function npc.dialogue.start_dialogue(self, player, show_married_dialogue)
 	end 
 
 	local chance = math.random(1, 100)
-	if chance < 90 then
+	minetest.log("Chance: "..dump(chance))
+	if chance < 30 then
+		-- If NPC is a casual trader, show a sell or buy dialogue 30% of the time, depending
+		-- on the state of the casual trader.
+		local offer = npc.trade.get_casual_trade_offer(self)
+		-- Check offer type
+		if offer.offer_type == npc.trade.OFFER_BUY then
+			-- Show casual buy dialogue
+			dialogue = npc.trade.CASUAL_TRADE_BUY_DIALOGUE
+		elseif offer.offer_type == npc.trade.OFFER_SELL then
+			-- Show casual sell dialogue
+			dialogue = npc.trade.CASUAL_TRADE_SELL_DIALOGUE
+		end
+	elseif chance >= 30 and chance < 90 then
 		dialogue = self.dialogues.normal[math.random(1, #self.dialogues.normal)]
 	elseif chance >= 90 then
 		dialogue = self.dialogues.hints[math.random(1, 4)]
 	end
+
+	minetest.log("Chosen dialogue: "..dump(dialogue))
 
 	npc.dialogue.process_dialogue(self, dialogue, player:get_player_name())
 end
@@ -168,6 +187,8 @@ function npc.dialogue.process_dialogue(self, dialogue, player_name)
 			self,
 			dialogue.responses,
 			dialogue.is_married_dialogue,
+			dialogue.casual_trade_type ~= nil,
+			dialogue.casual_trade_type,
 			npc.dialogue.NEGATIVE_ANSWER_LABEL,
 			player_name
 		)
@@ -255,9 +276,26 @@ minetest.register_on_player_receive_fields(function (player, formname, fields)
 							npc.relationships.get_relationship_phase(player_response.npc, player_name)
 						-- Check if NPC is married and the married NPC dialogue should be shown
 						if phase == "phase6" and player_response.is_married_dialogue == true then
+							-- Get the function definitions from the married dialogue
 							npc.relationships.MARRIED_NPC_DIALOGUE
 								.responses[player_response.options[i].response_id]
 								.action(player_response.npc, player)
+
+						elseif player_response.is_casual_trade_dialogue == true then
+							-- Check if trade is casual buy or sell
+							if player_response.casual_trade_type == npc.trade.OFFER_BUY then
+								-- Get functions from casual buy dialogue
+								npc.trade.CASUAL_TRADE_BUY_DIALOGUE
+									.responses[player_response.options[i].response_id]
+									.action(player_response.npc, player)
+
+							elseif player_response.casual_trade_type == npc.trade.OFFER_SELL == true then
+								-- Get functions from casual sell dialogue
+								npc.trade.CASUAL_TRADE_SELL_DIALOGUE
+									.responses[player_response.options[i].response_id]
+									.action(player_response.npc, player)
+							end
+
 						else
 							-- Get dialogues for sex and phase
 							local dialogues = npc.data.DIALOGUES[player_response.npc.sex][phase]
