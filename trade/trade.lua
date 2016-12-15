@@ -9,6 +9,12 @@ npc.trade.NONE = "none"
 npc.trade.OFFER_BUY = "buy"
 npc.trade.OFFER_SELL = "sell"
 
+-- This table holds all responses for trades  
+npc.trade.results = {
+  casual = {},
+  formal = {}
+}
+
 -- Casual trader NPC dialogues definition
 -- Casual buyer
 npc.trade.CASUAL_TRADE_BUY_DIALOGUE = {
@@ -20,7 +26,7 @@ npc.trade.CASUAL_TRADE_BUY_DIALOGUE = {
       action_type = "function",
       response_id = 1,
       action = function(self, player)
-        
+        npc.trade.show_casual_trade_formspec(self, player, npc.trade.OFFER_BUY)
       end
     }
   }
@@ -36,11 +42,46 @@ npc.trade.CASUAL_TRADE_SELL_DIALOGUE = {
       action_type = "function",
       response_id = 1,
       action = function(self, player)
-        
+        npc.trade.show_casual_trade_formspec(self, player, npc.trade.OFFER_SELL)
       end
     }
   }
 }
+
+function npc.trade.show_casual_trade_formspec(self, player, offer_type)
+  
+  -- Strings for formspec, to include international support later
+  local prompt_string = " offers to buy from you"
+  local for_string = "for"
+  local buy_sell_string = "Sell"
+
+  -- Get offer. As this is casual trading, NPCs will only have
+  -- one trade offer
+  local trade_offer = self.trader_data.buy_offers[1]
+  if offer_type == npc.trade.OFFER_SELL then
+    trade_offer = self.trader_data.sell_offers[1]
+    prompt_string = " wants to sell to you"
+    buy_sell_string = "Buy"
+  end
+
+  local formspec = "size[8,4]"..
+                default.gui_bg..
+                default.gui_bg_img..
+                default.gui_slots..
+                "label[2,0.1;"..self.nametag..prompt_string.."]"..
+                "item_image_button[2,1.3;1.2,1.2;"..trade_offer.item..";item;]"..
+                "label[3.75,1.75;"..for_string.."]"..
+                "item_image_button[4.8,1.3;1.2,1.2;"..trade_offer.price..";price;]"..
+                "button_exit[1,3.3;2.9,0.5;yes_option;"..buy_sell_string.."]"..
+                "button_exit[4.1,3.3;2.9,0.5;no_option;"..npc.dialogue.NEGATIVE_ANSWER_LABEL.."]" 
+
+  -- Create entry into results table
+  npc.trade.results.casual[player:get_player_name()] = {
+    trade_offer = trade_offer
+  }
+  -- Show formspec to player
+  minetest.show_formspec(player:get_player_name(), "advanced_npc:casual_trade", formspec)
+end
 
 function npc.trade.get_random_trade_status()
 	local chance = math.random(1,10)
@@ -65,10 +106,44 @@ end
 -- will offer to sell. The prices will be selected using:
 -- item_price * (+/- price_item * 0.2) so item will be
 -- more or less 20% of the item price.
-function npc.trade.get_casual_trade_offer(self)
+function npc.trade.get_casual_trade_offer(self, offer_type)
   return {
-            offer_type = npc.trade.OFFER_BUY, 
-            item = "default:wooden_planks 10", 
+            offer_type = offer_type, 
+            item = "default:wood 10", 
             price = "default:iron_lump 20"
          }
 end
+
+
+-- Handler for chat formspec
+minetest.register_on_player_receive_fields(function (player, formname, fields)
+  -- Additional checks for other forms should be handled here
+  -- Handle yes/no dialogue
+  if formname == "advanced_npc:casual_trade" then
+    local player_name = player:get_player_name()
+
+    if fields then
+      local player_response = npc.trade.results.casual[player_name]
+      if fields.yes_option then
+        -- Check if offer is a buy or sell
+        if player_response.trade_offer.offer_type == npc.trade.OFFER_BUY then
+          -- If NPC is buying from player, then player loses item, gets price
+          local inv = minetest.get_inventory({type = "player", name = player_name})
+          -- Check NPC has the item being buyed
+          if inv:contains_item("main", ItemStack(player_response.trade_offer.item)) then
+            -- Remove item from player
+            inv:remove_item("main", ItemStack(player_response.trade_offer.item))
+            -- TODO: Add to NPC
+            -- Add price items to player
+            inv:add_item("main", ItemStack(player_response.trade_offer.price))
+          end
+        else
+
+        end
+      elseif fields.no_option then
+        minetest.chat_send_player(player_name, "Talk to me if you change your mind!")
+      end
+    end
+  end
+
+end)

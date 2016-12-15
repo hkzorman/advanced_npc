@@ -394,20 +394,27 @@ local function npc_spawn(self, pos)
   ent.trader_data = {
     -- Type of trader
     trader_status = npc.trade.get_random_trade_status(),
-    -- Items to buy
-    items_to_buy = {},
-    -- Items to sell
-    items_to_sell = {},
+    -- Current buy offers
+    buy_offers = {},
+    -- Current sell offers
+    sell_offers = {},
     -- Items to buy change timer
-    change_items_to_buy_timer_value = 0,
+    change_offers_timer = 0,
     -- Items to buy change timer interval
-    change_items_to_buy_timer_interval = 20
+    change_offers_timer_interval = 20
   }
 
-  -- Initialize items to buy and items to sell depending on trader status
-  
+  -- Initialize trading offers if NPC is casual trader
+  if ent.trader_data.trader_status == npc.trade.CASUAL then
+    ent.trader_data.buy_offers = {
+      [1] = npc.trade.get_casual_trade_offer(ent, npc.trade.OFFER_BUY)
+    }
 
-  
+    ent.trader_data.sell_offers = {
+      [1] = npc.trade.get_casual_trade_offer(ent, npc.trade.OFFER_SELL)
+    }
+  end
+
   minetest.log(dump(ent))
   
   -- Refreshes entity

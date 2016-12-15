@@ -153,14 +153,16 @@ function npc.dialogue.start_dialogue(self, player, show_married_dialogue)
 	if chance < 30 then
 		-- If NPC is a casual trader, show a sell or buy dialogue 30% of the time, depending
 		-- on the state of the casual trader.
-		local offer = npc.trade.get_casual_trade_offer(self)
-		-- Check offer type
-		if offer.offer_type == npc.trade.OFFER_BUY then
-			-- Show casual buy dialogue
-			dialogue = npc.trade.CASUAL_TRADE_BUY_DIALOGUE
-		elseif offer.offer_type == npc.trade.OFFER_SELL then
-			-- Show casual sell dialogue
-			dialogue = npc.trade.CASUAL_TRADE_SELL_DIALOGUE
+		if self.trader_data.trader_status == npc.trade.CASUAL then
+			-- Show buy/sell with 50% chance each
+			local buy_or_sell_chance = math.random(1, 2)
+			if buy_or_sell_chance == 1 then
+				-- Show casual buy dialogue
+				dialogue = npc.trade.CASUAL_TRADE_BUY_DIALOGUE
+			else
+				-- Show casual sell dialogue
+				dialogue = npc.trade.CASUAL_TRADE_SELL_DIALOGUE
+			end
 		end
 	elseif chance >= 30 and chance < 90 then
 		dialogue = self.dialogues.normal[math.random(1, #self.dialogues.normal)]
@@ -235,7 +237,7 @@ local function rotate_npc_to_player(self)
 	self.object:setyaw(yaw)
 end
 
--- Handler for chat formspec
+-- Handler for dialogue formspec
 minetest.register_on_player_receive_fields(function (player, formname, fields)
 	-- Additional checks for other forms should be handled here
 	-- Handle yes/no dialogue
