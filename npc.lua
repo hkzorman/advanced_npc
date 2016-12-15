@@ -11,11 +11,6 @@ npc.MALE = "male"
 
 npc.INVENTORY_ITEM_MAX_STACK = 99
 
-mobs.npc_drops = {
-	"default:pick_steel", "mobs:meat", "default:sword_steel",
-	"default:shovel_steel", "farming:bread", "bucket:bucket_water"
-}
-
 ---------------------------------------------------------------------------------------
 -- General functions
 ---------------------------------------------------------------------------------------
@@ -107,7 +102,6 @@ end
 -- the item string or nil if not found
 function npc.inventory_contains(self, item_name)
   for key,value in pairs(self.inventory) do
-    minetest.log("Key: "..dump(key)..", value: "..dump(value))
     if value ~= "" and string.find(value, item_name) then
       return {slot=key, item_string=value}
     end

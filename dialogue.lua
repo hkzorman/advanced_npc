@@ -28,13 +28,13 @@ function npc.dialogue.show_options_dialogue(self,
 																						dismiss_option_label,
 																						player_name) 
 	local options_length = table.getn(responses) + 1	
-	local formspec_height = (options_length * 0.7) + 0.7
+	local formspec_height = (options_length * 0.7) + 0.4
 	local formspec = "size[7,"..tostring(formspec_height).."]"
 
 	for i = 1, #responses do
-		local y = 0.7;
+		local y = 0.8;
 		if i > 1 then
-			y = (y * i)
+			y = (0.7 * i)
 		end
 		formspec = formspec.."button_exit[0.5,"
 			..(y - 0.5)..";6,0.5;opt"..tostring(i)..";"..responses[i].text.."]"
