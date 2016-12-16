@@ -11,8 +11,8 @@ npc.trade.OFFER_SELL = "sell"
 
 -- This table holds all responses for trades  
 npc.trade.results = {
-  casual = {},
-  formal = {}
+  single_trade_offer = {},
+  trade_offers = {}
 }
 
 -- Casual trader NPC dialogues definition
@@ -26,7 +26,7 @@ npc.trade.CASUAL_TRADE_BUY_DIALOGUE = {
       action_type = "function",
       response_id = 1,
       action = function(self, player)
-        npc.trade.show_casual_trade_formspec(self, player, npc.trade.OFFER_BUY)
+        npc.trade.show_trade_offer_formspec(self, player, npc.trade.OFFER_BUY)
       end
     }
   }
@@ -42,13 +42,13 @@ npc.trade.CASUAL_TRADE_SELL_DIALOGUE = {
       action_type = "function",
       response_id = 1,
       action = function(self, player)
-        npc.trade.show_casual_trade_formspec(self, player, npc.trade.OFFER_SELL)
+        npc.trade.show_trade_offer_formspec(self, player, npc.trade.OFFER_SELL)
       end
     }
   }
 }
 
-function npc.trade.show_casual_trade_formspec(self, player, offer_type)
+function npc.trade.show_trade_offer_formspec(self, player, offer_type)
   
   -- Strings for formspec, to include international support later
   local prompt_string = " offers to buy from you"
@@ -76,11 +76,12 @@ function npc.trade.show_casual_trade_formspec(self, player, offer_type)
                 "button_exit[4.1,3.3;2.9,0.5;no_option;"..npc.dialogue.NEGATIVE_ANSWER_LABEL.."]" 
 
   -- Create entry into results table
-  npc.trade.results.casual[player:get_player_name()] = {
-    trade_offer = trade_offer
+  npc.trade.results.single_trade_offer[player:get_player_name()] = {
+    trade_offer = trade_offer,
+    npc = self
   }
   -- Show formspec to player
-  minetest.show_formspec(player:get_player_name(), "advanced_npc:casual_trade", formspec)
+  minetest.show_formspec(player:get_player_name(), "advanced_npc:trade_offer", formspec)
 end
 
 function npc.trade.get_random_trade_status()
@@ -114,32 +115,70 @@ function npc.trade.get_casual_trade_offer(self, offer_type)
          }
 end
 
+function npc.trade.perform_trade(self, player_name, offer)
+
+  local item_stack = ItemStack(offer.item)
+  local price_stack = ItemStack(offer.price)
+  local inv = minetest.get_inventory({type = "player", name = player_name})
+
+  -- Check if offer is a buy or sell
+  if offer.offer_type == npc.trade.OFFER_BUY then
+    -- If NPC is buying from player, then player loses item, gets price
+    -- Check player has the item being buyed
+    if inv:contains_item("main", item_stack) then
+      -- Check if there is enough room to add the price item to player
+      if inv:room_for_item("main", price_stack) then
+      -- Remove item from player
+        inv:remove_item("main", item_stack)
+        -- Add item to NPC's inventory
+        npc.add_item_to_inventory_itemstring(self, offer.item)
+        -- Add price items to player
+        inv:add_item("main", price_stack)
+        -- Send message to player
+        minetest.chat_send_player(player_name, "Thank you!")
+      else
+        minetest.chat_send_player(player_name, 
+          "Looks like you can't what I'm giving you for payment!")
+      end
+    else
+      minetest.chat_send_player(player_name, "Looks like you don't have what I want to buy...")
+    end
+  else
+    -- If NPC is selling to the player, then player gives price and gets
+    -- item, NPC loses item and gets price
+    -- Check NPC has the required item to pay
+    if inv:contains_item("main", price_stack) then
+      -- Check if there is enough room to add the item to player
+      if inv:room_for_item("main", item_stack) then
+      -- Remove item from player
+        inv:remove_item("main", price_stack)
+        -- Add item to NPC's inventory
+        npc.add_item_to_inventory_itemstring(self, offer.price)
+        -- Add price items to player
+        inv:add_item("main", item_stack)
+        -- Send message to player
+        minetest.chat_send_player(player_name, "Thank you!")
+      else
+        minetest.chat_send_player(player_name, "Looks like you can't carry anything else...")
+      end
+    else
+      minetest.chat_send_player(player_name, "Looks like you don't have what I'm asking for!")
+    end
+  end
+end
+
 
 -- Handler for chat formspec
 minetest.register_on_player_receive_fields(function (player, formname, fields)
   -- Additional checks for other forms should be handled here
   -- Handle yes/no dialogue
-  if formname == "advanced_npc:casual_trade" then
+  if formname == "advanced_npc:trade_offer" then
     local player_name = player:get_player_name()
 
     if fields then
-      local player_response = npc.trade.results.casual[player_name]
+      local player_response = npc.trade.results.single_trade_offer[player_name]
       if fields.yes_option then
-        -- Check if offer is a buy or sell
-        if player_response.trade_offer.offer_type == npc.trade.OFFER_BUY then
-          -- If NPC is buying from player, then player loses item, gets price
-          local inv = minetest.get_inventory({type = "player", name = player_name})
-          -- Check NPC has the item being buyed
-          if inv:contains_item("main", ItemStack(player_response.trade_offer.item)) then
-            -- Remove item from player
-            inv:remove_item("main", ItemStack(player_response.trade_offer.item))
-            -- TODO: Add to NPC
-            -- Add price items to player
-            inv:add_item("main", ItemStack(player_response.trade_offer.price))
-          end
-        else
-
-        end
+        npc.trade.perform_trade(player_response.npc, player_name, player_response.trade_offer)
       elseif fields.no_option then
         minetest.chat_send_player(player_name, "Talk to me if you change your mind!")
       end

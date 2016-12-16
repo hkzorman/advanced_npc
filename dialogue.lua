@@ -34,7 +34,7 @@ function npc.dialogue.show_options_dialogue(self,
 	for i = 1, #responses do
 		local y = 0.8;
 		if i > 1 then
-			y = (0.7 * i)
+			y = (0.75 * i)
 		end
 		formspec = formspec.."button_exit[0.5,"
 			..(y - 0.5)..";6,0.5;opt"..tostring(i)..";"..responses[i].text.."]"

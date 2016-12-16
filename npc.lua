@@ -39,12 +39,14 @@ end
 
 -- Utility function to get item name from a string
 local function get_item_name(item_string)
-  return item_string.sub(item_string, 1, string.find(item_string, " "))
+  local i,j = string.find(item_string, " ")
+  return item_string.sub(item_string, 1, i-1)
 end
 
 -- Utility function to get item count from a string
 local function get_item_count(item_string)
-  return tonumber(item_string.sub(item_string, string.find(item_string, " ")))
+  local i,j = string.find(item_string, " ")
+  return tonumber(item_string.sub(item_string, i+1))
 end
 
 local function initialize_inventory()
@@ -96,6 +98,13 @@ function npc.add_item_to_inventory(self, item_name, count)
     -- No empty slot found
     return false
   end
+end
+
+-- Same add method but with itemstring for convenience
+function npc.add_item_to_inventory_itemstring(self, item_string)
+  local item_name = get_item_name(item_string)
+  local item_count = get_item_count(item_string)
+  npc.add_item_to_inventory(self, item_name, item_count)
 end
 
 -- Checks if an item is contained in the inventory. Returns

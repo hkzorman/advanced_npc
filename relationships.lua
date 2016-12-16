@@ -36,7 +36,7 @@ npc.relationships.RELATIONSHIP_PHASE["phase2"] = {limit = 25}
 npc.relationships.RELATIONSHIP_PHASE["phase3"] = {limit = 45}
 npc.relationships.RELATIONSHIP_PHASE["phase4"] = {limit = 70}
 npc.relationships.RELATIONSHIP_PHASE["phase5"] = {limit = 100}
-
+  
 -- Married NPC dialogue definition
 npc.relationships.MARRIED_NPC_DIALOGUE = {
   text = "Hi darling!",
