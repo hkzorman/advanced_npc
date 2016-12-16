@@ -450,7 +450,7 @@ mobs:alias_mob("mobs:npc", "advanced_npc:npc")
 -- Marriage ring
 minetest.register_craftitem("advanced_npc:marriage_ring", {
 	description = S("Marriage Ring"),
-	inventory_image = "diamond_ring.png",
+	inventory_image = "marriage_ring.png",
 })
 
 -- Marriage ring craft recipe
