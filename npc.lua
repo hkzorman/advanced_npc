@@ -143,45 +143,68 @@ function npc.take_item_from_inventory(self, item_name, count)
   end
 end
 
+-- Same take method but with itemstring for convenience
+function npc.take_item_from_inventory_itemstring(self, item_string)
+  local item_name = npc.get_item_name(item_string)
+  local item_count = npc.get_item_count(item_string)
+  npc.take_item_from_inventory(self, item_name, item_count)
+end
+
 -- Inventory functions for players and for nodes
--- TODO: Need to rewrite this functions
-function npc.give_item_to_player(player, item_name, count)
-  local player_name = npc.get_entity_name(player)
-  local player_inv = minetest.get_inventory({type="player", name=player_name})
+-- This function is a convenience function to make it easy to put
+-- and get items from another inventory (be it a player inv or 
+-- a node inv)
+function npc.put_item_on_external_inventory(player, pos, inv_list, item_name, count)
+  local inv
+  if player_name ~= nil then
+    inv = minetest.get_inventory({type="player", name=player:get_player_name()})
+  else
+    inv = minetest.get_inventory({type="node", pos})
+  end
+  -- Create ItemSTack to put on external inventory
   local item = ItemStack(item_name.." "..count)
-  player_inv:add_item("main", item)
-end
-
-function npc.check_item_to_player(player, item_name)
-  local player_name = npc.get_entity_name(player)
-  local player_inv = minetest.get_inventory({type="player", name=player_name})
-  local main_list = player_inv:get_list("main")
-  for i = 1, #main_list do
-    if main_list[i]:get_name() == item_name then
-      return main_list[i]
+  -- Check if there is enough room to add the item on external invenotry
+  if inv:room_for_item(inv_list, price_stack) then
+    -- Take item from NPC's inventory
+    if npc.take_item_from_inventory_itemstring(self, item) then
+      -- NPC doesn't have item and/or specified quantity
+      return false
     end
+    -- Add items to external inventory
+    inv:add_item(inv_list, item)
+    
+    return true
   end
-  -- Not found
-  return nil
+  -- Not able to put on external inventory
+  return false
 end
 
-function npc.take_item_from_player(player, item_name, count)
-  local player_name = npc.get_entity_name(player)
-  local player_inv = minetest.get_inventory({type="player", name=player_name})
-  local main_list = player_inv:get_list("main")
-  for i = 1, #main_list do
-    if main_list[i]:get_name() == item_name then
-      main_list[i].take_item(count)
-    end
+function npc.take_item_from_external_inventory(player, pos, item_name, count)
+  local inv
+  if player_name ~= nil then
+    inv = minetest.get_inventory({type="player", name=player:get_player_name()})
+  else
+    inv = minetest.get_inventory({type="node", pos})
   end
-  -- Not found
-  return nil
+  -- Create ItemSTack to take from external inventory
+  local item = ItemStack(item_name.." "..count)
+  -- Check if there is enough of the item to take
+  if inv:contains_item(inv_list, item) then
+    -- Add item to NPC's inventory
+    npc.add_item_to_inventory_itemstring(self, item)
+    -- Add items to external inventory
+    inv:remove_item(inv_list, item)
+    
+    return true
+  end
+  -- Not able to put on external inventory
+  return false
 end
 
--- Chat functions
+-- Dialogue functions
 function npc.start_dialogue(self, clicker, show_married_dialogue)
 
-  -- Call chat function as normal
+  -- Call dialogue function as normal
   npc.dialogue.start_dialogue(self, clicker, show_married_dialogue)
 
   -- Check and update relationship if needed
@@ -189,8 +212,133 @@ function npc.start_dialogue(self, clicker, show_married_dialogue)
 
 end
 
+
 ---------------------------------------------------------------------------------------
--- Definitions
+-- Spawning functions
+---------------------------------------------------------------------------------------
+-- These functions are used at spawn time to determine several
+-- random attributes for the NPC in case they are not already
+-- defined. On a later phase, pre-defining many of the NPC values
+-- will be allowed.
+
+-- This function checks for "female" text on the texture name
+local function is_female_texture(textures)
+  for i = 1, #textures do
+    if string.find(textures[i], "female") ~= nil then
+      return true
+    end
+  end
+  return false
+end
+
+-- Choose whether NPC can have relationships. Only 30% of NPCs cannot have relationships
+local function can_have_relationships()
+  local chance = math.random(1,10)
+  return chance > 3
+end
+
+-- Choose a maximum of two items that the NPC will have at spawn time
+-- These items are chosen from the favorite items list.
+local function choose_spawn_items(self)
+  local number_of_items_to_add = math.random(1, 2)
+  local number_of_items = #npc.FAVORITE_ITEMS[self.sex].phase1
+  
+  for i = 1, number_of_items_to_add do
+    npc.add_item_to_inventory(
+       self,
+       npc.FAVORITE_ITEMS[self.sex].phase1[math.random(1, number_of_items)].item, 
+       math.random(1,5)
+      )
+  end
+  -- Add currency to the items spawned with. Will add 5-10 tier 3
+  -- currency items
+  local currency_item_count = math.random(5, 10)
+  npc.add_item_to_inventory(self, npc.trade.prices.currency.tier3, currency_item_count)
+
+  minetest.log("Initial inventory: "..dump(self.inventory))
+end
+
+-- Creates new single buy and sell offers for NPCs that
+-- trade casually.
+local function select_casual_trade_offers(self)
+  self.trader_data.buy_offers = {
+    [1] = npc.trade.get_casual_trade_offer(self, npc.trade.OFFER_BUY)
+  }
+  self.trader_data.sell_offers = {
+    [1] = npc.trade.get_casual_trade_offer(self, npc.trade.OFFER_SELL)
+  }
+end
+
+-- Spawn function. Initializes all variables that the
+-- NPC will have and choose random, starting values
+local function npc_spawn(self, pos)
+  minetest.log("Spawning new NPC:")
+  local ent = self:get_luaentity()
+  ent.nametag = "Kio"
+  
+  -- Determine sex based on textures
+  if (is_female_texture(ent.base_texture)) then
+    ent.sex = npc.FEMALE
+  else
+    ent.sex = npc.MALE
+  end
+  
+  -- Initialize all gift data
+  ent.gift_data = {
+    -- Choose favorite items. Choose phase1 per default
+    favorite_items = npc.relationships.select_random_favorite_items(ent.sex, "phase1"),
+    -- Choose disliked items. Choose phase1 per default
+    disliked_items = npc.relationships.select_random_disliked_items(ent.sex),
+  }
+  
+  -- Flag that determines if NPC can have a relationship
+  ent.can_have_relationship = can_have_relationships()
+
+  -- Initialize relationships object
+  ent.relationships = {}
+
+  -- Determines if NPC is married or not
+  ent.is_married_to = nil
+
+  -- Initialize dialogues
+  ent.dialogues = npc.dialogue.select_random_dialogues_for_npc(ent.sex, 
+                                                               "phase1",
+                                                               ent.gift_data.favorite_items,
+                                                               ent.gift_data.disliked_items)
+  -- Declare trade data
+  ent.trader_data = {
+    -- Type of trader
+    trader_status = npc.trade.get_random_trade_status(),
+    -- Current buy offers
+    buy_offers = {},
+    -- Current sell offers
+    sell_offers = {},
+    -- Items to buy change timer
+    change_offers_timer = 0,
+    -- Items to buy change timer interval
+    change_offers_timer_interval = 60
+  }
+
+  -- Declare NPC inventory
+  ent.inventory = initialize_inventory()
+
+  -- Choose items to spawn with
+  choose_spawn_items(ent)
+
+  -- Initialize trading offers if NPC is casual trader
+  if ent.trader_data.trader_status == npc.trade.CASUAL then
+    select_casual_trade_offers(ent)
+  end
+
+  minetest.log(dump(ent))
+  
+  -- Refreshes entity
+  ent.object:set_properties(ent)
+end
+
+
+---------------------------------------------------------------------------------------
+-- NPC Definition
 ---------------------------------------------------------------------------------------
 mobs:register_mob("advanced_npc:npc", {
 	type = "npc",
@@ -284,6 +432,17 @@ mobs:register_mob("advanced_npc:npc", {
 
 	end,
 	do_custom = function(self, dtime)
+    -- Timer function for casual traders to reset their trade offers
+    self.trader_data.change_offers_timer = self.trader_data.change_offers_timer + dtime
+    -- Check if time has come to change offers
+    if self.trader_data.trader_status == npc.trade.CASUAL and 
+      self.trader_data.change_offers_timer >= self.trader_data.change_offers_timer_interval then
+      -- Reset timer
+      self.trader_data.change_offers_timer = 0
+      -- Re-select casual trade offers
+      select_casual_trade_offers(self)
+    end
+
 		-- Timer function for gifts
     for i = 1, #self.relationships do
       local relationship = self.relationships[i]
@@ -319,122 +478,6 @@ mobs:register_mob("advanced_npc:npc", {
 	end
 })
 
----------------------------------------------------------------------------------------
--- Spawning functions
----------------------------------------------------------------------------------------
--- These functions are used at spawn time to determine several
--- random attributes for the NPC in case they are not already
--- defined. On a later phase, pre-defining many of the NPC values
--- will be allowed.
-
--- This function checks for "female" text on the texture name
-local function is_female_texture(textures)
-  for i = 1, #textures do
-    if string.find(textures[i], "female") ~= nil then
-      return true
-    end
-  end
-  return false
-end
-
--- Choose whether NPC can have relationships. Only 30% of NPCs cannot have relationships
-local function can_have_relationships()
-  local chance = math.random(1,10)
-  return chance > 3
-end
-
--- Choose a maximum of two items that the NPC will have at spawn time
--- These items are chosen from the favorite items list.
-local function choose_spawn_items(self)
-  local number_of_items_to_add = math.random(1, 2)
-  local number_of_items = #npc.FAVORITE_ITEMS[self.sex].phase1
-  
-  for i = 1, number_of_items_to_add do
-    npc.add_item_to_inventory(
-       self,
-       npc.FAVORITE_ITEMS[self.sex].phase1[math.random(1, number_of_items)].item, 
-       math.random(1,5)
-      )
-  end
-  -- Add currency to the items spawned with. Will add 5-10 tier 3
-  -- currency items
-  local currency_item_count = math.random(5, 10)
-  npc.add_item_to_inventory(self, npc.trade.prices.currency.tier3, currency_item_count)
-
-  minetest.log("Initial inventory: "..dump(self.inventory))
-end
-
-local function npc_spawn(self, pos)
-  minetest.log("Spawning new NPC:")
-  local ent = self:get_luaentity()
-  ent.nametag = "Kio"
-  
-  -- Determine sex based on textures
-  if (is_female_texture(ent.base_texture)) then
-    ent.sex = npc.FEMALE
-  else
-    ent.sex = npc.MALE
-  end
-  
-  -- Initialize all gift data
-  ent.gift_data = {
-    -- Choose favorite items. Choose phase1 per default
-    favorite_items = npc.relationships.select_random_favorite_items(ent.sex, "phase1"),
-    -- Choose disliked items. Choose phase1 per default
-    disliked_items = npc.relationships.select_random_disliked_items(ent.sex),
-  }
-  
-  -- Flag that determines if NPC can have a relationship
-  ent.can_have_relationship = can_have_relationships()
-
-  -- Initialize relationships object
-  ent.relationships = {}
-
-  -- Determines if NPC is married or not
-  ent.is_married_to = nil
-
-  -- Initialize dialogues
-  ent.dialogues = npc.dialogue.select_random_dialogues_for_npc(ent.sex, 
-                                                               "phase1",
-                                                               ent.gift_data.favorite_items,
-                                                               ent.gift_data.disliked_items)
-
-  -- Declare NPC inventory
-  ent.inventory = initialize_inventory()
-
-  -- Choose items to spawn with
-  choose_spawn_items(ent)
-
-  ent.trader_data = {
-    -- Type of trader
-    trader_status = npc.trade.get_random_trade_status(),
-    -- Current buy offers
-    buy_offers = {},
-    -- Current sell offers
-    sell_offers = {},
-    -- Items to buy change timer
-    change_offers_timer = 0,
-    -- Items to buy change timer interval
-    change_offers_timer_interval = 20
-  }
-
-  -- Initialize trading offers if NPC is casual trader
-  if ent.trader_data.trader_status == npc.trade.CASUAL then
-    ent.trader_data.buy_offers = {
-      [1] = npc.trade.get_casual_trade_offer(ent, npc.trade.OFFER_BUY)
-    }
-
-    ent.trader_data.sell_offers = {
-      [1] = npc.trade.get_casual_trade_offer(ent, npc.trade.OFFER_SELL)
-    }
-  end
-
-  minetest.log(dump(ent))
-  
-  -- Refreshes entity
-  ent.object:set_properties(ent)
-end
-
 -- Spawn
 mobs:spawn({
 	name = "advanced_npc:npc",
@@ -446,6 +489,10 @@ mobs:spawn({
 	--max_height = 0,
 	on_spawn = npc_spawn,
 })
+
+-------------------------------------------------------------------------
+-- Item definitions
+-------------------------------------------------------------------------
 
 mobs:register_egg("advanced_npc:npc", S("Npc"), "default_brick.png", 1)
 

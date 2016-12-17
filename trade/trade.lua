@@ -165,7 +165,7 @@ function npc.trade.get_casual_trade_offer(self, offer_type)
       price = price_string
     }
   else
-    -- Make sell offer, NPC will sell items to NPC at regular price
+    -- Make sell offer, NPC will sell items to player at regular price
     -- NPC will also offer items from their inventory
     local sellable_items = {}
     for i = 1, #self.inventory do
@@ -182,6 +182,10 @@ function npc.trade.get_casual_trade_offer(self, offer_type)
     -- Get and calculate price for this object
     minetest.log("Item: "..dump(item)..", name: "..dump(npc.get_item_name(item)))
     local price_object = npc.trade.prices.table[npc.get_item_name(item)]
+    -- Check price object, if price < 1 then offer to sell for 1
+    if price_object.count < 1 then
+      price_object.count = 1
+    end
     local price_string = price_object.tier.." "..tostring(price_object.count * count)
     -- Build return object
     result = {
