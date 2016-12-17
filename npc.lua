@@ -38,15 +38,13 @@ end
 -- Each slot can hold one item up to 99 count.
 
 -- Utility function to get item name from a string
-local function get_item_name(item_string)
-  local i,j = string.find(item_string, " ")
-  return item_string.sub(item_string, 1, i-1)
+function npc.get_item_name(item_string)
+  return ItemStack(item_string):get_name()
 end
 
 -- Utility function to get item count from a string
-local function get_item_count(item_string)
-  local i,j = string.find(item_string, " ")
-  return tonumber(item_string.sub(item_string, i+1))
+function npc.get_item_count(item_string)
+  return ItemStack(item_string):get_count()
 end
 
 local function initialize_inventory()
@@ -67,11 +65,11 @@ function npc.add_item_to_inventory(self, item_name, count)
   if existing_item ~= nil and existing_item.item_string ~= nil then
     -- NPC already has item. Get count and see
     minetest.log("What is this? "..dump(existing_item))
-    local existing_count = get_item_count(existing_item.item_string)
+    local existing_count = npc.get_item_count(existing_item.item_string)
     if (existing_count + count) < npc.INVENTORY_ITEM_MAX_STACK then
       -- Set item here
       self.inventory[existing_item.slot] = 
-        get_item_name(existing_item.item_string).." "..tostring(existing_count + count)
+        npc.get_item_name(existing_item.item_string).." "..tostring(existing_count + count)
         return true
     else
       --Find next free slot
@@ -102,8 +100,8 @@ end
 
 -- Same add method but with itemstring for convenience
 function npc.add_item_to_inventory_itemstring(self, item_string)
-  local item_name = get_item_name(item_string)
-  local item_count = get_item_count(item_string)
+  local item_name = npc.get_item_name(item_string)
+  local item_count = npc.get_item_count(item_string)
   npc.add_item_to_inventory(self, item_name, item_count)
 end
 
@@ -145,7 +143,8 @@ function npc.take_item_from_inventory(self, item_name, count)
   end
 end
 
--- Inventory functions for players
+-- Inventory functions for players and for nodes
+-- TODO: Need to rewrite this functions
 function npc.give_item_to_player(player, item_name, count)
   local player_name = npc.get_entity_name(player)
   local player_inv = minetest.get_inventory({type="player", name=player_name})
@@ -349,14 +348,20 @@ end
 local function choose_spawn_items(self)
   local number_of_items_to_add = math.random(1, 2)
   local number_of_items = #npc.FAVORITE_ITEMS[self.sex].phase1
-  minetest.log("Number of items: "..dump(number_of_items))
+  
   for i = 1, number_of_items_to_add do
     npc.add_item_to_inventory(
        self,
        npc.FAVORITE_ITEMS[self.sex].phase1[math.random(1, number_of_items)].item, 
-       math.random(1,4)
+       math.random(1,5)
       )
   end
+  -- Add currency to the items spawned with. Will add 5-10 tier 3
+  -- currency items
+  local currency_item_count = math.random(5, 10)
+  npc.add_item_to_inventory(self, npc.trade.prices.currency.tier3, currency_item_count)
+
+  minetest.log("Initial inventory: "..dump(self.inventory))
 end
 
 local function npc_spawn(self, pos)

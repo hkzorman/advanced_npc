@@ -4,21 +4,46 @@
 
 npc.trade.prices = {}
 
+-- Define default currency (based on lumps from default)
+npc.trade.prices.currency = {
+  tier1 = "default:gold_lump",
+  tier2 = "default:copper_lump",
+  tier3 = "default:iron_lump"
+}
+
+-- TODO: Set the currency depending on available mods
+
 -- Table that contains the prices
 npc.trade.prices.table = {}
 
 -- Default definitions for in-game items
-npc.trade.prices.table["default:apple"]  =        {item = "default:iron_ingot",  count = 1}
-npc.trade.prices.table["default:stone"]  =        {item = "default:wood_planks", count = 1}
-npc.trade.prices.table["default:cobble"] =        {item = "default:iron_ingot",  count = 1}
-npc.trade.prices.table["farming:cotton"] =        {item = "default:iron_ingot",  count = 1}
-npc.trade.prices.table["farming:bread"]  =        {item = "default:gold_ingot",  count = 1}
-npc.trade.prices.table["default:sword_stone"]  =  {item = "default:iron_ingot",  count = 2}
-npc.trade.prices.table["default:pick_stone"]  =   {item = "default:iron_ingot",  count = 1}
-npc.trade.prices.table["default:shovel_stone"]  = {item = "default:iron_ingot",  count = 2}
-npc.trade.prices.table["default:axe_stone"]  =    {item = "default:iron_ingot",  count = 1}
-npc.trade.prices.table["default:hoe_stone"]  =    {item = "default:iron_ingot",  count = 1}
+-- Tier 3 items: cheap items
+npc.trade.prices.table["default:cobble"] =        {tier = npc.trade.prices.currency.tier3, count = 0.1}
+npc.trade.prices.table["flowers:geranium"] =      {tier = npc.trade.prices.currency.tier3, count = 0.5}
+npc.trade.prices.table["default:apple"]  =        {tier = npc.trade.prices.currency.tier3, count = 1}
+npc.trade.prices.table["default:tree"]  =         {tier = npc.trade.prices.currency.tier3, count = 2}
+npc.trade.prices.table["flowers:rose"] =          {tier = npc.trade.prices.currency.tier3, count = 2}
+npc.trade.prices.table["default:stone"]  =        {tier = npc.trade.prices.currency.tier3, count = 2}
+npc.trade.prices.table["farming:seed_cotton"] =   {tier = npc.trade.prices.currency.tier3, count = 3}
+npc.trade.prices.table["farming:seed_wheat"] =    {tier = npc.trade.prices.currency.tier3, count = 3}
+npc.trade.prices.table["default:clay_lump"] =     {tier = npc.trade.prices.currency.tier3, count = 3}
+npc.trade.prices.table["mobs:meat_raw"]  =        {tier = npc.trade.prices.currency.tier3, count = 4}
+npc.trade.prices.table["default:sapling"]       = {tier = npc.trade.prices.currency.tier3, count = 5}
+npc.trade.prices.table["mobs:meat"]  =            {tier = npc.trade.prices.currency.tier3, count = 5}
+npc.trade.prices.table["mobs:leather"]  =         {tier = npc.trade.prices.currency.tier3, count = 6}
+npc.trade.prices.table["default:sword_stone"]  =  {tier = npc.trade.prices.currency.tier3, count = 6}
+npc.trade.prices.table["default:shovel_stone"]  = {tier = npc.trade.prices.currency.tier3, count = 6}
+npc.trade.prices.table["default:axe_stone"]  =    {tier = npc.trade.prices.currency.tier3, count = 6}
+npc.trade.prices.table["default:hoe_stone"]  =    {tier = npc.trade.prices.currency.tier3, count = 6}
+npc.trade.prices.table["default:pick_stone"]  =   {tier = npc.trade.prices.currency.tier3, count = 7}
+npc.trade.prices.table["farming:cotton"] =        {tier = npc.trade.prices.currency.tier3, count = 15}
+npc.trade.prices.table["farming:bread"]  =        {tier = npc.trade.prices.currency.tier3, count = 20}
 
+-- Tier 2 items: medium priced items
+
+-- Tier 1 items: expensive items
+npc.trade.prices.table["default:diamond"]            = {tier = npc.trade.prices.currency.tier1, count = 90}
+npc.trade.prices.table["advanced_npc:marriage_ring"] = {tier = npc.trade.prices.currency.tier1, count = 100}
 
 -- Functions
 function npc.trade.prices.update(item_name, price)
@@ -50,4 +75,28 @@ end
 
 function npc.trade.prices.remove(item_name)
   npc.trade.prices.table[item_name] = nil
+end
+
+-- Gets all the item for a specified budget
+function npc.trade.prices.get_items_for_currency_count(tier, count)
+  local result = {}
+  for item_name, price in pairs(npc.trade.prices.table) do
+    -- Check price currency is of the same tier
+    if price.tier == tier and price.count <= count then
+      result[item_name] = price
+    end
+  end
+  return result
+end
+
+-- This methods will compare the given item string to the
+-- currencies set in the currencies table. Returns true if
+-- itemstring is a currency.
+function npc.trade.prices.is_item_currency(itemstring)
+  if npc.get_item_name(itemstring) == npc.trade.prices.currency.tier3
+    or npc.get_item_name(itemstring) == npc.trade.prices.currency.tier2
+    or npc.get_item_name(itemstring) == npc.trade.prices.currency.tier1 then
+    return true
+  end
+  return false
 end

@@ -99,20 +99,99 @@ function npc.trade.get_random_trade_status()
 	end
 end
 
+-- Convenience method that retrieves all the currency
+-- items that a NPC has on his/her inventory
+function npc.trade.get_currencies_in_inventory(self)
+  local result = {}
+  local tier3 = npc.inventory_contains(self, npc.trade.prices.currency.tier3)
+  local tier2 = npc.inventory_contains(self, npc.trade.prices.currency.tier2)
+  local tier1 = npc.inventory_contains(self, npc.trade.prices.currency.tier1)
+  if tier3 ~= nil then
+    table.insert(result, {name = npc.get_item_name(tier3.item_string), 
+                          count = npc.get_item_count(tier3.item_string)} )
+  end
+  if tier2 ~= nil then
+    table.insert(result, {name = npc.get_item_name(tier2.item_string), 
+                          count = npc.get_item_count(tier2.item_string)} )
+  end
+  if tier1 ~= nil then
+    table.insert(result, {name = npc.get_item_name(tier1.item_string), 
+                          count = npc.get_item_count(tier1.item_string)} )
+  end
+
+  minetest.log("Found currency in inventory: "..dump(result))
+  return result
+end
+
 -- This function will return an offer object, based
 -- on the items the NPC has.
--- Criteria: If having a near empty inventory, (< 6) NPC
--- will offer to buy with a 70% chance.
--- If NPC has a near full inventory  (> 10 items), NPC
--- will offer to sell. The prices will be selected using:
--- item_price * (+/- price_item * 0.2) so item will be
--- more or less 20% of the item price.
+-- Criteria: The NPC will offer to sell its items
+-- if it doesn't has any currency.
 function npc.trade.get_casual_trade_offer(self, offer_type)
-  return {
-            offer_type = offer_type, 
-            item = "default:wood 10", 
-            price = "default:iron_lump 20"
-         }
+  local result = {}
+  -- Check offer type
+  if offer_type == npc.trade.OFFER_BUY then
+    -- Create buy offer based on what the NPC can actually buy
+    local currencies = npc.trade.get_currencies_in_inventory(self)
+    -- Choose a random currency
+    local chosen_tier = currencies[math.random(#currencies)]
+    -- Get items for this currency
+    local buyable_items = 
+      npc.trade.prices.get_items_for_currency_count(chosen_tier.name, chosen_tier.count)
+    -- Select a random item from the buyable items
+    local item_set = {}
+    for item,price in pairs(buyable_items) do
+      table.insert(item_set, item)
+    end
+    local item = item_set[math.random(#item_set)]
+    -- Choose buying quantity. Since this is a buy offer, NPC will buy items 
+    -- at half the price. Therefore, NPC will always ask for even quantities
+    -- so that the price count is always an integer number
+    local amount_to_buy = math.random(1,5) * 2
+    local price_item_count = buyable_items[item].count * ((amount_to_buy) / 2)
+    -- Increase the amount to buy if the result of the price is a decimal number
+    while price_item_count % 1 ~= 0 do
+      amount_to_buy = amount_to_buy + 1
+      price_item_count = buyable_items[item].count * ((amount_to_buy) / 2)
+    end
+    -- Create price itemstring
+    local price_string = buyable_items[item].tier.." "
+      ..tostring( buyable_items[item].count * (amount_to_buy / 2) )
+
+    -- Build the return object
+    result = {
+      offer_type = offer_type,
+      item = item.." "..amount_to_buy,
+      price = price_string
+    }
+  else
+    -- Make sell offer, NPC will sell items to NPC at regular price
+    -- NPC will also offer items from their inventory
+    local sellable_items = {}
+    for i = 1, #self.inventory do
+      if self.inventory[i] ~= "" then
+        if npc.trade.prices.is_item_currency(self.inventory[i]) == false then
+          table.insert(sellable_items, self.inventory[i])
+        end
+      end
+    end
+    -- Choose a random item from the sellable items
+    local item = sellable_items[math.random(#sellable_items)]
+    -- Choose how many of this item will be sold to player
+    local count = math.random(npc.get_item_count(item))
+    -- Get and calculate price for this object
+    minetest.log("Item: "..dump(item)..", name: "..dump(npc.get_item_name(item)))
+    local price_object = npc.trade.prices.table[npc.get_item_name(item)]
+    local price_string = price_object.tier.." "..tostring(price_object.count * count)
+    -- Build return object
+    result = {
+     offer_type = offer_type,
+     item = npc.get_item_name(item).." "..count,
+     price = price_string
+    }
+  end
+
+  return result
 end
 
 function npc.trade.perform_trade(self, player_name, offer)

@@ -107,8 +107,6 @@ function npc.dialogue.select_random_dialogues_for_npc(sex, phase, favorite_items
 				if value.action_type == "function" then
 					result.normal[i].responses[key].dialogue_id = dialogue_id
 					result.normal[i].responses[key].response_id = key
-					minetest.log("Storing dialogue and response id: "
-						..dump(result.normal[i].responses[key]))
 				end
 			end
 
