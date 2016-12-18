@@ -1,4 +1,4 @@
-
+-- Advanced NPC mod by Zorman2000
 local path = minetest.get_modpath("advanced_npc")
 
 -- Intllib
@@ -30,5 +30,7 @@ dofile(path .. "/dialogue.lua")
 dofile(path .. "/random_data.lua")
 dofile(path .. "/trade/trade.lua")
 dofile(path .. "/trade/prices.lua")
+dofile(path .. "/actions/actions.lua")
+dofile(path .. "/actions/places.lua")
 
-print (S("[MOD] Advanced NPC loaded"))
+print (S("[Mod] Advanced NPC loaded"))

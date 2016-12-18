@@ -11,6 +11,18 @@ npc.MALE = "male"
 
 npc.INVENTORY_ITEM_MAX_STACK = 99
 
+npc.ANIMATION_SIT_START = 81
+npc.ANIMATION_SIT_END = 160
+npc.ANIMATION_LAY_START = 162
+npc.ANIMATION_LAY_END = 166
+
+npc.direction = {
+  north = 1,
+  east  = 2,
+  south = 3,
+  west  = 4
+}
+
 ---------------------------------------------------------------------------------------
 -- General functions
 ---------------------------------------------------------------------------------------
@@ -212,6 +224,32 @@ function npc.start_dialogue(self, clicker, show_married_dialogue)
 
 end
 
+---------------------------------------------------------------------------------------
+-- Action functionality
+---------------------------------------------------------------------------------------
+-- This function adds a function to the action queue.
+-- Actions should be added in strict order for tasks to work as expected.
+function npc.add_action(self, action, arguments)
+  self.freeze = true
+  minetest.log("Current Pos: "..dump(self.object:getpos()))
+  local action_entry = {action=action, args=arguments}
+  minetest.log(dump(action_entry))
+  table.insert(self.actions.queue, action_entry)
+end
+
+-- This function removes the first action in the action queue
+-- and then exexcutes it
+function npc.execute_action(self)
+  if table.getn(self.actions.queue) == 0 then
+    return false
+  end
+  minetest.log("Executing action")
+  local action_obj = self.actions.queue[1]
+  action_obj.action(action_obj.args)
+  table.remove(self.actions.queue, 1)
+  return true
+end
+
 
 ---------------------------------------------------------------------------------------
 -- Spawning functions
@@ -273,8 +311,15 @@ end
 -- NPC will have and choose random, starting values
 local function npc_spawn(self, pos)
   minetest.log("Spawning new NPC:")
+
+  -- Get Lua Entity
   local ent = self:get_luaentity()
+
+  -- Set name
   ent.nametag = "Kio"
+
+  -- Set ID
+  ent.npc_id = tostring(math.random(1000, 9999))..":"..ent.nametag
   
   -- Determine sex based on textures
   if (is_female_texture(ent.base_texture)) then
@@ -328,6 +373,44 @@ local function npc_spawn(self, pos)
   -- Initialize trading offers if NPC is casual trader
   if ent.trader_data.trader_status == npc.trade.CASUAL then
     select_casual_trade_offers(ent)
+  end
+
+  -- Action queue
+  ent.actions = {
+    -- The queue is a queue of actions to be performed on each interval
+    queue = {},
+    -- Current value of the action timer
+    action_timer = 0,
+    -- Determines the interval for each action in the action queue
+    action_interval = 1
+  }
+
+  -- This flag is checked on every step. If it is true, the rest of 
+  -- Mobs Redo API is not executed
+  ent.freeze = false
+
+  -- This map will hold all the places for the NPC
+  -- Map entries should be like: "bed" = {x=1, y=1, z=1}
+  ent.places_map = {}
+
+  -- Temporary initialization of actions for testing
+  -- npc.add_action(ent, npc.action.stand, {self = ent})
+  -- npc.add_action(ent, npc.action.stand, {self = ent})
+  -- npc.add_action(ent, npc.action.walk_step, {self = ent, dir = npc.direction.east})
+  -- npc.add_action(ent, npc.action.walk_step, {self = ent, dir = npc.direction.east})
+  -- npc.add_action(ent, npc.action.walk_step, {self = ent, dir = npc.direction.east})
+  -- npc.add_action(ent, npc.action.walk_step, {self = ent, dir = npc.direction.east})
+  -- npc.add_action(ent, npc.action.walk_step, {self = ent, dir = npc.direction.east})
+  -- npc.add_action(ent, npc.action.walk_step, {self = ent, dir = npc.direction.east})
+  -- npc.add_action(ent, npc.action.sit, {self = ent})
+  -- npc.add_action(ent, npc.action.rotate, {self = ent, dir = npc.direction.south})
+  -- npc.add_action(ent, npc.action.lay, {self = ent})
+
+  -- Temporary initialization of places
+  local bed_nodes = npc.places.find_new_nearby(ent, npc.places.nodes.BEDS, 8)
+  minetest.log("Number of bed nodes: "..dump(#bed_nodes))
+  if #bed_nodes > 0 then
+    npc.places.add_owned(ent, "bed1", npc.places.PLACE_TYPE.OWN_BED, bed_nodes[1])
   end
 
   minetest.log(dump(ent))
@@ -432,6 +515,7 @@ mobs:register_mob("advanced_npc:npc", {
 
 	end,
 	do_custom = function(self, dtime)
+
     -- Timer function for casual traders to reset their trade offers
     self.trader_data.change_offers_timer = self.trader_data.change_offers_timer + dtime
     -- Check if time has come to change offers
@@ -474,7 +558,23 @@ mobs:register_mob("advanced_npc:npc", {
           minetest.log(dump(self))
         end
       end
-    end		
+    end
+
+    -- Action queue timer
+    self.actions.action_timer = self.actions.action_timer + dtime
+    if self.actions.action_timer >= self.actions.action_interval then
+      -- Reset action timer
+      self.actions.action_timer = 0
+      -- Execute action
+      npc.execute_action(self)
+      -- Check if there are more actions to execute
+      if table.getn(self.actions.queue) == 0 then
+        -- Unfreeze NPC so the rest of Mobs API work
+        --self.freeze = false
+      end
+    end
+
+    return not self.freeze
 	end
 })
 
@@ -494,7 +594,7 @@ mobs:spawn({
 -- Item definitions
 -------------------------------------------------------------------------
 
-mobs:register_egg("advanced_npc:npc", S("Npc"), "default_brick.png", 1)
+mobs:register_egg("advanced_npc:npc", S("NPC"), "default_brick.png", 1)
 
 -- compatibility
 mobs:alias_mob("mobs:npc", "advanced_npc:npc")

@@ -1,4 +1,4 @@
--- NPC trading abilities by Zorman2000
+-- Trading code for Advanced NPC by Zorman2000
 
 npc.trade = {}
 
@@ -125,8 +125,6 @@ end
 
 -- This function will return an offer object, based
 -- on the items the NPC has.
--- Criteria: The NPC will offer to sell its items
--- if it doesn't has any currency.
 function npc.trade.get_casual_trade_offer(self, offer_type)
   local result = {}
   -- Check offer type
