@@ -36,7 +36,7 @@ npc.places.PLACE_TYPE = {
 }
 
 
-function npc.places.add(self, place_name, place_type, pos)
+function npc.places.add_public(self, place_name, place_type, pos)
 	self.places_map[place_name] = {type=place_type, pos=pos}
 end
 
@@ -77,6 +77,11 @@ function npc.places.find_new_nearby(self, type, radius)
   local end_pos = {x=current_pos.x + radius, y=current_pos.y + 1, z=current_pos.z + radius}
   -- Get nodes
   local nodes = minetest.find_nodes_in_area(start_pos, end_pos, type)
-  
+
+  return nodes
+end
+
+function npc.places.find_in_area(start_pos, end_pos, type)
+  local nodes = minetest.find_nodes_in_area(start_pos, end_pos, type)
   return nodes
 end

@@ -76,7 +76,6 @@ function npc.add_item_to_inventory(self, item_name, count)
   local existing_item = npc.inventory_contains(self, item_name)
   if existing_item ~= nil and existing_item.item_string ~= nil then
     -- NPC already has item. Get count and see
-    minetest.log("What is this? "..dump(existing_item))
     local existing_count = npc.get_item_count(existing_item.item_string)
     if (existing_count + count) < npc.INVENTORY_ITEM_MAX_STACK then
       -- Set item here
@@ -136,7 +135,7 @@ function npc.take_item_from_inventory(self, item_name, count)
   local existing_item = npc.inventory_contains(self, item_name)
   if existing_item ~= nil then
     -- Found item
-    local existing_count = get_item_count(existing_item.item_string)
+    local existing_count = npc.get_item_count(existing_item.item_string)
     local new_count = existing_count
     if existing_count - count  < 0 then
       -- Remove item first
@@ -146,7 +145,11 @@ function npc.take_item_from_inventory(self, item_name, count)
       return item_name.." "..tostring(new_count)
     else
       new_count = existing_count - count
-      self.inventory[existing_item.slot] = item_name.." "..new_count
+      if new_count == 0 then
+        self.inventory[existing_item.slot] = ""
+      else
+        self.inventory[existing_item.slot] = item_name.." "..new_count
+      end
       return item_name.." "..tostring(count)
     end
   else
@@ -160,57 +163,6 @@ function npc.take_item_from_inventory_itemstring(self, item_string)
   local item_name = npc.get_item_name(item_string)
   local item_count = npc.get_item_count(item_string)
   npc.take_item_from_inventory(self, item_name, item_count)
-end
-
--- Inventory functions for players and for nodes
--- This function is a convenience function to make it easy to put
--- and get items from another inventory (be it a player inv or 
--- a node inv)
-function npc.put_item_on_external_inventory(player, pos, inv_list, item_name, count)
-  local inv
-  if player_name ~= nil then
-    inv = minetest.get_inventory({type="player", name=player:get_player_name()})
-  else
-    inv = minetest.get_inventory({type="node", pos})
-  end
-  -- Create ItemSTack to put on external inventory
-  local item = ItemStack(item_name.." "..count)
-  -- Check if there is enough room to add the item on external invenotry
-  if inv:room_for_item(inv_list, price_stack) then
-    -- Take item from NPC's inventory
-    if npc.take_item_from_inventory_itemstring(self, item) then
-      -- NPC doesn't have item and/or specified quantity
-      return false
-    end
-    -- Add items to external inventory
-    inv:add_item(inv_list, item)
-    
-    return true
-  end
-  -- Not able to put on external inventory
-  return false
-end
-
-function npc.take_item_from_external_inventory(player, pos, item_name, count)
-  local inv
-  if player_name ~= nil then
-    inv = minetest.get_inventory({type="player", name=player:get_player_name()})
-  else
-    inv = minetest.get_inventory({type="node", pos})
-  end
-  -- Create ItemSTack to take from external inventory
-  local item = ItemStack(item_name.." "..count)
-  -- Check if there is enough of the item to take
-  if inv:contains_item(inv_list, item) then
-    -- Add item to NPC's inventory
-    npc.add_item_to_inventory_itemstring(self, item)
-    -- Add items to external inventory
-    inv:remove_item(inv_list, item)
-    
-    return true
-  end
-  -- Not able to put on external inventory
-  return false
 end
 
 -- Dialogue functions
@@ -233,7 +185,7 @@ function npc.add_action(self, action, arguments)
   self.freeze = true
   minetest.log("Current Pos: "..dump(self.object:getpos()))
   local action_entry = {action=action, args=arguments}
-  minetest.log(dump(action_entry))
+  --minetest.log(dump(action_entry))
   table.insert(self.actions.queue, action_entry)
 end
 
@@ -316,7 +268,7 @@ local function npc_spawn(self, pos)
   local ent = self:get_luaentity()
 
   -- Set name
-  ent.nametag = "Kio"
+  ent.nametag = ""
 
   -- Set ID
   ent.npc_id = tostring(math.random(1000, 9999))..":"..ent.nametag
@@ -394,6 +346,10 @@ local function npc_spawn(self, pos)
   ent.places_map = {}
 
   -- Temporary initialization of actions for testing
+  local nodes = npc.places.find_new_nearby(ent, {"default:furnace"}, 20)
+  npc.add_action(ent, npc.actions.stand, {self = ent})
+  npc.add_action(ent, npc.actions.stand, {self = ent})
+  npc.actions.walk_to_pos(ent, nodes[1])
   -- npc.add_action(ent, npc.action.stand, {self = ent})
   -- npc.add_action(ent, npc.action.stand, {self = ent})
   -- npc.add_action(ent, npc.action.walk_step, {self = ent, dir = npc.direction.east})
@@ -436,7 +392,8 @@ mobs:register_mob("advanced_npc:npc", {
 	hp_min = 10,
 	hp_max = 20,
 	armor = 100,
-	collisionbox = {-0.35,-1.0,-0.35, 0.35,0.8,0.35},
+	--collisionbox = {-0.35, -1.0, -0.5, 0.35, 0.8, 0.25},
+  collisionbox = {-0.35, -1.0, -0.15, 0.35, 0.8, 0.35},
 	visual = "mesh",
 	mesh = "character.b3d",
 	drawtype = "front",
@@ -555,7 +512,7 @@ mobs:register_mob("advanced_npc:npc", {
             relationship.points = relationship.points - 1
           end
           relationship.relationship_decrease_timer_value = 0
-          minetest.log(dump(self))
+          --minetest.log(dump(self))
         end
       end
     end

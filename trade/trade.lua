@@ -18,11 +18,11 @@ npc.trade.results = {
 -- Casual trader NPC dialogues definition
 -- Casual buyer
 npc.trade.CASUAL_TRADE_BUY_DIALOGUE = {
-  text = "I'm looking to buy some items, are you interested?",
+  text = "I'm looking to buy some items, are  you interested?",
   casual_trade_type = npc.trade.OFFER_BUY,
   responses = {
     [1] = {
-      text = "Yes, let's see what are you looking for",
+      text = "Yes, let's see what you are looking for",
       action_type = "function",
       response_id = 1,
       action = function(self, player)

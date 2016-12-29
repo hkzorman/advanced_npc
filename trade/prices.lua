@@ -27,6 +27,7 @@ npc.trade.prices.table["default:stone"]  =        {tier = npc.trade.prices.curre
 npc.trade.prices.table["farming:seed_cotton"] =   {tier = npc.trade.prices.currency.tier3, count = 3}
 npc.trade.prices.table["farming:seed_wheat"] =    {tier = npc.trade.prices.currency.tier3, count = 3}
 npc.trade.prices.table["default:clay_lump"] =     {tier = npc.trade.prices.currency.tier3, count = 3}
+npc.trade.prices.table["default:wood"]          = {tier = npc.trade.prices.currency.tier3, count = 3}
 npc.trade.prices.table["mobs:meat_raw"]  =        {tier = npc.trade.prices.currency.tier3, count = 4}
 npc.trade.prices.table["default:sapling"]       = {tier = npc.trade.prices.currency.tier3, count = 5}
 npc.trade.prices.table["mobs:meat"]  =            {tier = npc.trade.prices.currency.tier3, count = 5}
