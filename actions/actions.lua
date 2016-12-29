@@ -13,6 +13,18 @@
 
 npc.actions = {}
 
+-- Describes actions with doors or openable nodes
+npc.actions.door_action = {
+  OPEN = 1,
+  CLOSE = 2
+}
+
+-- Describe the state of doors or openable nodes
+npc.actions.door_state = {
+  OPEN = 1,
+  CLOSED = 2
+}
+
 function npc.actions.rotate(args)
   local self = args.self
   local dir = args.dir
@@ -153,6 +165,25 @@ function npc.actions.take_item_from_external_inventory(args)
   return false
 end
 
+-- This function is used to open or close doors from
+-- that use the default doors mod
+function npc.actions.use_door(args)
+  local self = args.self
+  local pos = args.pos
+  local action = args.action
+  local node = minetest.get_node(pos)
+  local state = npc.actions.door_state.CLOSED
+  local a_i1, a_i2 = string.find(node.name, "_a")
+  if a_i1 == nil then
+    state = npc.actions.door_state.OPEN
+  end
+  --minetest.log("Node: "..dump(node)..". State: "..dump(state)..", Action: "..dump(action))
+  local clicker = self.object
+  if action ~= state then
+    minetest.registered_nodes[node.name].on_rightclick(pos, node, clicker, nil, nil)
+  end
+end
+
 
 ---------------------------------------------------------------------------------------
 -- Tasks functionality
@@ -276,6 +307,8 @@ function npc.actions.get_direction(v1, v2)
   end
 end
 
+-- This function is used to determine if a node is walkable
+-- or openable, in which case is good to use when finding a path
 local function is_good_node(node)
   -- Is openable is to support doors, fence gates and other
   -- doors from other mods. Currently, default doors and gates

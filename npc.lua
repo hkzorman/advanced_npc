@@ -346,10 +346,11 @@ local function npc_spawn(self, pos)
   ent.places_map = {}
 
   -- Temporary initialization of actions for testing
-  local nodes = npc.places.find_new_nearby(ent, {"default:furnace"}, 20)
-  npc.add_action(ent, npc.actions.stand, {self = ent})
-  npc.add_action(ent, npc.actions.stand, {self = ent})
-  npc.actions.walk_to_pos(ent, nodes[1])
+  local nodes = npc.places.find_new_nearby(ent, {"doors:door_wood_a", "doors:door_wood_b"}, 2)
+  npc.add_action(ent, npc.actions.use_door, {self = ent, pos = nodes[1], action = npc.actions.door_action.OPEN})
+  --npc.add_action(ent, npc.actions.stand, {self = ent})
+  --npc.add_action(ent, npc.actions.stand, {self = ent}
+  --npc.actions.walk_to_pos(ent, nodes[1])
   -- npc.add_action(ent, npc.action.stand, {self = ent})
   -- npc.add_action(ent, npc.action.stand, {self = ent})
   -- npc.add_action(ent, npc.action.walk_step, {self = ent, dir = npc.direction.east})
