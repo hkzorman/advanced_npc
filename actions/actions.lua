@@ -75,8 +75,13 @@ end
 -- This action makes the NPC sit on the node where it is
 function npc.actions.sit(args)
   local self = args.self
+  local pos = args.pos 
   -- Stop NPC
   self.object:setvelocity({x=0, y=0, z=0})
+  -- If position give, set to that position
+  if pos ~= nil then
+    self.object:setpos(pos)
+  end
   -- Set sit animation
   self.object:set_animation({
         x = npc.ANIMATION_SIT_START,
@@ -87,8 +92,13 @@ end
 -- This action makes the NPC lay on the node where it is
 function npc.actions.lay(args)
   local self = args.self
+  local pos = args.pos
   -- Stop NPC
   self.object:setvelocity({x=0, y=0, z=0})
+  -- If position give, set to that position
+  if pos ~= nil then
+    self.object:setpos(pos)
+  end
   -- Set sit animation
   self.object:set_animation({
         x = npc.ANIMATION_LAY_START,
@@ -195,7 +205,7 @@ end
 ---------------------------------------------------------------------------------------
 -- Tasks are operations that require many actions to perform. Basic tasks, like
 -- walking from one place to another, operating a furnace, storing or taking
--- items from a chest, opening/closing doors, etc. are provided here.
+-- items from a chest, are provided here.
 
 -- This function allows a NPC to use a furnace using only items from
 -- its own inventory. Fuel is not provided. Once the furnace is finished
@@ -204,8 +214,8 @@ end
 -- to use, and the item to cook in furnace. Item is an itemstring
 function npc.actions.use_furnace(self, pos, item)
   -- Check if any item in the NPC inventory serve as fuel
-  -- For now, just use some specific items as fuel
-  local fuels = {"default:leaves", "default:tree"}
+  -- For now, just use some specific items as fuels
+  local fuels = {"default:leaves", "default:tree", ""}
   -- Check if NPC has a fuel item
   for i = 1,2 do
     local fuel_item = npc.inventory_contains(self, fuels[i]) 
@@ -243,7 +253,42 @@ function npc.actions.use_furnace(self, pos, item)
   return false
 end
 
+npc.actions.bed_action = {
+  LAY = 1,
+  GET_UP = 2
+}
 
+-- This function makes the NPC lay or stand up from a bed. The
+-- pos is the location of the bed, action can be lay or get up
+function npc.actions.use_bed(self, pos, action)
+  local param2 = minetest.get_node(pos)
+  minetest.log(dump(param2))
+  local dir = minetest.facedir_to_dir(param2.param2)
+
+  if action == npc.actions.bed_action.LAY then
+    -- Calculate position (from beds mod)
+    local bed_pos = {x = pos.x + dir.x / 2, y = pos.y + 1, z = pos.z + dir.z / 2}
+    -- Sit down on bed
+    npc.add_action(self, npc.actions.sit, {self=self})
+    -- Rotate to the correct position
+    npc.add_action(self, npc.actions.rotate, {self=self, dir=param2.param2 + 2 % 4})
+    -- Lay down 
+    npc.add_action(self, npc.actions.lay, {self=self, pos=bed_pos})
+  else
+    -- Calculate position to get up
+    local bed_pos = {x = pos.x, y = pos.y + 1, z = pos.z} 
+    -- Sit up
+    npc.add_action(self, npc.actions.sit, {self=self, pos=bed_pos})
+    -- Walk up from bed
+    npc.add_action(self, npc.actions.walk_step, {self=self, dir=param2.param2 + 2 % 4})
+    -- Stand
+    npc.add_action(self, npc.actions.stand, {self=self})
+  end
+end
+
+
+-- This function can be used to make the NPC walk from one
+-- position to another.
 function npc.actions.walk_to_pos(self, end_pos)
 
   local start_pos = self.object:getpos()
@@ -290,10 +335,21 @@ function npc.actions.walk_to_pos(self, end_pos)
   end
 end
 
+
+---------------------------------------------------------------------------------------
+-- Path-finding code
+---------------------------------------------------------------------------------------
+-- This is the limit to search for a path based on the goal node.
+-- If the path finder code goes beyond this limit in nodes away 
+-- on the x or z plane, it will stop looking for a path
+npc.actions.PATH_DIFF_LIMIT = 125
+
+-- Returns the opposite of a vector (scalar multiplication by -1)
 local function vector_opposite(v)
   return vector.multiply(v, -1)
 end
 
+-- Returns a unit direction vector based on the largest coordinate
 local function get_unit_dir_vector_based_on_diff(v)
   if math.abs(v.x) > math.abs(v.z) then
     return {x=(v.x/math.abs(v.x)) * -1, y=0, z=0}
@@ -344,8 +400,6 @@ local function is_good_node(node)
   end
 end
 
-DIFF_LIMIT = 125
-
 -- Finds paths ignoring vertical obstacles
 -- This function is recursive and attempts to move all the time on
 -- the direction that will definetely lead to the end position.
@@ -359,7 +413,8 @@ local function find_path_recursive(start_pos, end_pos, path_nodes, last_dir, las
   --minetest.log("Difference: "..dump(diff))
 
   -- End if difference is larger than max difference possible (limit)
-  if math.abs(diff.x) > DIFF_LIMIT or math.abs(diff.z) > DIFF_LIMIT then
+  if math.abs(diff.x) > npc.actions.PATH_DIFF_LIMIT 
+    or math.abs(diff.z) > npc.actions.PATH_DIFF_LIMIT then
     -- Cannot find feasable path
     return nil
   end
@@ -470,7 +525,8 @@ local function find_path_recursive(start_pos, end_pos, path_nodes, last_dir, las
       last_good_dir = dir_vector
       --minetest.log("------------ Third attempt ------------")
 
-      -- If not walkable, then try the next node
+      -- If not walkable, then try the next node by finding the original
+      -- direction vector, then choosing the opposite of that.
       if dir_vector.x ~= 0 then
         --minetest.log("Move into opposite z dir")
         dir_vector = get_unit_dir_vector_based_on_diff(start_pos, diff)
@@ -500,6 +556,7 @@ local function find_path_recursive(start_pos, end_pos, path_nodes, last_dir, las
 
 end
 
+-- Calls the recursive function to calculate the path
 function npc.actions.find_path(start_pos, end_pos)
   return find_path_recursive(start_pos, end_pos, {}, nil, nil)
 end

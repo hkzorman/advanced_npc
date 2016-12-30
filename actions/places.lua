@@ -51,7 +51,7 @@ function npc.places.add_owned(self, place_name, place_type, pos)
     -- Set owned by NPC
     meta:set_string("npc_owner", self.npc_id)
     -- Add place to list
-    npc.places.add(self, place_name, place_type, pos)
+    npc.places.add_public(self, place_name, place_type, pos)
     return true
   end
   return false

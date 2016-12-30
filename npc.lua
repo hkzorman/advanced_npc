@@ -17,10 +17,10 @@ npc.ANIMATION_LAY_START = 162
 npc.ANIMATION_LAY_END = 166
 
 npc.direction = {
-  north = 1,
-  east  = 2,
-  south = 3,
-  west  = 4
+  north = 0,
+  east  = 1,
+  south = 2,
+  west  = 3
 }
 
 ---------------------------------------------------------------------------------------
@@ -346,11 +346,18 @@ local function npc_spawn(self, pos)
   ent.places_map = {}
 
   -- Temporary initialization of actions for testing
-  local nodes = npc.places.find_new_nearby(ent, {"default:furnace"}, 20)
+  local nodes = npc.places.find_new_nearby(ent, {"beds:bed_bottom"}, 20)
   --npc.add_action(ent, npc.actions.use_door, {self = ent, pos = nodes[1], action = npc.actions.door_action.OPEN})
   --npc.add_action(ent, npc.actions.stand, {self = ent})
   npc.add_action(ent, npc.actions.stand, {self = ent})
   npc.actions.walk_to_pos(ent, nodes[1])
+  npc.actions.use_bed(ent, nodes[1], npc.actions.bed_action.LAY)
+  npc.add_action(ent, npc.actions.lay, {self = ent})
+  npc.add_action(ent, npc.actions.lay, {self = ent})
+  npc.add_action(ent, npc.actions.lay, {self = ent})
+  npc.add_action(ent, npc.actions.lay, {self = ent})
+  npc.actions.use_bed(ent, nodes[1], npc.actions.bed_action.GET_UP)
+
   -- npc.add_action(ent, npc.action.stand, {self = ent})
   -- npc.add_action(ent, npc.action.stand, {self = ent})
   -- npc.add_action(ent, npc.action.walk_step, {self = ent, dir = npc.direction.east})
@@ -364,11 +371,11 @@ local function npc_spawn(self, pos)
   -- npc.add_action(ent, npc.action.lay, {self = ent})
 
   -- Temporary initialization of places
-  local bed_nodes = npc.places.find_new_nearby(ent, npc.places.nodes.BEDS, 8)
-  minetest.log("Number of bed nodes: "..dump(#bed_nodes))
-  if #bed_nodes > 0 then
-    npc.places.add_owned(ent, "bed1", npc.places.PLACE_TYPE.OWN_BED, bed_nodes[1])
-  end
+  -- local bed_nodes = npc.places.find_new_nearby(ent, npc.places.nodes.BEDS, 8)
+  -- minetest.log("Number of bed nodes: "..dump(#bed_nodes))
+  -- if #bed_nodes > 0 then
+  --   npc.places.add_owned(ent, "bed1", npc.places.PLACE_TYPE.OWN_BED, bed_nodes[1])
+  -- end
 
   minetest.log(dump(ent))
   
