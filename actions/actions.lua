@@ -165,6 +165,15 @@ function npc.actions.take_item_from_external_inventory(args)
   return false
 end
 
+function npc.actions.get_openable_node_state(node)
+  local state = npc.actions.door_state.CLOSED
+  local a_i1, a_i2 = string.find(node.name, "_a")
+  if a_i1 == nil then
+    state = npc.actions.door_state.OPEN
+  end
+  return state
+end
+
 -- This function is used to open or close doors from
 -- that use the default doors mod
 function npc.actions.use_door(args)
@@ -172,12 +181,8 @@ function npc.actions.use_door(args)
   local pos = args.pos
   local action = args.action
   local node = minetest.get_node(pos)
-  local state = npc.actions.door_state.CLOSED
-  local a_i1, a_i2 = string.find(node.name, "_a")
-  if a_i1 == nil then
-    state = npc.actions.door_state.OPEN
-  end
-  --minetest.log("Node: "..dump(node)..". State: "..dump(state)..", Action: "..dump(action))
+  local state = npc.actions.get_openable_node_state(node)
+
   local clicker = self.object
   if action ~= state then
     minetest.registered_nodes[node.name].on_rightclick(pos, node, clicker, nil, nil)
@@ -268,6 +273,17 @@ function npc.actions.walk_to_pos(self, end_pos)
       end
       -- Get direction to move from path[i] to path[i+1]
       local dir = npc.actions.get_direction(path[i].pos, path[i+1].pos)
+      -- Check if next node is a door, if it is, open it, then walk
+      if path[i+1].type == "O" then
+        -- Check if door is already open
+        local node = minetest.get_node(path[i+1].pos)
+        if npc.actions.get_openable_node_state(node) == npc.actions.door_state.CLOSED then
+          -- Stop to open door, this avoids misplaced movements later on
+          npc.add_action(self, npc.actions.stand, {self = self})
+          -- Open door
+          npc.add_action(self, npc.actions.use_door, {self=self, pos=path[i+1].pos, action=npc.actions.door_action.OPEN})
+        end
+      end
       -- Add walk action to action queue
       npc.add_action(self, npc.actions.walk_step, {self = self, dir = dir})
     end
