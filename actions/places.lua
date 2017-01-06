@@ -17,7 +17,7 @@ npc.places.nodes = {
 	 "beds:bed_bottom",
 	 "beds:fancy_bed_bottom"
   }, 
-  CHAIRS = {
+  SITTABLE = {
 	 "cottages:bench"
   },
   CHESTS = {

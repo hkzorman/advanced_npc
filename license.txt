@@ -1,3 +1,7 @@
+Copyright (C) 2016-2017 Hector Franqui (zorman2000)
+
+Full GNU GPL v3:
+
                     GNU GENERAL PUBLIC LICENSE
                        Version 3, 29 June 2007
 

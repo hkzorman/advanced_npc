@@ -32,5 +32,6 @@ dofile(path .. "/trade/trade.lua")
 dofile(path .. "/trade/prices.lua")
 dofile(path .. "/actions/actions.lua")
 dofile(path .. "/actions/places.lua")
+dofile(path .. "/actions/pathfinder.lua")
 
 print (S("[Mod] Advanced NPC loaded"))

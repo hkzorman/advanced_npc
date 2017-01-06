@@ -14,15 +14,25 @@
 npc.actions = {}
 
 -- Describes actions with doors or openable nodes
-npc.actions.door_action = {
-  OPEN = 1,
-  CLOSE = 2
-}
-
--- Describe the state of doors or openable nodes
-npc.actions.door_state = {
-  OPEN = 1,
-  CLOSED = 2
+npc.actions.const = {
+  doors = {
+    action = {
+      OPEN = 1,
+      CLOSE = 2
+    },
+    state = {
+      OPEN = 1,
+      CLOSED = 2
+    }
+  },
+  beds = {
+    LAY = 1,
+    GET_UP = 2
+  },
+  sittable = {
+    SIT = 1,
+    GET_UP = 2
+  }
 }
 
 function npc.actions.rotate(args)
@@ -32,12 +42,20 @@ function npc.actions.rotate(args)
   self.rotate = 0
   if dir == npc.direction.north then
     yaw = 0
+  elseif dir == npc.direction.north_east then
+    yaw = (7 * math.pi) / 4
   elseif dir == npc.direction.east then
     yaw = (3 * math.pi) / 2
+  elseif dir == npc.direction.south_east then
+    yaw = (5 * math.pi) / 4
   elseif dir == npc.direction.south then
     yaw = math.pi
+  elseif dir == npc.direction.south_west then
+    yaw = (3 * math.pi) / 4
   elseif dir == npc.direction.west then
     yaw = math.pi / 2
+  elseif dir == npc.direction.north_west then
+    yaw = math.pi / 4
   end
   self.object:setyaw(yaw)
 end
@@ -175,12 +193,35 @@ function npc.actions.take_item_from_external_inventory(args)
   return false
 end
 
-function npc.actions.get_openable_node_state(node)
-  local state = npc.actions.door_state.CLOSED
-  local a_i1, a_i2 = string.find(node.name, "_a")
-  if a_i1 == nil then
-    state = npc.actions.door_state.OPEN
+function npc.actions.check_external_inventory_contains_item(args)
+  local self = args.self
+  local player = args.player
+  local pos = args.pos
+  local inv_list = args.inv_list
+  local item_name = args.item_name
+  local count = args.count
+  local inv
+  if player ~= nil then
+    inv = minetest.get_inventory({type="player", name=player})
+  else
+    inv = minetest.get_inventory({type="node", pos})
   end
+
+  -- Create ItemStack for checking the external inventory
+  local item = ItemStack(item_name.." "..count)
+  -- Check if inventory contains item
+  return inv:contains_item(inv_list, item)
+end
+
+function npc.actions.get_openable_node_state(node)
+  minetest.log("Node name: "..dump(node.name))
+  local state = npc.actions.const.doors.state.CLOSED
+  local a_i1, a_i2 = string.find(node.name, "_a")
+  local open_i1, open_i2 = string.find(node.name, "_close")
+  if a_i1 == nil and open_i1 == nil then
+    state = npc.actions.const.doors.state.OPEN
+  end
+  minetest.log("Door state: "..dump(state))
   return state
 end
 
@@ -231,7 +272,6 @@ function npc.actions.use_furnace(self, pos, item)
          item_name = npc.get_item_name(fuel_item.item_string),
          count = npc.get_item_count(fuel_item.item_string)
       }
-      minetest.log("Adding fuel action")
       npc.add_action(self, npc.actions.put_item_on_external_inventory, args)
       -- Put the item that we want to cook on the furnace
       args = {
@@ -243,8 +283,13 @@ function npc.actions.use_furnace(self, pos, item)
          count = npc.get_item_count(src_item.item_string),
          is_furnace = true
       }
-      minetest.log("Adding src action")
       npc.add_action(self, npc.actions.put_item_on_external_inventory, args)
+
+      -- TODO: Need to add a way to calculate how many seconds will pass
+      -- until the furnace is done, or at least the items that we expect
+      -- to get (assume all items to be cooked are the ones ewe expect back)
+      -- Then, add that many stand actions, then an action to take the items.
+
 
       return true
     end
@@ -253,11 +298,6 @@ function npc.actions.use_furnace(self, pos, item)
   return false
 end
 
-npc.actions.bed_action = {
-  LAY = 1,
-  GET_UP = 2
-}
-
 -- This function makes the NPC lay or stand up from a bed. The
 -- pos is the location of the bed, action can be lay or get up
 function npc.actions.use_bed(self, pos, action)
@@ -265,7 +305,7 @@ function npc.actions.use_bed(self, pos, action)
   minetest.log(dump(param2))
   local dir = minetest.facedir_to_dir(param2.param2)
 
-  if action == npc.actions.bed_action.LAY then
+  if action == npc.actions.const.beds.LAY then
     -- Calculate position (from beds mod)
     local bed_pos = {x = pos.x + dir.x / 2, y = pos.y + 1, z = pos.z + dir.z / 2}
     -- Sit down on bed
@@ -286,77 +326,44 @@ function npc.actions.use_bed(self, pos, action)
   end
 end
 
+-- This function makes the NPC lay or stand up from a bed. The
+-- pos is the location of the bed, action can be lay or get up
+function npc.actions.use_sittable(self, pos, action)
+  local node = minetest.get_node(pos)
 
--- This function can be used to make the NPC walk from one
--- position to another.
-function npc.actions.walk_to_pos(self, end_pos)
-
-  local start_pos = self.object:getpos()
-
-  -- Find path
-  local path = npc.actions.find_path({x=start_pos.x, y=start_pos.y-1, z=start_pos.z}, end_pos)
-
-  if path ~= nil then
-    minetest.log("Found path to node: "..dump(end_pos))
-
-    -- Add a first step
-    local dir = npc.actions.get_direction(start_pos, path[1].pos)
-    npc.add_action(self, npc.actions.walk_step, {self = self, dir = dir})
-
-    -- Add subsequent steps
-    for i = 1, #path do
-      --minetest.log("Path: (i) "..dump(path[i])..": Path i+1 "..dump(path[i+1]))
-      -- Do not add an extra step
-      if i == #path then
-        -- Add direction to last node
-        local dir = npc.actions.get_direction(path[i].pos, end_pos)
-        -- Add stand animation at end
-        npc.add_action(self, npc.actions.stand, {self = self})
-        -- Rotate to face the end node
-        npc.actions.rotate({self = self, dir = dir})
-        break
-      end
-      -- Get direction to move from path[i] to path[i+1]
-      local dir = npc.actions.get_direction(path[i].pos, path[i+1].pos)
-      -- Check if next node is a door, if it is, open it, then walk
-      if path[i+1].type == "O" then
-        -- Check if door is already open
-        local node = minetest.get_node(path[i+1].pos)
-        if npc.actions.get_openable_node_state(node) == npc.actions.door_state.CLOSED then
-          -- Stop to open door, this avoids misplaced movements later on
-          npc.add_action(self, npc.actions.stand, {self = self})
-          -- Open door
-          npc.add_action(self, npc.actions.use_door, {self=self, pos=path[i+1].pos, action=npc.actions.door_action.OPEN})
-        end
-      end
-      -- Add walk action to action queue
-      npc.add_action(self, npc.actions.walk_step, {self = self, dir = dir})
+  if action == npc.actions.const.sittable.SIT then
+    -- Calculate position depending on bench
+    -- For cottages bench (code taken from Sokomine's cottages mod):
+    local p2 = {x=pos.x, y=pos.y, z=pos.z};
+    if not( node ) or node.param2 == 0 then
+      p2.z = p2.z+0.3;
+    elseif node.param2 == 1 then
+      p2.x = p2.x+0.3;
+    elseif node.param2 == 2 then
+      p2.z = p2.z-0.3;
+    elseif node.param2 == 3 then
+      p2.x = p2.x-0.3;
     end
-  end
-end
-
-
----------------------------------------------------------------------------------------
--- Path-finding code
----------------------------------------------------------------------------------------
--- This is the limit to search for a path based on the goal node.
--- If the path finder code goes beyond this limit in nodes away 
--- on the x or z plane, it will stop looking for a path
-npc.actions.PATH_DIFF_LIMIT = 125
-
--- Returns the opposite of a vector (scalar multiplication by -1)
-local function vector_opposite(v)
-  return vector.multiply(v, -1)
-end
-
--- Returns a unit direction vector based on the largest coordinate
-local function get_unit_dir_vector_based_on_diff(v)
-  if math.abs(v.x) > math.abs(v.z) then
-    return {x=(v.x/math.abs(v.x)) * -1, y=0, z=0}
-  elseif math.abs(v.z) > math.abs(v.x) then
-    return {x=0, y=0, z=(v.z/math.abs(v.z)) * -1}
-  elseif math.abs(v.x) == math.abs(v.z) then
-    return {x=(v.x/math.abs(v.x)) * -1, y=0, z=0}
+    -- For stairs (based on the above code):
+    local p2 = {x=pos.x, y=pos.y, z=pos.z};
+    if not( node ) or node.param2 == 0 then
+      p2.z = p2.z-0.2;
+    elseif node.param2 == 1 then
+      p2.x = p2.x-0.2;
+    elseif node.param2 == 2 then
+      p2.z = p2.z+0.2;
+    elseif node.param2 == 3 then
+      p2.x = p2.x+0.2;
+    end
+    -- Sit down on bench/chair/stairs
+    npc.add_action(self, npc.actions.sit, {self=self, pos=p2})
+    -- Rotate to the correct position
+    npc.add_action(self, npc.actions.rotate, {self=self, dir=node.param2 + 2 % 4})
+  else
+    -- Walk up from bed
+    npc.add_action(self, npc.actions.walk_step, {self=self, dir=param2.param2 + 2 % 4})
+    -- Stand
+    npc.add_action(self, npc.actions.stand, {self=self})
   end
 end
 
@@ -379,184 +386,344 @@ function npc.actions.get_direction(v1, v2)
   end
 end
 
--- This function is used to determine if a node is walkable
--- or openable, in which case is good to use when finding a path
-local function is_good_node(node)
-  -- Is openable is to support doors, fence gates and other
-  -- doors from other mods. Currently, default doors and gates
-  -- will be supported. Cottages doors should also be supported.
-  --minetest.log("Node name: "..dump(node.name))
-  local is_openable = false
-  local start_i,end_i = string.find(node.name, "doors:")
-  is_openable = start_i ~= nil
-  --minetest.log("Is node openable: "..dump(is_openable))
-  --minetest.log("Is node walkable: "..dump(not minetest.registered_nodes[node.name].walkable))
-  if not minetest.registered_nodes[node.name].walkable then
-    return "W"
-  elseif is_openable then
-    return "O"
+-- This function can be used to make the NPC walk from one
+-- position to another.
+function npc.actions.walk_to_pos(self, end_pos)
+
+  local start_pos = self.object:getpos()
+
+  -- Find path
+  local path = pathfinder.find_path(start_pos, end_pos, 20)
+
+  if path ~= nil then
+    minetest.log("Found path to node: "..dump(end_pos))
+
+    -- Add a first step
+    --local dir = npc.actions.get_direction(start_pos, path[1].pos)
+    --minetest.log("Start_pos: "..dump(start_pos)..", First path step: "..dump(path[1].pos))
+    --minetest.log("Direction: "..dump(dir))
+    --npc.add_action(self, npc.actions.walk_step, {self = self, dir = dir})
+
+    -- Add subsequent steps
+    local door_opened = false
+
+    for i = 1, #path do
+      --minetest.log("Path: (i) "..dump(path[i])..": Path i+1 "..dump(path[i+1]))
+      -- Do not add an extra step
+      if (i+1) == #path then
+        -- Add direction to last node
+        local dir = npc.actions.get_direction(path[i].pos, end_pos)
+        -- Add stand animation at end
+        npc.add_action(self, npc.actions.stand, {self = self})
+        -- Rotate to face the end node
+        npc.actions.rotate({self = self, dir = dir})
+        break
+      end
+      -- Get direction to move from path[i] to path[i+1]
+      local dir = npc.actions.get_direction(path[i].pos, path[i+1].pos)
+      -- Check if next node is a door, if it is, open it, then walk
+      if path[i+1].type == pathfinder.node_types.openable then
+        -- Check if door is already open
+        local node = minetest.get_node(path[i+1].pos)
+        if npc.actions.get_openable_node_state(node) == npc.actions.const.doors.state.CLOSED then
+          minetest.log("Opening action to open door")
+          -- Stop to open door, this avoids misplaced movements later on
+          npc.add_action(self, npc.actions.stand, {self = self})
+          -- Open door
+          npc.add_action(self, npc.actions.use_door, {self=self, pos=path[i+1].pos, action=npc.actions.const.doors.action.OPEN})
+
+          door_opened = true
+        end
+      end
+      -- Add walk action to action queue
+      npc.add_action(self, npc.actions.walk_step, {self = self, dir = dir})
+
+      if door_opened then
+          -- Stop to close door, this avoids misplaced movements later on
+          npc.add_action(self, npc.actions.stand, {self = self})
+          -- Close door
+          npc.add_action(self, npc.actions.use_door, {self=self, pos=path[i+1].pos, action=npc.actions.const.doors.action.CLOSE})
+
+          door_opened = false
+      end
+
+    end
   else
-    return "N"
+    minetest.log("Unable to find path.")
   end
 end
 
--- Finds paths ignoring vertical obstacles
--- This function is recursive and attempts to move all the time on
--- the direction that will definetely lead to the end position.
-local function find_path_recursive(start_pos, end_pos, path_nodes, last_dir, last_good_dir)
-  --minetest.log("Start pos: "..dump(start_pos))
 
-  -- Find difference. The purpose of this is to weigh movement, attempting
-  -- the largest difference first, or both if equal.
-  local diff = vector.subtract(start_pos, end_pos)
+-- ATTENTION:
+-- Old, deprecated, non-functional code below:
+---------------------------------------------------------------------------------------
+-- Path-finding code
+---------------------------------------------------------------------------------------
+-- This is the limit to search for a path based on the goal node.
+-- If the path finder code goes beyond this limit in nodes away 
+-- on the x or z plane, it will stop looking for a path
+-- npc.actions.PATH_DIFF_LIMIT = 125
 
-  --minetest.log("Difference: "..dump(diff))
+-- -- Returns the opposite of a vector (scalar multiplication by -1)
+-- local function vector_opposite(v)
+--   return vector.multiply(v, -1)
+-- end
 
-  -- End if difference is larger than max difference possible (limit)
-  if math.abs(diff.x) > npc.actions.PATH_DIFF_LIMIT 
-    or math.abs(diff.z) > npc.actions.PATH_DIFF_LIMIT then
-    -- Cannot find feasable path
-    return nil
-  end
-  -- Determine direction to move
-  local dir_vector = get_unit_dir_vector_based_on_diff(diff)
+-- -- Returns a unit direction vector based on the largest coordinate
+-- local function get_unit_dir_vector_based_on_diff(v)
+--   if math.abs(v.x) > math.abs(v.z) then
+--     return {x=(v.x/math.abs(v.x)) * -1, y=0, z=0}
+--   elseif math.abs(v.z) > math.abs(v.x) then
+--     return {x=0, y=0, z=(v.z/math.abs(v.z)) * -1}
+--   elseif math.abs(v.x) == math.abs(v.z) then
+--     return {x=(v.x/math.abs(v.x)) * -1, y=0, z=(v.z/math.abs(v.z)) * -1}
+--   end
+-- end
 
-  --minetest.log("Direction vector: "..dump(dir_vector))
+-- -- This function is used to determine if a node is walkable
+-- -- or openable, in which case is good to use when finding a path
+-- local function is_good_node(node)
+--   -- Is openable is to support doors, fence gates and other
+--   -- doors from other mods. Currently, default doors and gates
+--   -- will be supported. Cottages doors should also be supported.
+--   --minetest.log("Node name: "..dump(node.name))
+--   local is_openable = false
+--   local start_i,end_i = string.find(node.name, "doors:")
+--   is_openable = start_i ~= nil
+--   --minetest.log("Is node openable: "..dump(is_openable))
+--   --minetest.log("Is node walkable: "..dump(not minetest.registered_nodes[node.name].walkable))
+--   if not minetest.registered_nodes[node.name].walkable then
+--     return "W"
+--   elseif is_openable then
+--     return "O"
+--   else
+--     return "N"
+--   end
+-- end
 
-  if last_good_dir ~= nil then
-    dir_vector = last_good_dir
-  end
+-- -- Finds paths ignoring vertical obstacles
+-- -- This function is recursive and attempts to move all the time on
+-- -- the direction that will definetely lead to the end position.
+-- local function find_path_recursive(start_pos, end_pos, path_nodes, last_dir, last_good_dir, last_good_try)
+--   minetest.log("Start pos: "..dump(start_pos))
 
-  -- Get next position based on direction
-  local next_pos = vector.add(start_pos, dir_vector)
+--   -- Find difference. The purpose of this is to weigh movement, attempting
+--   -- the largest difference first, or both if equal.
+--   local diff = vector.subtract(start_pos, end_pos)
 
-  --minetest.log("Next pos: "..dump(next_pos))
+--   minetest.log("Difference: "..dump(diff))
 
-  -- Check if next_pos is actually within one block from the
-  -- expected position. If so, finish
-  local diff_to_end = vector.subtract(next_pos, end_pos)
-  if math.abs(diff_to_end.x) < 1 and math.abs(diff_to_end.y) < 1 and math.abs(diff_to_end.z) < 1 then
-    --minetest.log("Diff to end: "..dump(diff_to_end))
-    table.insert(path_nodes, {pos=next_pos, type="E"})
-    minetest.log("Found path to end.")
-    return path_nodes
-  end
-  -- Check if movement is possible on the calculated direction
-  local next_node = minetest.get_node(next_pos)
-  -- If direction vector is opposite to the last dir, then do not attempt to walk into it
-  --minetest.log("Next node is walkable: "..dump(not minetest.registered_nodes[next_node.name].walkable))
-  local attempted_to_go_opposite = false
-  if last_dir ~= nil and vector.equals(dir_vector, vector_opposite(last_dir)) then
-    attempted_to_go_opposite = true
-    --minetest.log("Last dir: "..dump(last_dir))
-    --minetest.log("Calculated dir vector is the opposite of last dir: "..dump(vector.equals(dir_vector, vector_opposite(last_dir))))
-  end
+--   -- End if difference is larger than max difference possible (limit)
+--   if math.abs(diff.x) > npc.actions.PATH_DIFF_LIMIT 
+--     or math.abs(diff.z) > npc.actions.PATH_DIFF_LIMIT then
+--     minetest.log("Can't find feasable path.")
+--     -- Cannot find feasable path
+--     return nil
+--   end
+--   -- Determine direction to move
+--   local dir_vector = get_unit_dir_vector_based_on_diff(diff)
 
-  local node_type = is_good_node(next_node)
-  if node_type ~= "N" and (not attempted_to_go_opposite) then
-    table.insert(path_nodes, {pos=next_pos, type=node_type})
-    return find_path_recursive(next_pos, end_pos, path_nodes, nil, nil)
-  else
-    --minetest.log("------------ Second attempt ------------")
+--   minetest.log("Direction vector: "..dump(dir_vector))
+
+--   if last_dir ~= nil then
+--     if last_good_try == 4 
+--       or (dir_vector.x ~= 0 and dir_vector.z ~=0)
+--       -- Attention: Hacks below! The magic number 3 could be just extremely wrong.
+--       -- This is a terrible hack based on experimentations :(
+--       or (dir_vector.x ~= 0 and last_dir.x == 0 and math.abs(diff.x) > math.abs(diff.z) and math.abs(diff.z) < 3)
+--       or (dir_vector.z ~= 0 and last_dir.z == 0 and math.abs(diff.z) > math.abs(diff.x) and math.abs(diff.x) < 3) then
+--       if last_dir.x ~= 0 and diff.x ~= 0 
+--         or last_dir.z ~= 0 and diff.z ~= 0 then
+--         minetest.log("Using last dir as direction vector: "..dump(last_dir))
+--         dir_vector = last_dir
+--       end
+--     end
+--   end
+
+--   if last_good_dir ~= nil then
+--     minetest.log("Using last good dir as direction vector: "..dump(last_good_dir))
+--     dir_vector = last_good_dir
+--   end
+
+--   -- Get next position based on direction
+--   local next_pos = vector.add(start_pos, dir_vector)
+
+--   minetest.log("Next pos: "..dump(next_pos))
+
+--   -- Check if next_pos is actually within one block from the
+--   -- expected position. If so, finish
+--   local diff_to_end = vector.subtract(next_pos, end_pos)
+--   if math.abs(diff_to_end.x) < 1 and math.abs(diff_to_end.y) < 1 and math.abs(diff_to_end.z) < 1 then
+--     minetest.log("Diff to end: "..dump(diff_to_end))
+--     table.insert(path_nodes, {pos=next_pos, type="E"})
+--     minetest.log("Found path to end.")
+--     return path_nodes
+--   end
+--   -- Check if movement is possible on the calculated direction
+--   local next_node = minetest.get_node(next_pos)
+--   -- If direction vector is opposite to the last dir, then do not attempt to walk into it
+--   minetest.log("Next node is walkable: "..dump(not minetest.registered_nodes[next_node.name].walkable))
+--   local attempted_to_go_opposite = false
+--   if last_dir ~= nil and vector.equals(dir_vector, vector_opposite(last_dir)) then
+--     attempted_to_go_opposite = true
+--     minetest.log("Last dir: "..dump(last_dir))
+--     minetest.log("Calculated dir vector is the opposite of last dir: "..dump(vector.equals(dir_vector, vector_opposite(last_dir))))
+--   end
+
+--   local node_type = is_good_node(next_node)
+--   if node_type ~= "N" and (not attempted_to_go_opposite) then
+--     table.insert(path_nodes, {pos=next_pos, type=node_type})
+--     return find_path_recursive(next_pos, end_pos, path_nodes, dir_vector, nil, 1)
+--   else
+--     minetest.log("------------ Second attempt ------------")
     
-    -- If not walkable, attempt turn into the other coordinate
-    -- Determine this coordinate based on what was the last calculated direction
-    -- that didn't needed correction (last good dir). If this doesn't exists (e.g.
-    -- there has been no correction for a while) then select the direction by
-    -- trying to shorten the distance between NPC and the end node.
+--     -- If not walkable, attempt turn into the other coordinate
+--     -- Determine this coordinate based on what was the last calculated direction
+--     -- that didn't needed correction (last good dir). If this doesn't exists (e.g.
+--     -- there has been no correction for a while) then select the direction by
+--     -- trying to shorten the distance between NPC and the end node.
 
-    --minetest.log("Last known good dir: "..dump(last_good_dir))
-    local step = 0
-    if last_good_dir == nil then
-      -- Store the current direction vector as the last non-corrected
-      -- calculated direction
-      last_good_dir = dir_vector
 
-      -- Determine which direction to move 
-      if dir_vector.x == 0 then
-        --minetest.log("Choosing x direction")
-        step = diff.x/math.abs(diff.x) * -1
-        if diff.x == 0 then
-          if last_dir ~= nil then
-            step = last_dir.x
-          else
-            -- Set a default step to avoid locks
-            step = 1
-          end
-        end
-        dir_vector = {x = step, y = 0, z = 0}
-      elseif dir_vector.z == 0 then
-        step = diff.z/math.abs(diff.z) * -1
-        if diff.z == 0 then
-          if last_dir ~= nil then
-            step = last_dir.z
-          else
-            -- Set a default step to avoid locks
-            step = 1
-          end
-        end
-        dir_vector = {x = 0, y = 0, z = step}
-      end
-      --minetest.log("Re-calculated dir vector: "..dump(dir_vector))
-      next_pos = vector.add(start_pos, dir_vector)
-    else
-      dir_vector = last_good_dir
-      if dir_vector.x == 0 then
-        --minetest.log("Moving into x direction")
-        step = last_dir.x
-      elseif dir_vector.z == 0 then
-        --minetest.log("Moving into z direction")
-        step = last_dir.z
-      end
-      dir_vector = last_dir
-      next_pos = vector.add(start_pos, dir_vector)
-    end
 
-    -- Check if new node is walkable
-    next_node = minetest.get_node(next_pos)
+--     minetest.log("Last known good dir: "..dump(last_good_dir))
+--     local step = 0
+--     if last_good_dir == nil then
+--       -- Store the current direction vector as the last non-corrected
+--       -- calculated direction
+--       last_good_dir = dir_vector
 
-    --minetest.log("Next node is walkable: "..dump(not minetest.registered_nodes[next_node.name].walkable))
+--       -- Determine which direction to move 
+--       if dir_vector.x == 0 then
+--         minetest.log("Choosing x direction")
+--         step = diff.x/math.abs(diff.x) * -1
+--         if diff.x == 0 then
+--           if last_dir ~= nil and last_dir.x ~= 0 then--and last_good_try == 2 then
+--             step = last_dir.x
+--           else
+--             -- Set a default step to avoid locks
+--             step = 1
+--           end
+--         end
+--         dir_vector = {x = step, y = 0, z = 0}
+--       elseif dir_vector.z == 0 then
+--         step = diff.z/math.abs(diff.z) * -1
+--         if diff.z == 0 then
+--           if last_dir ~= nil and last_dir.z ~= 0 then -- and last_good_try == 2 then
+--             step = last_dir.z
+--           else
+--             -- Set a default step to avoid locks
+--             step = 1
+--           end
+--         end
+--         dir_vector = {x = 0, y = 0, z = step}
+--       end
+--       minetest.log("Re-calculated dir vector: "..dump(dir_vector))
+--       next_pos = vector.add(start_pos, dir_vector)
+--     else
+--       dir_vector = last_good_dir
+--       if dir_vector.x == 0 then
+--         minetest.log("Moving into x direction")
+--         step = last_dir.x
+--       elseif dir_vector.z == 0 then
+--         minetest.log("Moving into z direction")
+--         step = last_dir.z
+--       end
+--       dir_vector = last_dir
+--       next_pos = vector.add(start_pos, dir_vector)
+--     end
 
-    local node_type = is_good_node(next_node)
-    if node_type ~= "N" then
-      table.insert(path_nodes, {pos=next_pos, type=node_type})
-      return find_path_recursive(next_pos, end_pos, path_nodes, dir_vector, last_good_dir)
-    else
-      last_good_dir = dir_vector
-      --minetest.log("------------ Third attempt ------------")
+--     -- Check if new node is walkable
+--     next_node = minetest.get_node(next_pos)
 
-      -- If not walkable, then try the next node by finding the original
-      -- direction vector, then choosing the opposite of that.
-      if dir_vector.x ~= 0 then
-        --minetest.log("Move into opposite z dir")
-        dir_vector = get_unit_dir_vector_based_on_diff(start_pos, diff)
-        vector.multiply(dir_vector, -1)
-      elseif dir_vector.z ~= 0 then
-        --minetest.log("Move into opposite x dir")
-        dir_vector = get_unit_dir_vector_based_on_diff(start_pos, diff)
-        vector.multiply(dir_vector, -1)
-      end
-      --minetest.log("New direction: "..dump(dir_vector))
+--     minetest.log("Next node is walkable: "..dump(not minetest.registered_nodes[next_node.name].walkable))
 
-      next_pos = vector.add(start_pos, dir_vector)
-      --minetest.log("New next_pos: "..dump(next_pos))
-      next_node = minetest.get_node(next_pos)
-      --minetest.log("Next node is walkable: "..dump(not minetest.registered_nodes[next_node.name].walkable))
-      local node_type = is_good_node(next_node)
-      if node_type ~= "N" then
-        table.insert(path_nodes, {pos=next_pos, type=node_type})
-        return find_path_recursive(next_pos, end_pos, path_nodes, dir_vector, last_good_dir)
-      else
-        -- Try to return back, opposite of last dir. For now return nil as this code 
-        -- is not good enough to work correctly.
-        return nil
-      end
-    end
-  end
+--     local node_type = is_good_node(next_node)
+--     if node_type ~= "N" then
+--       table.insert(path_nodes, {pos=next_pos, type=node_type})
+--       return find_path_recursive(next_pos, end_pos, path_nodes, dir_vector, last_good_dir, 2)
+--     else
 
-end
+--       minetest.log("Last known good dir: "..dump(last_good_dir))
+--       -- Only pick the second attempt's dir if it was actually good (meaning,
+--       -- it could step on that dir)
+--       if last_good_try == 2 then
+--         last_good_dir = dir_vector
+--       end
+--       minetest.log("------------ Third attempt ------------")
 
--- Calls the recursive function to calculate the path
-function npc.actions.find_path(start_pos, end_pos)
-  return find_path_recursive(start_pos, end_pos, {}, nil, nil)
-end
+--       -- If not walkable, then try the next node by finding the original
+--       -- direction vector, then choosing the opposite of that.
+
+--       minetest.log("Last dir: "..dump(last_dir))
+--       minetest.log("Last good try: "..dump(last_good_try))
+--       minetest.log("Last attempted direction: "..dump(dir_vector))
+
+--       if vector.equals(last_good_dir, last_dir) then
+--         -- Go opposite the direction of second attempt
+--         minetest.log("Moving opposite of last attempted")
+--         dir_vector = vector.multiply(dir_vector, -1)
+--       else
+--         minetest.log("Moving opposite of last good dir")
+--         dir_vector = vector.multiply(last_good_dir, -1)
+--         last_good_dir = last_dir
+--       end
+
+  
+--       -- if last_good_try > 1 or vector.equals(last_good_dir, last_dir) then
+--       --   if dir_vector.x ~= 0 then
+--       --     minetest.log("Move into opposite z dir")
+--       --     dir_vector = get_unit_dir_vector_based_on_diff(diff)
+--       --     dir_vector = vector.multiply(dir_vector, -1)
+--       --   elseif dir_vector.z ~= 0 then
+--       --     minetest.log("Move into opposite x dir")
+--       --     dir_vector = get_unit_dir_vector_based_on_diff(diff)
+--       --     dir_vector = vector.multiply(dir_vector, -1)
+--       --   end
+--       -- else
+--       --   minetest.log("Stuck in corner, try to move out of corner")
+--       --   dir_vector = vector.multiply(last_good_dir, -1)
+--       --   last_good_dir = last_dir
+--       -- end
+--       minetest.log("New direction: "..dump(dir_vector))
+--       minetest.log("New last good dir: "..dump(last_good_dir))
+
+--       next_pos = vector.add(start_pos, dir_vector)
+--       minetest.log("New next_pos: "..dump(next_pos))
+--       next_node = minetest.get_node(next_pos)
+--       minetest.log("Next node is walkable: "..dump(not minetest.registered_nodes[next_node.name].walkable))
+--       local node_type = is_good_node(next_node)
+--       if node_type ~= "N" then
+--         table.insert(path_nodes, {pos=next_pos, type=node_type})
+--         return find_path_recursive(next_pos, end_pos, path_nodes, dir_vector, last_good_dir, 3)
+--       else
+--         -- Move into the opposite of last good dir
+--         minetest.log("------------ Fourth attempt ------------")
+--         minetest.log("Last known good dir: "..dump(old_last_good_dir))
+
+--         local old_dir_vector = dir_vector
+--         -- If not walkable, then try moving into the opposite of last good dir
+--         dir_vector = vector.multiply(last_good_dir, -1)
+--         minetest.log("New direction: "..dump(dir_vector))
+
+--         next_pos = vector.add(start_pos, dir_vector)
+--         minetest.log("New next_pos: "..dump(next_pos))
+--         next_node = minetest.get_node(next_pos)
+--         minetest.log("Next node is walkable: "..dump(not minetest.registered_nodes[next_node.name].walkable))
+--         local node_type = is_good_node(next_node)
+--         if node_type ~= "N" then
+--           table.insert(path_nodes, {pos=next_pos, type=node_type})
+--           return find_path_recursive(next_pos, end_pos, path_nodes, dir_vector, old_dir_vector, 4)
+--         else
+--           minetest.log("Attempted to rotate 4 times, can't do anything else")
+--           return nil
+--         end
+--       end
+--     end
+--   end
+
+-- end
+
+-- -- Calls the recursive function to calculate the path
+-- function npc.actions.find_path(start_pos, end_pos)
+--   return find_path_recursive(start_pos, end_pos, {}, nil, nil, 0)
+-- end
