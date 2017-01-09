@@ -69,7 +69,7 @@ end
 
 -- This function searches on a squared are of the given radius
 -- for nodes of the given type. The type should be npc.places.nodes
-function npc.places.find_new_nearby(self, type, radius)
+function npc.places.find_node_nearby(self, type, radius)
   -- Get current pos
   local current_pos = self.object:getpos()
    -- Determine area points
@@ -81,7 +81,28 @@ function npc.places.find_new_nearby(self, type, radius)
   return nodes
 end
 
-function npc.places.find_in_area(start_pos, end_pos, type)
+-- TODO: This function can be improved to support a radius greater than 1.
+function npc.places.find_node_orthogonally(pos, nodes, y_adjustment)
+  -- Calculate orthogonal points 
+  local points = {}
+  table.insert(points, {x=pos.x+1,y=pos.y+y_adjustment,z=pos.z})
+  table.insert(points, {x=pos.x-1,y=pos.y+y_adjustment,z=pos.z})
+  table.insert(points, {x=pos.x,y=pos.y+y_adjustment,z=pos.z+1})
+  table.insert(points, {x=pos.x,y=pos.y+y_adjustment,z=pos.z-1})
+  local result = {}
+  for _,point in pairs(points) do
+    local node = minetest.get_node(point)
+    minetest.log("Found node: "..dump(node)..", at pos: "..dump(point))
+    for _,node_name in pairs(nodes) do
+      if node.name == node_name then
+        table.insert(result, {name=node.name, pos=point, param2=node.param2})
+      end
+    end
+  end
+  return result
+end
+
+function npc.places.find_node_in_area(start_pos, end_pos, type)
   local nodes = minetest.find_nodes_in_area(start_pos, end_pos, type)
   return nodes
 end

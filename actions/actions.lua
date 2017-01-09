@@ -76,29 +76,53 @@ function npc.actions.walk_step(args)
   elseif dir == npc.direction.west then
     vel = {x=-0.98, y=0, z=0}
   end
-  set_animation(self, "walk")
+  -- Rotate NPC
   npc.actions.rotate({self=self, dir=dir})
+  -- Set velocity so that NPC walks
   self.object:setvelocity(vel)
+  -- Set walk animation
+  self.object:set_animation({
+      x = npc.ANIMATION_WALK_START,
+      y = npc.ANIMATION_WALK_END},
+      self.animation.speed_normal, 0)
 end
 
 -- This action makes the NPC stand and remain like that
 function npc.actions.stand(args)
   local self = args.self
+  local pos = args.pos
+  local dir = args.dir
   -- Stop NPC
   self.object:setvelocity({x=0, y=0, z=0})
+  -- If position given, set to that position
+  if pos ~= nil then
+    self.object:moveto(pos)
+  end
+    -- If dir given, set to that dir
+  if dir ~= nil then
+    npc.actions.rotate({self=self, dir=dir})
+  end
   -- Set stand animation
-  set_animation(self, "stand")
+  self.object:set_animation({
+        x = npc.ANIMATION_STAND_START,
+        y = npc.ANIMATION_STAND_END},
+        self.animation.speed_normal, 0)
 end
 
 -- This action makes the NPC sit on the node where it is
 function npc.actions.sit(args)
   local self = args.self
   local pos = args.pos 
+  local dir = args.dir
   -- Stop NPC
   self.object:setvelocity({x=0, y=0, z=0})
-  -- If position give, set to that position
+  -- If position given, set to that position
   if pos ~= nil then
-    self.object:setpos(pos)
+    self.object:moveto(pos)
+  end
+  -- If dir given, set to that dir
+  if dir ~= nil then
+    npc.actions.rotate({self=self, dir=dir})
   end
   -- Set sit animation
   self.object:set_animation({
@@ -115,7 +139,7 @@ function npc.actions.lay(args)
   self.object:setvelocity({x=0, y=0, z=0})
   -- If position give, set to that position
   if pos ~= nil then
-    self.object:setpos(pos)
+    self.object:moveto(pos)
   end
   -- Set sit animation
   self.object:set_animation({
@@ -213,26 +237,37 @@ function npc.actions.check_external_inventory_contains_item(args)
   return inv:contains_item(inv_list, item)
 end
 
-function npc.actions.get_openable_node_state(node)
+-- TODO: Refactor this function so that it uses a table to check
+-- for doors instead of having separate logic for each door type
+function npc.actions.get_openable_node_state(node, npc_dir)
   minetest.log("Node name: "..dump(node.name))
   local state = npc.actions.const.doors.state.CLOSED
+  -- Check for default doors and gates
   local a_i1, a_i2 = string.find(node.name, "_a")
+  -- Check for cottages gates
   local open_i1, open_i2 = string.find(node.name, "_close")
-  if a_i1 == nil and open_i1 == nil then
+  -- Check for cottages half door
+  local half_door_is_closed = false
+  if node.name == "cottages:half_door" then
+    half_door_is_closed = (node.param2 + 2) % 4 == npc_dir
+  end
+  if a_i1 == nil and open_i1 == nil and not half_door_is_closed then
     state = npc.actions.const.doors.state.OPEN
   end
   minetest.log("Door state: "..dump(state))
   return state
 end
 
--- This function is used to open or close doors from
--- that use the default doors mod
+-- This function is used to open or close openable nodes.
+-- Currently supported openable nodes are: any doors using the
+-- default doors API, and the cottages mod gates and doors. 
 function npc.actions.use_door(args)
   local self = args.self
   local pos = args.pos
   local action = args.action
+  local dir = args.dir
   local node = minetest.get_node(pos)
-  local state = npc.actions.get_openable_node_state(node)
+  local state = npc.actions.get_openable_node_state(node, dir)
 
   local clicker = self.object
   if action ~= state then
@@ -301,28 +336,48 @@ end
 -- This function makes the NPC lay or stand up from a bed. The
 -- pos is the location of the bed, action can be lay or get up
 function npc.actions.use_bed(self, pos, action)
-  local param2 = minetest.get_node(pos)
-  minetest.log(dump(param2))
-  local dir = minetest.facedir_to_dir(param2.param2)
+  local node = minetest.get_node(pos)
+  minetest.log(dump(node))
+  local dir = minetest.facedir_to_dir(node.param2)
 
   if action == npc.actions.const.beds.LAY then
-    -- Calculate position (from beds mod)
-    local bed_pos = {x = pos.x + dir.x / 2, y = pos.y + 1, z = pos.z + dir.z / 2}
-    -- Sit down on bed
-    npc.add_action(self, npc.actions.sit, {self=self})
-    -- Rotate to the correct position
-    npc.add_action(self, npc.actions.rotate, {self=self, dir=param2.param2 + 2 % 4})
+    -- Get position
+    local bed_pos = npc.actions.nodes.beds[node.name].get_lay_pos(pos)
+    -- Sit down on bed, rotate to correct direction
+    npc.add_action(self, npc.actions.sit, {self=self, pos=bed_pos, dir=(node.param2 + 2) % 4})
     -- Lay down 
-    npc.add_action(self, npc.actions.lay, {self=self, pos=bed_pos})
+    npc.add_action(self, npc.actions.lay, {self=self})
   else
     -- Calculate position to get up
     local bed_pos = {x = pos.x, y = pos.y + 1, z = pos.z} 
     -- Sit up
     npc.add_action(self, npc.actions.sit, {self=self, pos=bed_pos})
-    -- Walk up from bed
-    npc.add_action(self, npc.actions.walk_step, {self=self, dir=param2.param2 + 2 % 4})
-    -- Stand
-    npc.add_action(self, npc.actions.stand, {self=self})
+    -- Initialize direction: Default is front of bottom of bed
+    local dir = (node.param2 + 2) % 4
+    -- Find empty node around node
+    local empty_nodes = npc.places.find_node_orthogonally(bed_pos, {"air", "cottages:bench"}, -1)
+    if empty_nodes ~= nil then
+      -- Get direction to the empty node
+      dir = npc.actions.get_direction(bed_pos, empty_nodes[1].pos)
+    end
+    -- Calculate position to get out of bed
+    local pos_out_of_bed =
+      {x=empty_nodes[1].pos.x, y=empty_nodes[1].pos.y + 1, z=empty_nodes[1].pos.z}
+    -- Account for benches if they are present to avoid standing over them
+    if empty_nodes[1].name == "cottages:bench" then
+      pos_out_of_bed = {x=empty_nodes[1].pos.x, y=empty_nodes[1].pos.y + 1, z=empty_nodes[1].pos.z}
+      if empty_nodes[1].param2 == 0 then
+        pos_out_of_bed.z = pos_out_of_bed.z - 0.3
+      elseif empty_nodes[1].param2 == 1 then
+        pos_out_of_bed.x = pos_out_of_bed.x - 0.3
+      elseif empty_nodes[1].param2 == 2 then
+        pos_out_of_bed.z = pos_out_of_bed.z + 0.3
+      elseif empty_nodes[1].param2 == 3 then
+        pos_out_of_bed.x = pos_out_of_bed.x + 0.3
+      end
+    end
+    -- Stand out of bed
+    npc.add_action(self, npc.actions.stand, {self=self, pos=pos_out_of_bed, dir=dir})
   end
 end
 
@@ -387,36 +442,35 @@ function npc.actions.get_direction(v1, v2)
 end
 
 -- This function can be used to make the NPC walk from one
--- position to another.
-function npc.actions.walk_to_pos(self, end_pos)
+-- position to another. If the optional parameter walkable_nodes
+-- is included, which is a table of node names, these nodes are
+-- going to be considered walkable for the algorithm to find a
+-- path.
+function npc.actions.walk_to_pos(self, end_pos, walkable_nodes)
 
   local start_pos = self.object:getpos()
 
+  -- Set walkable nodes to empty if the parameter hasn't been used
+  if walkable_nodes == nil then
+    walkable_nodes = {}
+  end
+
   -- Find path
-  local path = pathfinder.find_path(start_pos, end_pos, 20)
+  local path = pathfinder.find_path(start_pos, end_pos, 20, walkable_nodes)
 
   if path ~= nil then
     minetest.log("Found path to node: "..dump(end_pos))
 
-    -- Add a first step
-    --local dir = npc.actions.get_direction(start_pos, path[1].pos)
-    --minetest.log("Start_pos: "..dump(start_pos)..", First path step: "..dump(path[1].pos))
-    --minetest.log("Direction: "..dump(dir))
-    --npc.add_action(self, npc.actions.walk_step, {self = self, dir = dir})
-
-    -- Add subsequent steps
     local door_opened = false
 
+    -- Add steps to path
     for i = 1, #path do
-      --minetest.log("Path: (i) "..dump(path[i])..": Path i+1 "..dump(path[i+1]))
-      -- Do not add an extra step
+      -- Do not add an extra step if reached the goal node
       if (i+1) == #path then
         -- Add direction to last node
         local dir = npc.actions.get_direction(path[i].pos, end_pos)
         -- Add stand animation at end
-        npc.add_action(self, npc.actions.stand, {self = self})
-        -- Rotate to face the end node
-        npc.actions.rotate({self = self, dir = dir})
+        npc.add_action(self, npc.actions.stand, {self = self, dir = dir})
         break
       end
       -- Get direction to move from path[i] to path[i+1]
@@ -425,12 +479,12 @@ function npc.actions.walk_to_pos(self, end_pos)
       if path[i+1].type == pathfinder.node_types.openable then
         -- Check if door is already open
         local node = minetest.get_node(path[i+1].pos)
-        if npc.actions.get_openable_node_state(node) == npc.actions.const.doors.state.CLOSED then
+        if npc.actions.get_openable_node_state(node, dir) == npc.actions.const.doors.state.CLOSED then
           minetest.log("Opening action to open door")
           -- Stop to open door, this avoids misplaced movements later on
-          npc.add_action(self, npc.actions.stand, {self = self})
+          npc.add_action(self, npc.actions.stand, {self=self, dir=dir})
           -- Open door
-          npc.add_action(self, npc.actions.use_door, {self=self, pos=path[i+1].pos, action=npc.actions.const.doors.action.OPEN})
+          npc.add_action(self, npc.actions.use_door, {self=self, pos=path[i+1].pos, dir=dir, action=npc.actions.const.doors.action.OPEN})
 
           door_opened = true
         end
@@ -440,7 +494,7 @@ function npc.actions.walk_to_pos(self, end_pos)
 
       if door_opened then
           -- Stop to close door, this avoids misplaced movements later on
-          npc.add_action(self, npc.actions.stand, {self = self})
+          npc.add_action(self, npc.actions.stand, {self=self, dir=(dir + 2)% 4})
           -- Close door
           npc.add_action(self, npc.actions.use_door, {self=self, pos=path[i+1].pos, action=npc.actions.const.doors.action.CLOSE})
 

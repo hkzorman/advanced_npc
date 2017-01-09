@@ -54,9 +54,13 @@ pathfinder.nodes = {
 -- This function uses the mapping functions and the A* algorithm implementation
 -- of the Jumper library to find a path from start_pos to end_pos. The range is
 -- an extra amount of nodes to search in both the x and z coordinates.
-function pathfinder.find_path(start_pos, end_pos, range)
+function pathfinder.find_path(start_pos, end_pos, range, walkable_nodes)
+  -- Set walkable nodes to empty if parameter wasn't used
+  if walkable_nodes == nil then
+    walkable_nodes = {}
+  end
   -- Map the Minetest area to a 2D array
-  local map = pathfinder.create_map(start_pos, end_pos, range, {})
+  local map = pathfinder.create_map(start_pos, end_pos, range, walkable_nodes)
   -- Find start and end positions
   local pos = pathfinder.find_start_and_end_pos(map)
   -- Normalize the map
@@ -67,7 +71,7 @@ function pathfinder.find_path(start_pos, end_pos, range)
   local walkable = 0
 
   -- Pathfinder object using A* algorithm
-  local finder = Pathfinder(grid_object, 'ASTAR', walkable)
+  local finder = Pathfinder(grid_object, "ASTAR", walkable)
   -- Set orthogonal mode meaning it will not move in diagonal directions
   finder:setMode("ORTHOGONAL")
 
