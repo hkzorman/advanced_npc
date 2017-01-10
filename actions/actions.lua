@@ -342,20 +342,26 @@ function npc.actions.use_bed(self, pos, action)
 
   if action == npc.actions.const.beds.LAY then
     -- Get position
-    local bed_pos = npc.actions.nodes.beds[node.name].get_lay_pos(pos)
+    local bed_pos = npc.actions.nodes.beds[node.name].get_lay_pos(pos, dir)
     -- Sit down on bed, rotate to correct direction
     npc.add_action(self, npc.actions.sit, {self=self, pos=bed_pos, dir=(node.param2 + 2) % 4})
     -- Lay down 
     npc.add_action(self, npc.actions.lay, {self=self})
   else
     -- Calculate position to get up
-    local bed_pos = {x = pos.x, y = pos.y + 1, z = pos.z} 
+    local bed_pos_y = npc.actions.nodes.beds[node.name].get_lay_pos(pos, dir).y
+    local bed_pos = {x = pos.x, y = bed_pos_y, z = pos.z} 
     -- Sit up
     npc.add_action(self, npc.actions.sit, {self=self, pos=bed_pos})
     -- Initialize direction: Default is front of bottom of bed
     local dir = (node.param2 + 2) % 4
     -- Find empty node around node
-    local empty_nodes = npc.places.find_node_orthogonally(bed_pos, {"air", "cottages:bench"}, -1)
+    -- Take into account that mats are close to the floor, so y adjustmen is zero
+    local y_adjustment = -1
+    if npc.actions.nodes.beds[node.name].type == "mat" then
+      y_adjustment = 0
+    end
+    local empty_nodes = npc.places.find_node_orthogonally(bed_pos, {"air", "cottages:bench"}, y_adjustment)
     if empty_nodes ~= nil then
       -- Get direction to the empty node
       dir = npc.actions.get_direction(bed_pos, empty_nodes[1].pos)

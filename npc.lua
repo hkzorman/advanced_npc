@@ -350,7 +350,7 @@ local function npc_spawn(self, pos)
   ent.places_map = {}
 
   -- Temporary initialization of actions for testing
-  local nodes = npc.places.find_node_nearby(ent, {"beds:bed_bottom"}, 30)
+  local nodes = npc.places.find_node_nearby(ent, {"beds:fancy_bed_bottom"}, 30)
   minetest.log("Found nodes: "..dump(nodes))
 
   --local path = pathfinder.find_path(ent.object:getpos(), nodes[1], 20)
@@ -358,7 +358,7 @@ local function npc_spawn(self, pos)
   --npc.add_action(ent, npc.actions.use_door, {self = ent, pos = nodes[1], action = npc.actions.door_action.OPEN})
   --npc.add_action(ent, npc.actions.stand, {self = ent})
   --npc.add_action(ent, npc.actions.stand, {self = ent})
-  npc.actions.walk_to_pos(ent, nodes[1], {"cottages:bench"})
+  npc.actions.walk_to_pos(ent, nodes[1], {})
   npc.actions.use_bed(ent, nodes[1], npc.actions.const.beds.LAY)
   npc.add_action(ent, npc.actions.lay, {self = ent})
   -- npc.add_action(ent, npc.actions.lay, {self = ent})
