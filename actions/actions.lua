@@ -394,37 +394,23 @@ function npc.actions.use_sittable(self, pos, action)
 
   if action == npc.actions.const.sittable.SIT then
     -- Calculate position depending on bench
-    -- For cottages bench (code taken from Sokomine's cottages mod):
-    local p2 = {x=pos.x, y=pos.y, z=pos.z};
-    if not( node ) or node.param2 == 0 then
-      p2.z = p2.z+0.3;
-    elseif node.param2 == 1 then
-      p2.x = p2.x+0.3;
-    elseif node.param2 == 2 then
-      p2.z = p2.z-0.3;
-    elseif node.param2 == 3 then
-      p2.x = p2.x-0.3;
-    end
-    -- For stairs (based on the above code):
-    local p2 = {x=pos.x, y=pos.y, z=pos.z};
-    if not( node ) or node.param2 == 0 then
-      p2.z = p2.z-0.2;
-    elseif node.param2 == 1 then
-      p2.x = p2.x-0.2;
-    elseif node.param2 == 2 then
-      p2.z = p2.z+0.2;
-    elseif node.param2 == 3 then
-      p2.x = p2.x+0.2;
-    end
+    minetest.log("Got sit position: "..dump(sit_pos))
+    local sit_pos = npc.actions.nodes.sittable[node.name].get_sit_pos(pos, node.param2)
     -- Sit down on bench/chair/stairs
-    npc.add_action(self, npc.actions.sit, {self=self, pos=p2})
-    -- Rotate to the correct position
-    npc.add_action(self, npc.actions.rotate, {self=self, dir=node.param2 + 2 % 4})
+    npc.add_action(self, npc.actions.sit, {self=self, pos=sit_pos, dir=(node.param2 + 2) % 4})
   else
-    -- Walk up from bed
-    npc.add_action(self, npc.actions.walk_step, {self=self, dir=param2.param2 + 2 % 4})
+    -- Find empty areas around chair
+    local dir = node.param2 + 2 % 4
+    local empty_nodes = npc.places.find_node_orthogonally(pos, {"air"}, 0)
+    if empty_nodes ~= nil then
+      -- Get direction to the empty node
+      dir = npc.actions.get_direction(pos, empty_nodes[1].pos)
+    end
+    -- Calculate position to get out of bed
+    local pos_out_of_sittable =
+      {x=empty_nodes[1].pos.x, y=empty_nodes[1].pos.y + 1, z=empty_nodes[1].pos.z}
     -- Stand
-    npc.add_action(self, npc.actions.stand, {self=self})
+    npc.add_action(self, npc.actions.stand, {self=self, pos=pos_out_of_sittable, dir=dir})
   end
 end
 

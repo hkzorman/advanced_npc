@@ -16,8 +16,9 @@ npc.actions.nodes = {
 ---------------------------------------------------------------------------------------
 -- Beds functionality supported by default
 ---------------------------------------------------------------------------------------
--- Functionality for default beds. Since other mods may be used in the 
--- same way as the default beds, this one is a global registration
+-- Functionality for default beds.
+-- Since other mods may be used in the same way as the default beds, 
+-- this one is a global registration
 npc.actions.nodes.default_bed_registration = {
   get_lay_pos = function(pos, dir)
     return {x = pos.x + dir.x / 2, y = pos.y + 1, z = pos.z + dir.z / 2}
@@ -41,7 +42,44 @@ local cottages_mat_registration = {
 }
 
 ---------------------------------------------------------------------------------------
--- Beds
+-- Sitting functionality supported by default
+---------------------------------------------------------------------------------------
+-- Functionality for allowing the NPC to sit on default stairs and cottages' bench
+local sittable_stair_registration = {
+  get_sit_pos = function(pos, param2)
+    local result = {x=pos.x, y=pos.y+1, z=pos.z};
+    if param2 == 0 then
+      result.z = result.z-0.2;
+    elseif param2 == 1 then
+      result.x = result.x-0.2;
+    elseif param2 == 2 then
+      result.z = result.z+0.2;
+    elseif param2 == 3 then
+      result.x = result.x+0.2;
+    end
+    return result
+  end
+}
+
+local cottages_bench_registration = {
+  get_sit_pos = function(pos, param2)
+    local result = {x=pos.x, y=pos.y+1, z=pos.z};
+    if param2 == 0 then
+      result.z = result.z+0.3;
+    elseif param2 == 1 then
+      result.x = result.x+0.3;
+    elseif param2 == 2 then
+      result.z = result.z-0.3;
+    elseif param2 == 3 then
+      result.x = result.x-0.3;
+    end
+    return result
+  end
+}
+
+
+---------------------------------------------------------------------------------------
+-- Registry of bed nodes
 ---------------------------------------------------------------------------------------
 -- Default beds.
 npc.actions.nodes.beds["beds:bed_bottom"] = npc.actions.nodes.default_bed_registration
@@ -51,3 +89,11 @@ npc.actions.nodes.beds["beds:fancy_bed_bottom"] = npc.actions.nodes.default_bed_
 npc.actions.nodes.beds["cottages:bed_foot"] = cottages_bed_registration
 npc.actions.nodes.beds["cottages:sleeping_mat"] = cottages_mat_registration
 npc.actions.nodes.beds["cottages:straw_mat"] = cottages_mat_registration
+
+---------------------------------------------------------------------------------------
+-- Registry of sittable nodes
+---------------------------------------------------------------------------------------
+-- Normal wooden stairs
+npc.actions.nodes.sittable["stairs:stair_wood"] = sittable_stair_registration
+-- Cottages bench
+npc.actions.nodes.sittable["cottages:bench"] = cottages_bench_registration
