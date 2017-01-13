@@ -350,7 +350,7 @@ local function npc_spawn(self, pos)
   ent.places_map = {}
 
   -- Temporary initialization of actions for testing
-  local nodes = npc.places.find_node_nearby(ent, {"cottages:bench"}, 30)
+  local nodes = npc.places.find_sittable_nodes_nearby(ent.object:getpos(), 5)
   minetest.log("Found nodes: "..dump(nodes))
 
   --local path = pathfinder.find_path(ent.object:getpos(), nodes[1], 20)
@@ -358,15 +358,16 @@ local function npc_spawn(self, pos)
   --npc.add_action(ent, npc.actions.use_door, {self = ent, pos = nodes[1], action = npc.actions.door_action.OPEN})
   --npc.add_action(ent, npc.actions.stand, {self = ent})
   --npc.add_action(ent, npc.actions.stand, {self = ent})
-  npc.actions.walk_to_pos(ent, nodes[1], {})
-  npc.actions.use_sittable(ent, nodes[1], npc.actions.const.sittable.SIT)
-  npc.add_action(ent, npc.actions.sit, {self = ent})
-  -- npc.add_action(ent, npc.actions.lay, {self = ent})
-  -- npc.add_action(ent, npc.actions.lay, {self = ent})
-  -- npc.add_action(ent, npc.actions.lay, {self = ent})
-  npc.actions.use_sittable(ent, nodes[1], npc.actions.const.sittable.GET_UP)
-
-
+  if nodes[1] ~= nil then
+    npc.actions.walk_to_pos(ent, nodes[1], {})
+    npc.actions.use_sittable(ent, nodes[1], npc.actions.const.sittable.SIT)
+    npc.add_action(ent, npc.actions.sit, {self = ent})
+    -- npc.add_action(ent, npc.actions.lay, {self = ent})
+    -- npc.add_action(ent, npc.actions.lay, {self = ent})
+    -- npc.add_action(ent, npc.actions.lay, {self = ent})
+    npc.actions.use_sittable(ent, nodes[1], npc.actions.const.sittable.GET_UP)
+  end
+  
   -- npc.add_action(ent, npc.action.stand, {self = ent})
   -- npc.add_action(ent, npc.action.stand, {self = ent})
   -- npc.add_action(ent, npc.action.walk_step, {self = ent, dir = npc.direction.east})
