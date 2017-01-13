@@ -368,6 +368,7 @@ local function npc_spawn(self, pos)
     -- npc.add_action(ent, npc.actions.lay, {self = ent})
     -- npc.add_action(ent, npc.actions.lay, {self = ent})
     npc.actions.use_sittable(ent, nodes[1], npc.actions.const.sittable.GET_UP)
+    npc.add_action(ent, npc.actions.set_interval, {self=ent, interval=10, freeze=true})
     npc.add_action(ent, npc.actions.freeze, {freeze = false})
   end
   
