@@ -186,7 +186,7 @@ end
 -- This function adds a function to the action queue.
 -- Actions should be added in strict order for tasks to work as expected.
 function npc.add_action(self, action, arguments)
-  self.freeze = true
+  --self.freeze = true
   --minetest.log("Current Pos: "..dump(self.object:getpos()))
   local action_entry = {action=action, args=arguments}
   --minetest.log(dump(action_entry))
@@ -197,13 +197,14 @@ end
 -- and then exexcutes it
 function npc.execute_action(self)
   if table.getn(self.actions.queue) == 0 then
-    return false
+    -- Keep state the same if there are no more actions in actions queue
+    return self.freeze
   end
   minetest.log("Executing action")
   local action_obj = self.actions.queue[1]
-  action_obj.action(action_obj.args)
+  local result = action_obj.action(action_obj.args)
   table.remove(self.actions.queue, 1)
-  return true
+  return result
 end
 
 
@@ -338,19 +339,20 @@ local function npc_spawn(self, pos)
     -- Current value of the action timer
     action_timer = 0,
     -- Determines the interval for each action in the action queue
+    -- Default is 1. This can be changed via actions
     action_interval = 1
   }
 
   -- This flag is checked on every step. If it is true, the rest of 
   -- Mobs Redo API is not executed
-  ent.freeze = false
+  ent.freeze = nil
 
   -- This map will hold all the places for the NPC
   -- Map entries should be like: "bed" = {x=1, y=1, z=1}
   ent.places_map = {}
 
   -- Temporary initialization of actions for testing
-  local nodes = npc.places.find_sittable_nodes_nearby(ent.object:getpos(), 5)
+  local nodes = npc.places.find_sittable_nodes_nearby(ent.object:getpos(), 20)
   minetest.log("Found nodes: "..dump(nodes))
 
   --local path = pathfinder.find_path(ent.object:getpos(), nodes[1], 20)
@@ -366,6 +368,7 @@ local function npc_spawn(self, pos)
     -- npc.add_action(ent, npc.actions.lay, {self = ent})
     -- npc.add_action(ent, npc.actions.lay, {self = ent})
     npc.actions.use_sittable(ent, nodes[1], npc.actions.const.sittable.GET_UP)
+    npc.add_action(ent, npc.actions.freeze, {freeze = false})
   end
   
   -- npc.add_action(ent, npc.action.stand, {self = ent})
@@ -427,7 +430,7 @@ mobs:register_mob("advanced_npc:npc", {
 	-- Added walk chance
 	walk_chance = 30,
 	-- Added stepheight
-	stepheight = 1,
+	stepheight = 0.6,
 	walk_velocity = 2,
 	run_velocity = 3,
 	jump = true,
@@ -541,15 +544,15 @@ mobs:register_mob("advanced_npc:npc", {
       -- Reset action timer
       self.actions.action_timer = 0
       -- Execute action
-      npc.execute_action(self)
-      -- Check if there are more actions to execute
-      if table.getn(self.actions.queue) == 0 then
-        -- Unfreeze NPC so the rest of Mobs API work
-        --self.freeze = false
+      self.freeze = npc.execute_action(self)
+
+      if self.freeze == nil and table.getn(self.actions.queue) > 0 then
+        self.freeze = false
       end
+  
     end
 
-    return not self.freeze
+    return self.freeze
 	end
 })
 

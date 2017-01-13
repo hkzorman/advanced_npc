@@ -35,6 +35,33 @@ npc.actions.const = {
   }
 }
 
+---------------------------------------------------------------------------------------
+-- Actions
+---------------------------------------------------------------------------------------
+-- The following action alters the timer interval for executing actions, therefore
+-- making waits and pauses possible, or increase timing when some actions want to
+-- be performed faster, like walking.
+function npc.actions.set_interval(args)
+  local self = args.self
+  local new_interval = args.interval
+  local freeze_mobs_api = args.freeze
+
+  self.actions.action_interval = new_interval
+  return not freeze_mobs_api
+end
+
+-- The following action is for allowing the rest of mobs redo API to be executed
+-- after this action ends. This is useful for times when no action is needed
+-- and the NPC is allowed to roam freely.
+function npc.actions.freeze(args)
+  local freeze_mobs_api = args.freeze
+  minetest.log("Received: "..dump(freeze_mobs_api))
+  minetest.log("Returning: "..dump(not(freeze_mobs_api)))
+  return not(freeze_mobs_api)
+end
+
+-- This action is to rotate to mob to a specifc direction. Currently, the code
+-- contains also for diagonals, but remaining in the orthogonal domain is preferrable.
 function npc.actions.rotate(args)
   local self = args.self
   local dir = args.dir
