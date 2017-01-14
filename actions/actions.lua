@@ -93,15 +93,20 @@ end
 function npc.actions.walk_step(args)
   local self = args.self
   local dir = args.dir
+  local speed = args.speed
   local vel = {}
+  -- Set default node per seconds
+  if speed == nil then
+    speed = 0.98
+  end
   if dir == npc.direction.north then
-    vel = {x=0, y=0, z=0.98}
+    vel = {x=0, y=0, z=speed}
   elseif dir == npc.direction.east then
-    vel = {x=0.98, y=0, z=0}
+    vel = {x=speed, y=0, z=0}
   elseif dir == npc.direction.south then
-    vel = {x=0, y=0, z=-0.98}
+    vel = {x=0, y=0, z=-speed}
   elseif dir == npc.direction.west then
-    vel = {x=-0.98, y=0, z=0}
+    vel = {x=-speed, y=0, z=0}
   end
   -- Rotate NPC
   npc.actions.rotate({self=self, dir=dir})
@@ -228,7 +233,7 @@ function npc.actions.take_item_from_external_inventory(args)
   if player ~= nil then
     inv = minetest.get_inventory({type="player", name=player})
   else
-    inv = minetest.get_inventory({type="node", pos})
+    inv = minetest.get_inventory({type="node", pos=pos})
   end
   -- Create ItemSTack to take from external inventory
   local item = ItemStack(item_name.." "..count)
@@ -255,7 +260,7 @@ function npc.actions.check_external_inventory_contains_item(args)
   if player ~= nil then
     inv = minetest.get_inventory({type="player", name=player})
   else
-    inv = minetest.get_inventory({type="node", pos})
+    inv = minetest.get_inventory({type="node", pos=pos})
   end
 
   -- Create ItemStack for checking the external inventory
@@ -315,16 +320,66 @@ end
 -- with the fuel items the NPC will take whatever was cooked and whatever
 -- remained to cook. The function received the position of the furnace
 -- to use, and the item to cook in furnace. Item is an itemstring
-function npc.actions.use_furnace(self, pos, item)
-  -- Check if any item in the NPC inventory serve as fuel
-  -- For now, just use some specific items as fuels
-  local fuels = {"default:leaves", "default:tree", ""}
-  -- Check if NPC has a fuel item
-  for i = 1,2 do
-    local fuel_item = npc.inventory_contains(self, fuels[i]) 
-    local src_item = npc.inventory_contains(self, item)
+function npc.actions.use_furnace(self, pos, item, freeze)
+  -- Define which items are usable as fuels. The NPC
+  -- will mainly use this as fuels to avoid getting useful
+  -- items (such as coal lumps) for burning
+  local fuels = {"default:leaves", 
+                 "default:pine_needles",
+                 "default:tree",
+                 "default:acacia_tree",
+                 "default:aspen_tree",
+                 "default:jungletree",
+                 "default:pine_tree",
+                 "default:coalblock",
+                 "farming:straw"}
 
-    if fuel_item ~= nil and src_item ~= nil then
+  -- Check if NPC has item to cook
+  local src_item = npc.inventory_contains(self, npc.get_item_name(item))
+  if src_item == nil then
+    -- Unable to cook item that is not in inventory
+    return false
+  end
+
+  -- Check if NPC has a fuel item
+  for i = 1,9 do
+    local fuel_item = npc.inventory_contains(self, fuels[i]) 
+  
+    if fuel_item ~= nil then
+      -- Get fuel item's burn time
+      local fuel_time = 
+      minetest.get_craft_result({method="fuel", width=1, items={ItemStack(fuel_item.item_string)}}).time 
+      local total_fuel_time = fuel_time * npc.get_item_count(fuel_item.item_string)
+      minetest.log("Fuel time: "..dump(fuel_time))
+
+      -- Get item to cook's cooking time
+      local cook_result = 
+      minetest.get_craft_result({method="cooking", width=1, items={ItemStack(src_item.item_string)}})
+      local total_cook_time = cook_result.time * npc.get_item_count(item)
+      minetest.log("Cook: "..dump(cook_result))
+
+      minetest.log("Total cook time: "..total_cook_time
+        ..", total fuel burn time: "..dump(total_fuel_time))
+
+      -- Check if there is enough fuel to cook all items
+      if total_cook_time > total_fuel_time then
+        -- Don't have enough fuel to cook item. Return the difference
+        -- so it may help on trying to acquire the fuel later.
+        -- NOTE: Yes, returning here means that NPC could probably have other 
+        -- items usable as fuels and ignore them. This should be ok for now,
+        -- considering that fuel items are ordered in a way where cheaper, less
+        -- useless items come first, saving possible valuable items.
+        return cook_result.time - fuel_time
+      end
+
+      -- Calculate how much fuel is needed
+      local fuel_amount = total_cook_time / fuel_time
+      if fuel_amount < 1 then
+        fuel_amount = 1
+      end
+
+      minetest.log("Amount of fuel needed: "..fuel_amount)
+
       -- Put this item on the fuel inventory list of the furnace
       local args = {
          self = self,
@@ -332,7 +387,7 @@ function npc.actions.use_furnace(self, pos, item)
          pos = pos, 
          inv_list = "fuel",
          item_name = npc.get_item_name(fuel_item.item_string),
-         count = npc.get_item_count(fuel_item.item_string)
+         count = fuel_amount
       }
       npc.add_action(self, npc.actions.put_item_on_external_inventory, args)
       -- Put the item that we want to cook on the furnace
@@ -342,16 +397,39 @@ function npc.actions.use_furnace(self, pos, item)
          pos = pos, 
          inv_list = "src",
          item_name = npc.get_item_name(src_item.item_string),
-         count = npc.get_item_count(src_item.item_string),
+         count = npc.get_item_count(item),
          is_furnace = true
       }
       npc.add_action(self, npc.actions.put_item_on_external_inventory, args)
 
-      -- TODO: Need to add a way to calculate how many seconds will pass
-      -- until the furnace is done, or at least the items that we expect
-      -- to get (assume all items to be cooked are the ones ewe expect back)
-      -- Then, add that many stand actions, then an action to take the items.
+      -- Now, set NPC to wait until furnace is done.
+      minetest.log("Setting wait action for "..dump(total_cook_time))
+      npc.add_action(self, npc.actions.set_interval, {self=self, interval=total_cook_time, freeze=freeze})
 
+      -- Reset timer
+      npc.add_action(self, npc.actions.set_interval, {self=self, interval=1, freeze=true})
+
+      -- If freeze is false, then we will have to find the way back to the furnace
+      -- once cooking is done.
+      if freeze == false then
+        minetest.log("Adding walk to position to wandering: "..dump(pos))
+        npc.add_task(self, npc.actions.walk_to_pos, {self=self, end_pos=pos, walkable={}})
+      end
+
+      -- Take cooked items back
+      args = {
+         self = self,
+         player = nil, 
+         pos = pos, 
+         inv_list = "dst",
+         item_name = cook_result.item:get_name(),
+         count = npc.get_item_count(item),
+         is_furnace = false
+      }
+      minetest.log("Taking item back: "..dump(pos))
+      npc.add_action(self, npc.actions.take_item_from_external_inventory, args)
+
+      minetest.log("Inventory: "..dump(self.inventory))
 
       return true
     end
@@ -465,9 +543,17 @@ end
 -- is included, which is a table of node names, these nodes are
 -- going to be considered walkable for the algorithm to find a
 -- path.
-function npc.actions.walk_to_pos(self, end_pos, walkable_nodes)
+function npc.actions.walk_to_pos(args)
 
-  local start_pos = self.object:getpos()
+  local self = args.self
+  local end_pos = args.end_pos
+  local walkable_nodes = args.walkable
+
+  -- Round start_pos to make sure it can find start and end
+  local start_pos = vector.round(self.object:getpos())
+  -- Use y of end_pos (this can only be done assuming flat terrain)
+  start_pos.y = self.object:getpos().y
+  minetest.log("Walk to pos: Using start position: "..dump(start_pos))
 
   -- Set walkable nodes to empty if the parameter hasn't been used
   if walkable_nodes == nil then
@@ -513,7 +599,18 @@ function npc.actions.walk_to_pos(self, end_pos, walkable_nodes)
 
       if door_opened then
           -- Stop to close door, this avoids misplaced movements later on
-          npc.add_action(self, npc.actions.stand, {self=self, dir=(dir + 2)% 4})
+          local x_adj, z_adj = 0, 0
+          if dir == 0 then
+            z_adj = 0.1
+          elseif dir == 1 then
+            x_adj = 0.1
+          elseif dir == 2 then
+            z_adj = -0.1
+          elseif dir == 3 then
+            x_adj = -0.1
+          end
+          local pos_on_close = {x=path[i+1].pos.x + x_adj, y=path[i+1].pos.y + 1, z=path[i+1].pos.z + z_adj}
+          npc.add_action(self, npc.actions.stand, {self=self, dir=(dir + 2)% 4, pos=pos_on_close})
           -- Close door
           npc.add_action(self, npc.actions.use_door, {self=self, pos=path[i+1].pos, action=npc.actions.const.doors.action.CLOSE})
 

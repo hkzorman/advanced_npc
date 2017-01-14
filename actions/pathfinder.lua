@@ -201,7 +201,7 @@ end
 -- for the pathfinding algorithm to use
 function pathfinder.find_start_and_end_pos(map)
   -- This is for debug
-  --print_map(map)
+  print_map(map)
   local result = {}
   for z,row in pairs(map) do
     for x,node in pairs(row) do

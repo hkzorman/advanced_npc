@@ -188,22 +188,52 @@ end
 function npc.add_action(self, action, arguments)
   --self.freeze = true
   --minetest.log("Current Pos: "..dump(self.object:getpos()))
-  local action_entry = {action=action, args=arguments}
+  local action_entry = {action=action, args=arguments, is_task=false}
   --minetest.log(dump(action_entry))
   table.insert(self.actions.queue, action_entry)
 end
 
+-- This function adds task actions in-place, as opposed to
+-- at the end of the queue. This allows for continued order
+function npc.add_task(self, task, args)
+  local action_entry = {action=task, args=args, is_task=true}
+  table.insert(self.actions.queue, action_entry)
+end
+
 -- This function removes the first action in the action queue
--- and then exexcutes it
+-- and then executes it
 function npc.execute_action(self)
+  local result = nil
   if table.getn(self.actions.queue) == 0 then
     -- Keep state the same if there are no more actions in actions queue
     return self.freeze
   end
-  minetest.log("Executing action")
   local action_obj = self.actions.queue[1]
-  local result = action_obj.action(action_obj.args)
-  table.remove(self.actions.queue, 1)
+  -- If the entry is a task, then push all this new operations in
+  -- stack fashion
+  if action_obj.is_task == true then
+    minetest.log("Executing task")
+    -- Remove from queue
+    table.remove(self.actions.queue, 1)
+    -- Backup current queue
+    local backup_queue = self.actions.queue
+    -- Clear queue
+    self.actions.queue = {}
+    -- Now, execute the task with its arguments
+    action_obj.action(action_obj.args)
+    -- After all new actions has been added by task, add the previously
+    -- queued actions back
+    for i = 1, #backup_queue do
+      table.insert(self.actions.queue, backup_queue[i])
+    end
+    minetest.log("New actions queue: "..dump(self))
+  else
+    minetest.log("Executing action")
+    -- Execute action as normal
+    result = action_obj.action(action_obj.args)
+    -- Remove executed action from queue
+    table.remove(self.actions.queue, 1)
+  end
   return result
 end
 
@@ -249,6 +279,10 @@ local function choose_spawn_items(self)
   -- currency items
   local currency_item_count = math.random(5, 10)
   npc.add_item_to_inventory(self, npc.trade.prices.currency.tier3, currency_item_count)
+
+  -- For test
+  npc.add_item_to_inventory(self, "default:tree", 10)
+  npc.add_item_to_inventory(self, "default:cobble", 10)
 
   minetest.log("Initial inventory: "..dump(self.inventory))
 end
@@ -352,7 +386,7 @@ local function npc_spawn(self, pos)
   ent.places_map = {}
 
   -- Temporary initialization of actions for testing
-  local nodes = npc.places.find_sittable_nodes_nearby(ent.object:getpos(), 20)
+  local nodes = npc.places.find_node_nearby(ent.object:getpos(), {"default:furnace"}, 20)
   minetest.log("Found nodes: "..dump(nodes))
 
   --local path = pathfinder.find_path(ent.object:getpos(), nodes[1], 20)
@@ -361,14 +395,14 @@ local function npc_spawn(self, pos)
   --npc.add_action(ent, npc.actions.stand, {self = ent})
   --npc.add_action(ent, npc.actions.stand, {self = ent})
   if nodes[1] ~= nil then
-    npc.actions.walk_to_pos(ent, nodes[1], {})
-    npc.actions.use_sittable(ent, nodes[1], npc.actions.const.sittable.SIT)
-    npc.add_action(ent, npc.actions.sit, {self = ent})
+    npc.add_task(ent, npc.actions.walk_to_pos, {self=ent, end_pos=nodes[1], walkable={}})
+    npc.actions.use_furnace(ent, nodes[1], "default:cobble 10", false)
+    --npc.add_action(ent, npc.actions.sit, {self = ent})
     -- npc.add_action(ent, npc.actions.lay, {self = ent})
     -- npc.add_action(ent, npc.actions.lay, {self = ent})
     -- npc.add_action(ent, npc.actions.lay, {self = ent})
-    npc.actions.use_sittable(ent, nodes[1], npc.actions.const.sittable.GET_UP)
-    npc.add_action(ent, npc.actions.set_interval, {self=ent, interval=10, freeze=true})
+    --npc.actions.use_sittable(ent, nodes[1], npc.actions.const.sittable.GET_UP)
+    --npc.add_action(ent, npc.actions.set_interval, {self=ent, interval=10, freeze=true})
     npc.add_action(ent, npc.actions.freeze, {freeze = false})
   end
   
@@ -496,14 +530,16 @@ mobs:register_mob("advanced_npc:npc", {
 	do_custom = function(self, dtime)
 
     -- Timer function for casual traders to reset their trade offers
-    self.trader_data.change_offers_timer = self.trader_data.change_offers_timer + dtime
-    -- Check if time has come to change offers
-    if self.trader_data.trader_status == npc.trade.CASUAL and 
-      self.trader_data.change_offers_timer >= self.trader_data.change_offers_timer_interval then
-      -- Reset timer
-      self.trader_data.change_offers_timer = 0
-      -- Re-select casual trade offers
-      select_casual_trade_offers(self)
+    if self.trader_data ~= nil then
+      self.trader_data.change_offers_timer = self.trader_data.change_offers_timer + dtime
+      -- Check if time has come to change offers
+      if self.trader_data.trader_status == npc.trade.CASUAL and 
+        self.trader_data.change_offers_timer >= self.trader_data.change_offers_timer_interval then
+        -- Reset timer
+        self.trader_data.change_offers_timer = 0
+        -- Re-select casual trade offers
+        select_casual_trade_offers(self)
+      end
     end
 
 		-- Timer function for gifts
