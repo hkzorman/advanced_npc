@@ -465,8 +465,8 @@ mobs:register_mob("advanced_npc:npc", {
 	-- Added walk chance
 	walk_chance = 30,
 	-- Added stepheight
-	stepheight = 0.6,
-	walk_velocity = 2,
+	stepheight = 0.,
+	walk_velocity = 1,
 	run_velocity = 3,
 	jump = true,
 	drops = {
