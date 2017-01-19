@@ -55,12 +55,15 @@ function npc.dialogue.show_options_dialogue(self,
 end
 
 -- This function is used for showing a yes/no dialogue formspec
-function npc.dialogue.show_yes_no_dialogue(prompt, 
-										   positive_answer_label,
-										   positive_callback,
-										   negative_answer_label,
-										   negative_callback,
-										   player_name)
+function npc.dialogue.show_yes_no_dialogue(self,
+                                           prompt, 
+                    										   positive_answer_label,
+                    										   positive_callback,
+                    										   negative_answer_label,
+                    										   negative_callback,
+                    										   player_name)
+
+  npc.lock_actions(self)
 
 	local formspec = "size[7,3]"..
 					 "label[0.5,0.1;"..prompt.."]"..
@@ -69,6 +72,7 @@ function npc.dialogue.show_yes_no_dialogue(prompt,
 
 	-- Create entry into responses table
 	npc.dialogue.dialogue_results.yes_no_dialogue[player_name] = {
+    npc = self,
 		yes_callback = positive_callback,
 		no_callback = negative_callback
 	}
@@ -176,9 +180,20 @@ end
 -- This function processes a dialogue object and performs
 -- actions depending on what is defined in the object 
 function npc.dialogue.process_dialogue(self, dialogue, player_name)
+
+  -- Freeze NPC actions
+  npc.lock_actions(self)
+
 	-- Send dialogue line
 	if dialogue.text then
-		minetest.chat_send_player(player_name, dialogue.text)
+		minetest.chat_send_player(player_name, self.nametag..": "..dialogue.text)
+    -- Check if dialogue has responses. If it doesn't, unlock the actions
+    -- queue and reset actions timer.'
+    minetest.log("Responses: "..dump(dialogue.responses))
+    minetest.log("Condition: "..dump(not dialogue.responses))
+    if not dialogue.responses then
+      npc.unlock_actions(self)
+    end
 	end
 
 	-- Check if there are responses, then show multi-option dialogue if there are
@@ -196,7 +211,8 @@ function npc.dialogue.process_dialogue(self, dialogue, player_name)
 end
 
 -----------------------------------------------------------------------------
--- Functions for rotating NPC to look at player (taken from the API itself)
+-- Functions for rotating NPC to look at player 
+-- (taken from the mobs_redo API)
 -----------------------------------------------------------------------------
 local atan = function(x)
 	if x ~= x then
@@ -206,8 +222,7 @@ local atan = function(x)
 	end
 end
 
-
-local function rotate_npc_to_player(self)
+function npc.dialogue.rotate_npc_to_player(self)
 	local s = self.object:getpos()
 	local objs = minetest.get_objects_inside_radius(s, 4)
 	local lp = nil
@@ -244,6 +259,10 @@ minetest.register_on_player_receive_fields(function (player, formname, fields)
 
 		if fields then
 			local player_response = npc.dialogue.dialogue_results.yes_no_dialogue[player_name]
+
+      -- Unlock queue, reset action timer and unfreeze NPC.
+      npc.unlock_actions(player_response.npc)
+
 			if fields.yes_option then
 				player_response.yes_callback()
 			elseif fields.no_option then
@@ -280,7 +299,7 @@ minetest.register_on_player_receive_fields(function (player, formname, fields)
 							npc.relationships.MARRIED_NPC_DIALOGUE
 								.responses[player_response.options[i].response_id]
 								.action(player_response.npc, player)
-
+                
 						elseif player_response.is_casual_trade_dialogue == true then
 							-- Check if trade is casual buy or sell
 							if player_response.casual_trade_type == npc.trade.OFFER_BUY then
@@ -288,14 +307,13 @@ minetest.register_on_player_receive_fields(function (player, formname, fields)
 								npc.trade.CASUAL_TRADE_BUY_DIALOGUE
 									.responses[player_response.options[i].response_id]
 									.action(player_response.npc, player)
-
 							elseif player_response.casual_trade_type == npc.trade.OFFER_SELL == true then
 								-- Get functions from casual sell dialogue
 								npc.trade.CASUAL_TRADE_SELL_DIALOGUE
 									.responses[player_response.options[i].response_id]
-									.action(player_response.npc, player)
+									.action(player_response.npc, player) 
 							end
-
+              return
 						else
 							-- Get dialogues for sex and phase
 							local dialogues = npc.data.DIALOGUES[player_response.npc.sex][phase]
@@ -304,7 +322,11 @@ minetest.register_on_player_receive_fields(function (player, formname, fields)
 							dialogues[player_response.options[i].dialogue_id]
 								.responses[player_response.options[i].response_id]
 								.action(player_response.npc, player)
-							end
+
+              -- Unlock queue, reset action timer and unfreeze NPC.
+              npc.unlock_actions(player_response.npc)
+
+						end
 					end
 					return
 				end

@@ -258,11 +258,15 @@ minetest.register_on_player_receive_fields(function (player, formname, fields)
 
     if fields then
       local player_response = npc.trade.results.single_trade_offer[player_name]
+      -- Unlock the action timer
+      npc.unlock_actions(player_response.npc)
+      
       if fields.yes_option then
         npc.trade.perform_trade(player_response.npc, player_name, player_response.trade_offer)
       elseif fields.no_option then
         minetest.chat_send_player(player_name, "Talk to me if you change your mind!")
       end
+
     end
   end
 

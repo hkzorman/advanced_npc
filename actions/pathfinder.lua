@@ -55,6 +55,10 @@ pathfinder.nodes = {
 -- of the Jumper library to find a path from start_pos to end_pos. The range is
 -- an extra amount of nodes to search in both the x and z coordinates.
 function pathfinder.find_path(start_pos, end_pos, range, walkable_nodes)
+  -- Check that start and end position are not the same
+  if start_pos.x == end_pos.x and start_pos.z == end_pos.z then
+    return nil
+  end
   -- Set walkable nodes to empty if parameter wasn't used
   if walkable_nodes == nil then
     walkable_nodes = {}
@@ -145,7 +149,8 @@ function pathfinder.create_map(start_pos, end_pos, extra_range, walkables)
 	local grid = {}
 
   -- Loop through the area and classify nodes
-	for z = 1, math.abs(pos1.z - pos2.z) do
+  -- The +2 addition tries to ensure the loop runs at least one.
+	for z = 1, math.abs(pos1.z - pos2.z) + 2 do
 		local current_row = {}
 		for x = 1, math.abs(pos1.x - pos2.x) do
       -- Calculate current position

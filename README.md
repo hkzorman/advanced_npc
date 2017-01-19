@@ -42,8 +42,8 @@ __Phase 3__: Trading: In progress
     - [ ] Dedicated traders are traders that, when talked to, always make buy and sell offers. They have a greater variety too.
 - [ ] NPCs will also be able to offer "services", for example, repairing tools, by receiving an item and a payment, and then returning a specific item.
 
-__Phase 4__: Actions: In progress
-- [ ] NPCs should be able to use chests, furnaces, doors, beds and sit on "sittable" nodes (in progress)
+__Phase 4__: Actions: Main functionality complete
+- [x] NPCs should be able to use chests, furnaces, doors, beds and sit on "sittable" nodes (in progress)
 - [x] NPCs should be able to walk to specific places. Should also be able to open doors, fence gates and any other type of openable node while going to a place.
 - [x] NPCs should have the ability to identify nodes that belong to him/her, and recall them/
   

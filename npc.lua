@@ -27,6 +27,12 @@ npc.direction = {
   west  = 3
 }
 
+npc.action_state = {
+  none = 0,
+  executing = 1,
+  interrupted = 2
+}
+
 ---------------------------------------------------------------------------------------
 -- General functions
 ---------------------------------------------------------------------------------------
@@ -203,8 +209,20 @@ end
 -- This function removes the first action in the action queue
 -- and then executes it
 function npc.execute_action(self)
+  -- Check if an action was interrupted
+  if self.actions.current_action_state == npc.action_state.interrupted then
+    minetest.log("Inserting interrupted action: ")
+    -- Insert into queue the interrupted action
+    table.insert(self.actions.queue, 1, self.actions.state_before_lock.interrupted_action)
+    -- Clear the action
+    self.actions.state_before_lock.interrupted_action = {}
+    -- Clear the position
+    self.actions.state_before_lock.pos = {}
+  end
   local result = nil
   if table.getn(self.actions.queue) == 0 then
+    -- Set state to none
+    self.actions.current_action_state = npc.action_state.none
     -- Keep state the same if there are no more actions in actions queue
     return self.freeze
   end
@@ -213,10 +231,10 @@ function npc.execute_action(self)
   -- stack fashion
   if action_obj.is_task == true then
     minetest.log("Executing task")
-    -- Remove from queue
-    table.remove(self.actions.queue, 1)
     -- Backup current queue
     local backup_queue = self.actions.queue
+    -- Remove this "task" action from queue
+    table.remove(self.actions.queue, 1)
     -- Clear queue
     self.actions.queue = {}
     -- Now, execute the task with its arguments
@@ -226,17 +244,77 @@ function npc.execute_action(self)
     for i = 1, #backup_queue do
       table.insert(self.actions.queue, backup_queue[i])
     end
-    minetest.log("New actions queue: "..dump(self))
   else
     minetest.log("Executing action")
+    -- Store the action that is being executed
+    self.actions.state_before_lock.interrupted_action = action_obj
+    -- Store current position
+    self.actions.state_before_lock.pos = self.object:getpos()
     -- Execute action as normal
     result = action_obj.action(action_obj.args)
-    -- Remove executed action from queue
+    -- Remove task
     table.remove(self.actions.queue, 1)
+    -- Set state
+    self.actions.current_action_state = npc.action_state.executing
   end
   return result
 end
 
+function npc.lock_actions(self)
+
+  -- Avoid re-locking if already locked
+  if self.actions.action_timer_lock == true then
+    return
+  end
+
+  local pos = self.object:getpos()
+
+  if self.freeze == false then
+    -- Round current pos to avoid the NPC being stopped on positions
+    -- where later on can't walk to the correct positions
+    -- Choose which position is to be taken as start position
+    if self.actions.state_before_lock.pos ~= {} then
+      pos = vector.round(self.actions.state_before_lock.pos)
+    else
+      pos = vector.round(self.object:getpos())
+    end
+    pos.y = self.object:getpos().y
+  end
+  -- Stop NPC
+  npc.actions.stand({self=self, pos=pos})
+  -- Avoid all timer execution
+  self.actions.action_timer_lock = true
+  -- Reset timer so that it has some time after interaction is done
+  self.actions.action_timer = 0
+  -- Check if there are is an action executing
+  if self.actions.current_action_state == npc.action_state.executing 
+    and self.freeze == false then
+    -- Store the current action state
+    self.actions.state_before_lock.action_state = self.actions.current_action_state
+    -- Set current action state to interrupted
+    self.actions.current_action_state = npc.action_state.interrupted
+  end
+  -- Store the current freeze variable
+  self.actions.state_before_lock.freeze = self.freeze
+  -- Freeze mobs_redo API
+  self.freeze = false
+
+  minetest.log("Locking")
+end
+
+function npc.unlock_actions(self)
+  -- Allow timers to execute
+  self.actions.action_timer_lock = false
+  -- Restore the value of self.freeze
+  self.freeze = self.actions.state_before_lock.freeze
+  
+  if table.getn(self.actions.queue) == 0 then
+    -- Allow mobs_redo API to execute since action queue is empty
+    self.freeze = true
+  end
+
+  minetest.log("Unlocked")
+end
 
 ---------------------------------------------------------------------------------------
 -- Spawning functions
@@ -307,7 +385,7 @@ local function npc_spawn(self, pos)
   local ent = self:get_luaentity()
 
   -- Set name
-  ent.nametag = ""
+  ent.nametag = "Kio"
 
   -- Set ID
   ent.npc_id = tostring(math.random(1000, 9999))..":"..ent.nametag
@@ -366,7 +444,7 @@ local function npc_spawn(self, pos)
     select_casual_trade_offers(ent)
   end
 
-  -- Action queue
+  -- Actions data
   ent.actions = {
     -- The queue is a queue of actions to be performed on each interval
     queue = {},
@@ -374,7 +452,20 @@ local function npc_spawn(self, pos)
     action_timer = 0,
     -- Determines the interval for each action in the action queue
     -- Default is 1. This can be changed via actions
-    action_interval = 1
+    action_interval = 1,
+    -- Avoid the execution of the action timer
+    action_timer_lock = false,
+    -- Defines the state of the current action
+    current_action_state = npc.action_state.none,
+    -- Store information about action on state before lock
+    state_before_lock = {
+      -- State of the mobs_redo API
+      freeze = false,
+      -- State of execution
+      action_state = npc.action_state.none,
+      -- Action executed while on lock
+      interrupted_action = {}
+    }
   }
 
   -- This flag is checked on every step. If it is true, the rest of 
@@ -396,7 +487,7 @@ local function npc_spawn(self, pos)
   --npc.add_action(ent, npc.actions.stand, {self = ent})
   if nodes[1] ~= nil then
     npc.add_task(ent, npc.actions.walk_to_pos, {self=ent, end_pos=nodes[1], walkable={}})
-    npc.actions.use_furnace(ent, nodes[1], "default:cobble 10", false)
+    npc.actions.use_furnace(ent, nodes[1], "default:cobble 5", false)
     --npc.add_action(ent, npc.actions.sit, {self = ent})
     -- npc.add_action(ent, npc.actions.lay, {self = ent})
     -- npc.add_action(ent, npc.actions.lay, {self = ent})
@@ -497,10 +588,14 @@ mobs:register_mob("advanced_npc:npc", {
 	},
 	on_rightclick = function(self, clicker)
 
+    -- Rotate NPC toward its clicker
+    npc.dialogue.rotate_npc_to_player(self)
+
+    -- Get information from clicker
 		local item = clicker:get_wielded_item()
 		local name = clicker:get_player_name()
     
-    minetest.log(dump(self))
+    --minetest.log(dump(self))
     
     -- Receive gift or start chat. If player has no item in hand
     -- then it is going to start chat directly
@@ -511,6 +606,7 @@ mobs:register_mob("advanced_npc:npc", {
 
       -- Show dialogue to confirm that player is giving item as gift
       npc.dialogue.show_yes_no_dialogue(
+        self,
         "Do you want to give "..item_name.." to "..self.nametag.."?",
         npc.dialogue.POSITIVE_GIFT_ANSWER_PREFIX..item_name,
         function()
@@ -576,19 +672,24 @@ mobs:register_mob("advanced_npc:npc", {
     end
 
     -- Action queue timer
-    self.actions.action_timer = self.actions.action_timer + dtime
-    if self.actions.action_timer >= self.actions.action_interval then
-      -- Reset action timer
-      self.actions.action_timer = 0
-      -- Execute action
-      self.freeze = npc.execute_action(self)
+    -- Check if actions and timers aren't locked
+    if self.actions.action_timer_lock == false then
+      -- Increment action timer
+      self.actions.action_timer = self.actions.action_timer + dtime
+      if self.actions.action_timer >= self.actions.action_interval then
+        minetest.log("Current action state = "..dump(self.actions.current_action_state))
+        -- Reset action timer
+        self.actions.action_timer = 0
+        -- Execute action
+        self.freeze = npc.execute_action(self)
 
-      if self.freeze == nil and table.getn(self.actions.queue) > 0 then
-        self.freeze = false
+        if self.freeze == nil and table.getn(self.actions.queue) > 0 then
+          self.freeze = false
+        end
       end
-  
-    end
 
+    end
+    
     return self.freeze
 	end
 })
