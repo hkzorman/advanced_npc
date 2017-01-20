@@ -279,6 +279,12 @@ minetest.register_on_player_receive_fields(function (player, formname, fields)
 			-- Get player response
 			local player_response = npc.dialogue.dialogue_results.options_dialogue[player_name]
 
+      -- Check if the player hit the negative option
+      if fields["exit"] then
+        -- Unlock queue, reset action timer and unfreeze NPC.
+        npc.unlock_actions(player_response.npc)
+      end
+
 			for i = 1, #player_response.options do
 				local button_label = "opt"..tostring(i)
 				if fields[button_label] then

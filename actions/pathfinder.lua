@@ -119,8 +119,6 @@ end
 
 function pathfinder.create_map(start_pos, end_pos, extra_range, walkables)
 
-  -- Unused, will not use voxel areas for now
-	--local c_air = minetest.get_content_id("air")
   minetest.log("Start pos: "..dump(start_pos))
   minetest.log("End pos: "..dump(end_pos))
 
@@ -131,26 +129,25 @@ function pathfinder.create_map(start_pos, end_pos, extra_range, walkables)
   local start_z_sign = (start_pos.z - end_pos.z) / math.abs(start_pos.z - end_pos.z) 
   local end_x_sign = (end_pos.x - start_pos.x) / math.abs(end_pos.x - start_pos.x)
   local end_z_sign = (end_pos.z - start_pos.z) / math.abs(end_pos.z - start_pos.z)
-  --minetest.log("Start x sign: "..dump(start_x_sign)..", end x sign: "..dump(end_x_sign))
-  --minetest.log("End z sign: "..dump(start_z_sign)..", end z sign: "..dump(end_z_sign))
+
+  -- Correct the signs if they are nan
+  if math.abs(start_pos.x - end_pos.x) == 0 then
+    start_x_sign = -1
+    end_x_sign = 1
+  end
+  if math.abs(start_pos.z - end_pos.z) == 0 then
+    start_z_sign = -1
+    end_z_sign = 1
+  end
 
   -- Get starting and ending positions, adding the extra nodes to the area
 	local pos1 = {x=start_pos.x + (extra_range * start_x_sign), y = start_pos.y - 1, z=start_pos.z + (extra_range * start_z_sign)}
 	local pos2 = {x=end_pos.x + (extra_range * end_x_sign), y = end_pos.y, z=end_pos.z + (extra_range * end_z_sign)}
-  --minetest.log("Pos 1: "..dump(pos1))
-  --minetest.log("Pos 2: "..dump(pos2))
-
-	-- Get Voxel Area - Not used for the moment
-	-- local vm = minetest.get_voxel_manip()
-	-- local emin, emax = vm:read_from_map(pos1, pos2)
-	-- local area = VoxelArea:new({MinEdge=emin, MaxEdge=emax})
-	-- local data = vm:get_data()
 
 	local grid = {}
 
   -- Loop through the area and classify nodes
-  -- The +2 addition tries to ensure the loop runs at least one.
-	for z = 1, math.abs(pos1.z - pos2.z) + 2 do
+	for z = 1, math.abs(pos1.z - pos2.z) do
 		local current_row = {}
 		for x = 1, math.abs(pos1.x - pos2.x) do
       -- Calculate current position

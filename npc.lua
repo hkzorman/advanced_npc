@@ -677,17 +677,15 @@ mobs:register_mob("advanced_npc:npc", {
       -- Increment action timer
       self.actions.action_timer = self.actions.action_timer + dtime
       if self.actions.action_timer >= self.actions.action_interval then
-        minetest.log("Current action state = "..dump(self.actions.current_action_state))
         -- Reset action timer
         self.actions.action_timer = 0
         -- Execute action
         self.freeze = npc.execute_action(self)
-
+        -- Check if there are still remaining actions in the queue
         if self.freeze == nil and table.getn(self.actions.queue) > 0 then
           self.freeze = false
         end
       end
-
     end
     
     return self.freeze
