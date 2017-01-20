@@ -281,7 +281,7 @@ function npc.lock_actions(self)
     pos.y = self.object:getpos().y
   end
   -- Stop NPC
-  npc.actions.stand({pos=pos})
+  npc.actions.stand(self, {pos=pos})
   -- Avoid all timer execution
   self.actions.action_timer_lock = true
   -- Reset timer so that it has some time after interaction is done
