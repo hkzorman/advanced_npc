@@ -45,8 +45,8 @@ npc.actions.two_nps_speed = 1.90
 -- The following action alters the timer interval for executing actions, therefore
 -- making waits and pauses possible, or increase timing when some actions want to
 -- be performed faster, like walking.
-function npc.actions.set_interval(args)
-  local self = args.self
+function npc.actions.set_interval(self, args)
+  local self_actions = args.self_actions
   local new_interval = args.interval
   local freeze_mobs_api = args.freeze
 
@@ -57,7 +57,7 @@ end
 -- The following action is for allowing the rest of mobs redo API to be executed
 -- after this action ends. This is useful for times when no action is needed
 -- and the NPC is allowed to roam freely.
-function npc.actions.freeze(args)
+function npc.actions.freeze(self, args)
   local freeze_mobs_api = args.freeze
   minetest.log("Received: "..dump(freeze_mobs_api))
   minetest.log("Returning: "..dump(not(freeze_mobs_api)))
@@ -66,8 +66,7 @@ end
 
 -- This action is to rotate to mob to a specifc direction. Currently, the code
 -- contains also for diagonals, but remaining in the orthogonal domain is preferrable.
-function npc.actions.rotate(args)
-  local self = args.self
+function npc.actions.rotate(self, args)
   local dir = args.dir
   local yaw = 0
   self.rotate = 0
@@ -94,8 +93,7 @@ end
 -- This function will make the NPC walk one step on a 
 -- specifc direction. One step means one node. It returns 
 -- true if it can move on that direction, and false if there is an obstacle
-function npc.actions.walk_step(args)
-  local self = args.self
+function npc.actions.walk_step(self, args)
   local dir = args.dir
   local speed = args.speed
   local vel = {}
@@ -113,7 +111,7 @@ function npc.actions.walk_step(args)
     vel = {x=-speed, y=0, z=0}
   end
   -- Rotate NPC
-  npc.actions.rotate({self=self, dir=dir})
+  npc.actions.rotate(self, {dir=dir})
   -- Set velocity so that NPC walks
   self.object:setvelocity(vel)
   -- Set walk animation
@@ -124,8 +122,7 @@ function npc.actions.walk_step(args)
 end
 
 -- This action makes the NPC stand and remain like that
-function npc.actions.stand(args)
-  local self = args.self
+function npc.actions.stand(self, args)
   local pos = args.pos
   local dir = args.dir
   -- Stop NPC
@@ -136,7 +133,7 @@ function npc.actions.stand(args)
   end
     -- If dir given, set to that dir
   if dir ~= nil then
-    npc.actions.rotate({self=self, dir=dir})
+    npc.actions.rotate(self, {dir=dir})
   end
   -- Set stand animation
   self.object:set_animation({
@@ -146,8 +143,7 @@ function npc.actions.stand(args)
 end
 
 -- This action makes the NPC sit on the node where it is
-function npc.actions.sit(args)
-  local self = args.self
+function npc.actions.sit(self, args)
   local pos = args.pos 
   local dir = args.dir
   -- Stop NPC
@@ -158,7 +154,7 @@ function npc.actions.sit(args)
   end
   -- If dir given, set to that dir
   if dir ~= nil then
-    npc.actions.rotate({self=self, dir=dir})
+    npc.actions.rotate(self, {dir=dir})
   end
   -- Set sit animation
   self.object:set_animation({
@@ -168,8 +164,7 @@ function npc.actions.sit(args)
 end
 
 -- This action makes the NPC lay on the node where it is
-function npc.actions.lay(args)
-  local self = args.self
+function npc.actions.lay(self, args)
   local pos = args.pos
   -- Stop NPC
   self.object:setvelocity({x=0, y=0, z=0})
@@ -188,8 +183,7 @@ end
 -- This function is a convenience function to make it easy to put
 -- and get items from another inventory (be it a player inv or 
 -- a node inv)
-function npc.actions.put_item_on_external_inventory(args)
-  local self = args.self
+function npc.actions.put_item_on_external_inventory(self, args)
   local player = args.player
   local pos = args.pos
   local inv_list = args.inv_list
@@ -226,8 +220,7 @@ function npc.actions.put_item_on_external_inventory(args)
   return false
 end
 
-function npc.actions.take_item_from_external_inventory(args)
-  local self = args.self
+function npc.actions.take_item_from_external_inventory(self, args)
   local player = args.player
   local pos = args.pos
   local inv_list = args.inv_list
@@ -253,8 +246,7 @@ function npc.actions.take_item_from_external_inventory(args)
   return false
 end
 
-function npc.actions.check_external_inventory_contains_item(args)
-  local self = args.self
+function npc.actions.check_external_inventory_contains_item(self, args)
   local player = args.player
   local pos = args.pos
   local inv_list = args.inv_list
@@ -297,8 +289,7 @@ end
 -- This function is used to open or close openable nodes.
 -- Currently supported openable nodes are: any doors using the
 -- default doors API, and the cottages mod gates and doors. 
-function npc.actions.use_door(args)
-  local self = args.self
+function npc.actions.use_door(self, args)
   local pos = args.pos
   local action = args.action
   local dir = args.dir
@@ -386,7 +377,6 @@ function npc.actions.use_furnace(self, pos, item, freeze)
 
       -- Put this item on the fuel inventory list of the furnace
       local args = {
-         self = self,
          player = nil, 
          pos = pos, 
          inv_list = "fuel",
@@ -396,7 +386,6 @@ function npc.actions.use_furnace(self, pos, item, freeze)
       npc.add_action(self, npc.actions.put_item_on_external_inventory, args)
       -- Put the item that we want to cook on the furnace
       args = {
-         self = self,
          player = nil, 
          pos = pos, 
          inv_list = "src",
@@ -408,21 +397,21 @@ function npc.actions.use_furnace(self, pos, item, freeze)
 
       -- Now, set NPC to wait until furnace is done.
       minetest.log("Setting wait action for "..dump(total_cook_time))
-      npc.add_action(self, npc.actions.set_interval, {self=self, interval=total_cook_time, freeze=freeze})
+      npc.add_action(self, npc.actions.set_interval, {interval=total_cook_time, freeze=freeze})
 
       -- Reset timer
-      npc.add_action(self, npc.actions.set_interval, {self=self, interval=1, freeze=true})
+      npc.add_action(self, npc.actions.set_interval, {interval=1, freeze=true})
 
       -- If freeze is false, then we will have to find the way back to the furnace
       -- once cooking is done.
       if freeze == false then
         minetest.log("Adding walk to position to wandering: "..dump(pos))
-        npc.add_task(self, npc.actions.walk_to_pos, {self=self, end_pos=pos, walkable={}})
+        npc.add_task(self, npc.actions.walk_to_pos, {end_pos=pos, walkable={}})
       end
 
       -- Take cooked items back
       args = {
-         self = self,
+         
          player = nil, 
          pos = pos, 
          inv_list = "dst",
@@ -453,15 +442,15 @@ function npc.actions.use_bed(self, pos, action)
     -- Get position
     local bed_pos = npc.actions.nodes.beds[node.name].get_lay_pos(pos, dir)
     -- Sit down on bed, rotate to correct direction
-    npc.add_action(self, npc.actions.sit, {self=self, pos=bed_pos, dir=(node.param2 + 2) % 4})
+    npc.add_action(self, npc.actions.sit, {pos=bed_pos, dir=(node.param2 + 2) % 4})
     -- Lay down 
-    npc.add_action(self, npc.actions.lay, {self=self})
+    npc.add_action(self, npc.actions.lay, {})
   else
     -- Calculate position to get up
     local bed_pos_y = npc.actions.nodes.beds[node.name].get_lay_pos(pos, dir).y
     local bed_pos = {x = pos.x, y = bed_pos_y, z = pos.z} 
     -- Sit up
-    npc.add_action(self, npc.actions.sit, {self=self, pos=bed_pos})
+    npc.add_action(self, npc.actions.sit, {pos=bed_pos})
     -- Initialize direction: Default is front of bottom of bed
     local dir = (node.param2 + 2) % 4
     -- Find empty node around node
@@ -492,7 +481,7 @@ function npc.actions.use_bed(self, pos, action)
       end
     end
     -- Stand out of bed
-    npc.add_action(self, npc.actions.stand, {self=self, pos=pos_out_of_bed, dir=dir})
+    npc.add_action(self, npc.actions.stand, {pos=pos_out_of_bed, dir=dir})
   end
 end
 
@@ -506,7 +495,7 @@ function npc.actions.use_sittable(self, pos, action)
     minetest.log("Got sit position: "..dump(sit_pos))
     local sit_pos = npc.actions.nodes.sittable[node.name].get_sit_pos(pos, node.param2)
     -- Sit down on bench/chair/stairs
-    npc.add_action(self, npc.actions.sit, {self=self, pos=sit_pos, dir=(node.param2 + 2) % 4})
+    npc.add_action(self, npc.actions.sit, {pos=sit_pos, dir=(node.param2 + 2) % 4})
   else
     -- Find empty areas around chair
     local dir = node.param2 + 2 % 4
@@ -519,7 +508,7 @@ function npc.actions.use_sittable(self, pos, action)
     local pos_out_of_sittable =
       {x=empty_nodes[1].pos.x, y=empty_nodes[1].pos.y + 1, z=empty_nodes[1].pos.z}
     -- Stand
-    npc.add_action(self, npc.actions.stand, {self=self, pos=pos_out_of_sittable, dir=dir})
+    npc.add_action(self, npc.actions.stand, {pos=pos_out_of_sittable, dir=dir})
   end
 end
 
@@ -547,9 +536,8 @@ end
 -- is included, which is a table of node names, these nodes are
 -- going to be considered walkable for the algorithm to find a
 -- path.
-function npc.actions.walk_to_pos(args)
+function npc.actions.walk_to_pos(self, args)
   -- Get arguments for this task 
-  local self = args.self
   local end_pos = args.end_pos
   local walkable_nodes = args.walkable
 
@@ -576,7 +564,7 @@ function npc.actions.walk_to_pos(args)
 
     -- Set the action timer interval to half second. This is to account for
     -- the increased speed when walking.
-    npc.add_action(self, npc.actions.set_interval, {self=self, interval=0.5, freeze=true})
+    npc.add_action(self, npc.actions.set_interval, {interval=0.5, freeze=true})
 
     -- Add steps to path
     for i = 1, #path do
@@ -585,7 +573,7 @@ function npc.actions.walk_to_pos(args)
         -- Add direction to last node
         local dir = npc.actions.get_direction(path[i].pos, end_pos)
         -- Add stand animation at end
-        npc.add_action(self, npc.actions.stand, {self = self, dir = dir})
+        npc.add_action(self, npc.actions.stand, { dir = dir})
         break
       end
       -- Get direction to move from path[i] to path[i+1]
@@ -597,15 +585,15 @@ function npc.actions.walk_to_pos(args)
         if npc.actions.get_openable_node_state(node, dir) == npc.actions.const.doors.state.CLOSED then
           minetest.log("Opening action to open door")
           -- Stop to open door, this avoids misplaced movements later on
-          npc.add_action(self, npc.actions.stand, {self=self, dir=dir})
+          npc.add_action(self, npc.actions.stand, {dir=dir})
           -- Open door
-          npc.add_action(self, npc.actions.use_door, {self=self, pos=path[i+1].pos, dir=dir, action=npc.actions.const.doors.action.OPEN})
+          npc.add_action(self, npc.actions.use_door, {pos=path[i+1].pos, dir=dir, action=npc.actions.const.doors.action.OPEN})
 
           door_opened = true
         end
       end
       -- Add walk action to action queue
-      npc.add_action(self, npc.actions.walk_step, {self = self, dir = dir, speed = speed})
+      npc.add_action(self, npc.actions.walk_step, {dir = dir, speed = speed})
 
       if door_opened then
           -- Stop to close door, this avoids misplaced movements later on
@@ -620,9 +608,9 @@ function npc.actions.walk_to_pos(args)
             x_adj = -0.1
           end
           local pos_on_close = {x=path[i+1].pos.x + x_adj, y=path[i+1].pos.y + 1, z=path[i+1].pos.z + z_adj}
-          npc.add_action(self, npc.actions.stand, {self=self, dir=(dir + 2)% 4, pos=pos_on_close})
+          npc.add_action(self, npc.actions.stand, {dir=(dir + 2)% 4, pos=pos_on_close})
           -- Close door
-          npc.add_action(self, npc.actions.use_door, {self=self, pos=path[i+1].pos, action=npc.actions.const.doors.action.CLOSE})
+          npc.add_action(self, npc.actions.use_door, {pos=path[i+1].pos, action=npc.actions.const.doors.action.CLOSE})
 
           door_opened = false
       end
@@ -631,7 +619,7 @@ function npc.actions.walk_to_pos(args)
 
     -- Return the action interval to default interval of 1 second
     -- By default, always freeze.
-    npc.add_action(self, npc.actions.set_interval, {self=self, interval=1, freeze=true})
+    npc.add_action(self, npc.actions.set_interval, {interval=1, freeze=true})
 
   else
     minetest.log("Unable to find path.")

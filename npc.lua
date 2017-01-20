@@ -238,7 +238,7 @@ function npc.execute_action(self)
     -- Clear queue
     self.actions.queue = {}
     -- Now, execute the task with its arguments
-    action_obj.action(action_obj.args)
+    action_obj.action(self, action_obj.args)
     -- After all new actions has been added by task, add the previously
     -- queued actions back
     for i = 1, #backup_queue do
@@ -251,7 +251,7 @@ function npc.execute_action(self)
     -- Store current position
     self.actions.state_before_lock.pos = self.object:getpos()
     -- Execute action as normal
-    result = action_obj.action(action_obj.args)
+    result = action_obj.action(self, action_obj.args)
     -- Remove task
     table.remove(self.actions.queue, 1)
     -- Set state
@@ -281,7 +281,7 @@ function npc.lock_actions(self)
     pos.y = self.object:getpos().y
   end
   -- Stop NPC
-  npc.actions.stand({self=self, pos=pos})
+  npc.actions.stand({pos=pos})
   -- Avoid all timer execution
   self.actions.action_timer_lock = true
   -- Reset timer so that it has some time after interaction is done
@@ -383,6 +383,9 @@ local function npc_spawn(self, pos)
 
   -- Get Lua Entity
   local ent = self:get_luaentity()
+
+  -- Avoid NPC to be removed by mobs_redo API
+  ent.remove_ok = false
 
   -- Set name
   ent.nametag = "Kio"
@@ -486,7 +489,7 @@ local function npc_spawn(self, pos)
   --npc.add_action(ent, npc.actions.stand, {self = ent})
   --npc.add_action(ent, npc.actions.stand, {self = ent})
   if nodes[1] ~= nil then
-    npc.add_task(ent, npc.actions.walk_to_pos, {self=ent, end_pos=nodes[1], walkable={}})
+    npc.add_task(ent, npc.actions.walk_to_pos, {end_pos=nodes[1], walkable={}})
     npc.actions.use_furnace(ent, nodes[1], "default:cobble 5", false)
     --npc.add_action(ent, npc.actions.sit, {self = ent})
     -- npc.add_action(ent, npc.actions.lay, {self = ent})
@@ -625,19 +628,17 @@ mobs:register_mob("advanced_npc:npc", {
 	end,
 	do_custom = function(self, dtime)
 
-    -- Timer function for casual traders to reset their trade offers
-    if self.trader_data ~= nil then
-      self.trader_data.change_offers_timer = self.trader_data.change_offers_timer + dtime
-      -- Check if time has come to change offers
-      if self.trader_data.trader_status == npc.trade.CASUAL and 
-        self.trader_data.change_offers_timer >= self.trader_data.change_offers_timer_interval then
-        -- Reset timer
-        self.trader_data.change_offers_timer = 0
-        -- Re-select casual trade offers
-        select_casual_trade_offers(self)
-      end
+    -- Timer function for casual traders to reset their trade offers  
+    self.trader_data.change_offers_timer = self.trader_data.change_offers_timer + dtime
+    -- Check if time has come to change offers
+    if self.trader_data.trader_status == npc.trade.CASUAL and 
+      self.trader_data.change_offers_timer >= self.trader_data.change_offers_timer_interval then
+      -- Reset timer
+      self.trader_data.change_offers_timer = 0
+      -- Re-select casual trade offers
+      select_casual_trade_offers(self)
     end
-
+  
 		-- Timer function for gifts
     for i = 1, #self.relationships do
       local relationship = self.relationships[i]
