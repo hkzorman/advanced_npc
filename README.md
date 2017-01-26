@@ -34,11 +34,11 @@ __Phase 1__: Gifts and relationships: In progress
 - [x] Eventually, an NPC can fall in love with that player and marry him/her
 - [ ] Relationships among NPCs should be possible too
 
-__Phase 2__: Dialogues: In progress
+__Phase 2__: Dialogues: Complete
 - [x] NPCs should be able to perform complex dialogues:
   - [x] Use yes/no or multiple option dialogue boxes to interact with player
   - [x] Answers and responses by player
-- [ ] Specific dialogues on certain flags (so that events can change what an NPC says) (in progress)
+- [x] Specific dialogues on certain flags (so that events can change what an NPC says) (in progress)
 
 __Phase 3__: Trading: In progress
 - [ ] NPCs should be able to trade, either buy or sell items to/from player and other NPCs
