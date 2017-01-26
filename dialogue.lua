@@ -1,4 +1,20 @@
 -- NPC dialogue code by Zorman2000
+-- Dialogue definitions:
+-- TODO: Complete
+-- {
+--   text: "",
+--   ^ The "spoken" dialogue line
+--   flag:     
+--   ^ If the flag with the specified name has the specified value
+--     then this dialogue is valid 
+--   {
+--     name: ""   
+--     ^ Name of the flag
+--     value:  
+--     ^ Expected value of the flag. A flag can be a function. In such a case, it is
+--       expected the function will return this value.
+--   }
+-- }
 
 npc.dialogue = {}
 
@@ -14,10 +30,11 @@ npc.dialogue.dialogue_results = {
 	yes_no_dialogue = {}
 }
 
+---------------------------------------------------------------------------------------
 -- Dialogue box definitions
 -- The dialogue boxes are used for the player to interact with the
 -- NPC in dialogues.
---------------------------------------------------------------------
+---------------------------------------------------------------------------------------
 -- Creates and shows a multi-option dialogue based on the number of responses
 -- that the dialogue object contains
 function npc.dialogue.show_options_dialogue(self, 
@@ -80,7 +97,35 @@ function npc.dialogue.show_yes_no_dialogue(self,
 	minetest.show_formspec(player_name, "advanced_npc:yes_no", formspec)
 end
 
+---------------------------------------------------------------------------------------
 -- Dialogue methods
+---------------------------------------------------------------------------------------
+-- This function sets a unique response ID (made of <depth>:<response index>) to
+-- each response that features a function. This is to be able to locate the
+-- function easily later
+local function set_response_ids_recursively(dialogue, depth, dialogue_id)
+  -- Base case: dialogue object with no responses and no r,esponses below it
+  if dialogue.responses == nil 
+    and (dialogue.action_type == "dialogue" and dialogue.action.responses == nil) then
+    return
+  elseif dialogue.responses ~= nil then
+    -- Assign a response ID to each response
+    local response_id_prefix = tostring(depth)..":"
+    for key,value in ipairs(dialogue.responses) do
+      if value.action_type == "function" then
+        value.response_id = response_id_prefix..key
+        value.dialogue_id = dialogue_id
+      else
+        -- We have a dialogue action type. Need to check if dialogue has further responses
+        if value.action.responses ~= nil then
+          set_response_ids_recursively(value.action, depth + 1, dialogue_id)
+        end
+      end
+    end
+  end
+end
+
+
 -- Select random dialogue objects for an NPC based on sex
 -- and the relationship phase with player
 function npc.dialogue.select_random_dialogues_for_npc(sex, phase, favorite_items, disliked_items)
@@ -102,19 +147,7 @@ function npc.dialogue.select_random_dialogues_for_npc(sex, phase, favorite_items
 		local dialogue_id = math.random(1, #dialogues)
 		result.normal[i] = dialogues[dialogue_id] 
 
-		-- Check if this particular dialogue has responses
-		if result.normal[i].responses then
-			-- Check each response to see if they have action_type == "function".
-			-- This way the indices for this particular response will be stored
-			-- and the function can be retrieved for execution later.
-			for key,value in ipairs(result.normal[i].responses) do
-				if value.action_type == "function" then
-					result.normal[i].responses[key].dialogue_id = dialogue_id
-					result.normal[i].responses[key].response_id = key
-				end
-			end
-
-		end
+    set_response_ids_recursively(result.normal[i], 0, dialogue_id)
 	end
 
 	-- Add item hints.
@@ -139,7 +172,6 @@ end
 -- and process it. 
 function npc.dialogue.start_dialogue(self, player, show_married_dialogue)
 	-- Choose a dialogue randomly
-	-- TODO: Add support for flags
 	local dialogue = {}
 
 	-- Construct dialogue for marriage
@@ -167,14 +199,20 @@ function npc.dialogue.start_dialogue(self, player, show_married_dialogue)
 			end
 		end
 	elseif chance >= 30 and chance < 90 then
+    -- Choose a random dialogue from the common ones
 		dialogue = self.dialogues.normal[math.random(1, #self.dialogues.normal)]
 	elseif chance >= 90 then
+    -- Choose a random dialogue line from the favorite/disliked item hints
 		dialogue = self.dialogues.hints[math.random(1, 4)]
 	end
 
 	minetest.log("Chosen dialogue: "..dump(dialogue))
 
-	npc.dialogue.process_dialogue(self, dialogue, player:get_player_name())
+	local dialogue_result = npc.dialogue.process_dialogue(self, dialogue, player:get_player_name())
+  if dialogue_result == false then
+    -- Try to find another dialogue line
+    npc.dialogue.start_dialogue(self, player, show_married_dialogue)
+  end
 end
 
 -- This function processes a dialogue object and performs
@@ -184,17 +222,36 @@ function npc.dialogue.process_dialogue(self, dialogue, player_name)
   -- Freeze NPC actions
   npc.lock_actions(self)
 
+  -- Check if this dialogue has a flag definition
+  if dialogue.flag then
+    -- Check if the NPC has this flag
+    local flag_value = npc.get_flag(self, dialogue.flag.name)
+    if flag_value ~= nil then
+      -- Check if value of the flag is equal to the expected value
+      if flag_value ~= dialogue.flag.value then
+        -- Do not process this dialogue
+        return false
+      end
+    else
+      
+      if (type(dialogue.flag.value) == "boolean" and dialogue.flag.value ~= false)
+        or (type(dialogue.flag.value) == "number" and dialogue.flag.value > 0) then
+        -- Do not process this dialogue
+        return false
+      end
+    end
+  end
+
 	-- Send dialogue line
 	if dialogue.text then
 		minetest.chat_send_player(player_name, self.nametag..": "..dialogue.text)
-    -- Check if dialogue has responses. If it doesn't, unlock the actions
-    -- queue and reset actions timer.'
-    minetest.log("Responses: "..dump(dialogue.responses))
-    minetest.log("Condition: "..dump(not dialogue.responses))
-    if not dialogue.responses then
-      npc.unlock_actions(self)
-    end
 	end
+
+  -- Check if dialogue has responses. If it doesn't, unlock the actions
+  -- queue and reset actions timer.'
+  if not dialogue.responses then
+    npc.unlock_actions(self)
+  end
 
 	-- Check if there are responses, then show multi-option dialogue if there are
 	if dialogue.responses then
@@ -208,6 +265,9 @@ function npc.dialogue.process_dialogue(self, dialogue, player_name)
 			player_name
 		)
 	end
+
+  -- Dialogue object processed successfully
+  return true
 end
 
 -----------------------------------------------------------------------------
@@ -250,6 +310,45 @@ function npc.dialogue.rotate_npc_to_player(self)
 	self.object:setyaw(yaw)
 end
 
+---------------------------------------------------------------------------------------
+-- Answer processing functions
+---------------------------------------------------------------------------------------
+-- This function locates a response object that has function on the dialogue tree.
+local function get_response_object_by_id_recursive(dialogue, current_depth, response_id)
+  if dialogue.responses == nil 
+    and (dialogue.action_type == "dialogue" and dialoge.action.responses == nil) then
+    return nil
+  elseif dialogue.responses ~= nil then
+    -- Get current depth and response ID
+    local d_i1, d_i2 = string.find(response_id, ":")
+    minetest.log("N1: "..dump(string.sub(response_id, 0, d_i1))..", N2: "..dump(string.sub(response_id, 1, d_i1-1)))
+    local depth = tonumber(string.sub(response_id, 0, d_i1-1))
+    local id = tonumber(string.sub(response_id, d_i2 + 1))
+    minetest.log("Depth: "..dump(depth)..", id: "..dump(id))
+    -- Check each response
+    for key,value in ipairs(dialogue.responses) do
+      minetest.log("Key: "..dump(key)..", value: "..dump(value)..", comp1: "..dump(current_depth == depth))
+      if value.action_type == "function" then
+        -- Check if we are on correct response and correct depth
+        if current_depth == depth then
+          if key == id then
+            return value
+          end
+        end
+      else
+        minetest.log("Entering again...")
+        -- We have a dialogue action type. Need to check if dialogue has further responses
+        if value.action.responses ~= nil then
+          local response = get_response_object_by_id_recursive(value.action, current_depth + 1, response_id)
+          if response ~= nil then
+            return response
+          end
+        end
+      end
+    end
+  end
+end
+
 -- Handler for dialogue formspec
 minetest.register_on_player_receive_fields(function (player, formname, fields)
 	-- Additional checks for other forms should be handled here
@@ -290,7 +389,6 @@ minetest.register_on_player_receive_fields(function (player, formname, fields)
 				if fields[button_label] then
 					if player_response.options[i].action_type == "dialogue" then
 						-- Process dialogue object
-						minetest.log("Action: "..dump(player_response.options[i]))
 						npc.dialogue.process_dialogue(player_response.npc, 
 													  player_response.options[i].action, 
 													  player_name)
@@ -324,10 +422,17 @@ minetest.register_on_player_receive_fields(function (player, formname, fields)
 							-- Get dialogues for sex and phase
 							local dialogues = npc.data.DIALOGUES[player_response.npc.sex][phase]
 
+              minetest.log("Object: "..dump(dialogues[player_response.options[i].dialogue_id]))
+              local response = get_response_object_by_id_recursive(dialogues[player_response.options[i].dialogue_id], 0, player_response.options[i].response_id)
+              minetest.log("Found: "..dump(response))
+              
+              -- Execute function
+              response.action(player_response.npc, player)
+
 							-- Execute function
-							dialogues[player_response.options[i].dialogue_id]
-								.responses[player_response.options[i].response_id]
-								.action(player_response.npc, player)
+							-- dialogues[player_response.options[i].dialogue_id]
+							-- 	.responses[player_response.options[i].response_id]
+							-- 	.action(player_response.npc, player)
 
               -- Unlock queue, reset action timer and unfreeze NPC.
               npc.unlock_actions(player_response.npc)

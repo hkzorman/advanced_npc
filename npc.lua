@@ -175,7 +175,26 @@ function npc.take_item_from_inventory_itemstring(self, item_string)
   npc.take_item_from_inventory(self, item_name, item_count)
 end
 
--- Dialogue functions
+---------------------------------------------------------------------------------------
+-- Flag functionality
+---------------------------------------------------------------------------------------
+-- TODO: Consider removing them as they are pretty simple and straight forward.
+-- Generic variables or function that help drive some functionality for the NPC.
+function npc.add_flag(self, flag_name, value)
+  self.flags[flag_name] = value
+end
+
+function npc.update_flag(self, flag_name, value)
+  self.flags[flag_name] = value
+end
+
+function npc.get_flag(self, flag_name)
+  return self.flags[flag_name]
+end
+
+---------------------------------------------------------------------------------------
+-- Dialogue functionality
+---------------------------------------------------------------------------------------
 function npc.start_dialogue(self, clicker, show_married_dialogue)
 
   -- Call dialogue function as normal
@@ -192,10 +211,7 @@ end
 -- This function adds a function to the action queue.
 -- Actions should be added in strict order for tasks to work as expected.
 function npc.add_action(self, action, arguments)
-  --self.freeze = true
-  --minetest.log("Current Pos: "..dump(self.object:getpos()))
   local action_entry = {action=action, args=arguments, is_task=false}
-  --minetest.log(dump(action_entry))
   table.insert(self.actions.queue, action_entry)
 end
 
@@ -356,7 +372,7 @@ local function choose_spawn_items(self)
   -- Add currency to the items spawned with. Will add 5-10 tier 3
   -- currency items
   local currency_item_count = math.random(5, 10)
-  npc.add_item_to_inventory(self, npc.trade.prices.currency.tier3, currency_item_count)
+  npc.add_item_to_inventory(self, npc.trade.prices.currency.tier3.string, currency_item_count)
 
   -- For test
   npc.add_item_to_inventory(self, "default:tree", 10)
@@ -422,6 +438,16 @@ local function npc_spawn(self, pos)
                                                                "phase1",
                                                                ent.gift_data.favorite_items,
                                                                ent.gift_data.disliked_items)
+  
+  -- Declare NPC inventory
+  ent.inventory = initialize_inventory()
+
+  -- Choose items to spawn with
+  choose_spawn_items(ent)
+
+  -- Flags: generic booleans or functions that help drive functionality
+  ent.flags = {}
+
   -- Declare trade data
   ent.trader_data = {
     -- Type of trader
@@ -433,14 +459,13 @@ local function npc_spawn(self, pos)
     -- Items to buy change timer
     change_offers_timer = 0,
     -- Items to buy change timer interval
-    change_offers_timer_interval = 60
+    change_offers_timer_interval = 60,
+    -- Trading list: a list of item names the trader is expected to trade in.
+    -- It is mostly related to its occupation.
+    -- If empty, the NPC will revert to casual trading
+    -- If not, it will try to sell those that it have, and buy the ones it not.
+    trade_list = {}
   }
-
-  -- Declare NPC inventory
-  ent.inventory = initialize_inventory()
-
-  -- Choose items to spawn with
-  choose_spawn_items(ent)
 
   -- Initialize trading offers if NPC is casual trader
   if ent.trader_data.trader_status == npc.trade.CASUAL then
@@ -598,7 +623,7 @@ mobs:register_mob("advanced_npc:npc", {
 		local item = clicker:get_wielded_item()
 		local name = clicker:get_player_name()
     
-    --minetest.log(dump(self))
+    minetest.log(dump(self))
     
     -- Receive gift or start chat. If player has no item in hand
     -- then it is going to start chat directly

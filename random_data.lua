@@ -52,7 +52,67 @@ npc.data.DIALOGUES.female["phase1"] = {
 				}
 			}
 		}
-	}
+	},
+  [7] = {
+    text = "Hello there, could you help me?",
+    flag = {name="received_money_help", value=false},
+    responses = {
+      [1] = {
+        text = "Yes, how can I help?",
+        action_type = "dialogue",
+        action = {
+          text = "Could you please give me 3 "..npc.trade.prices.currency.tier3.name.."?",
+          responses = {
+            [1] = {
+              text = "Yes, ok, here",
+              action_type = "function",
+              action = function(self, player)
+                -- Take item 
+                local args = {
+                  player=player, 
+                  pos=nil, 
+                  inv_list="main", 
+                  item_name=npc.trade.prices.currency.tier3.string, 
+                  count=3
+                }
+                npc.actions.take_item_from_external_inventory(self, {
+                  player=player:get_player_name(), 
+                  pos=nil, 
+                  inv_list="main", 
+                  item_name=npc.trade.prices.currency.tier3.string, 
+                  count=3
+                })
+                -- Send message
+                minetest.chat_send_player(player:get_player_name(), "Thank you, thank you so much!")
+                -- Set flag
+                npc.add_flag(self, "received_money_help", true)
+                -- Add chat line
+                table.insert(self.dialogues.normal, npc.data.DIALOGUES.female["phase1"][8])
+              end
+            },
+            [2] = {
+              text = "No, I'm sorry",
+              action_type = "dialogue",
+              action = {
+                text = "Oh..."
+              }
+            }
+          }
+        }
+      },
+      [2] = {
+        text = "No, I'm sorry, can't now",
+        action_type = "function",
+        action = function(self, player)
+          minetest.chat_send_player(player:get_player_name(), "Oh, ok...")
+        end
+      }
+    }
+  },
+  [8] = {
+    text = "Thank you so much for your help, thank you!",
+    flag = {name="received_money_help", value=true}
+  }
 }
 
 -- Phase 2

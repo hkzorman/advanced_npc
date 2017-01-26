@@ -21,6 +21,11 @@ Current progress and roadmap
 
 __Version 1.0__
 
+NPCs has the following abilities:
+- [x] Inventory: a 16 slot custom inventory, with methods to add, check and remove items.
+- [x] Flags: a simple table that can hold different variables. They can be used to drive events.
+- [x] Actions: a queue that can contain a set of specific actions that execute at fixed timer interval.
+
 __Phase 1__: Gifts and relationships: In progress
 - [x] NPCs should be able to receive items
 - [x] NPCs will have favorite and disliked items
@@ -33,7 +38,7 @@ __Phase 2__: Dialogues: In progress
 - [x] NPCs should be able to perform complex dialogues:
   - [x] Use yes/no or multiple option dialogue boxes to interact with player
   - [x] Answers and responses by player
-- [ ] Specific dialogues on certain flags (so that events can change what an NPC says)
+- [ ] Specific dialogues on certain flags (so that events can change what an NPC says) (in progress)
 
 __Phase 3__: Trading: In progress
 - [ ] NPCs should be able to trade, either buy or sell items to/from player and other NPCs
@@ -45,7 +50,7 @@ __Phase 3__: Trading: In progress
 __Phase 4__: Actions: Complete
 - [x] NPCs should be able to use chests, furnaces, doors, beds and sit on "sittable" nodes
 - [x] NPCs should be able to walk to specific places. Should also be able to open doors, fence gates and any other type of openable node while going to a place.
-- [x] NPCs should have the ability to identify nodes that belong to him/her, and recall them/
+- [x] NPCs should have the ability to identify nodes that belong to him/her, and recall them
   
 __Phase 5__: Schedules and fundamental jobs
   - [ ] NPCs should be able to perform different activities on depending on the time of the day. For instance, a NPC could be farming during the morning, selling its product on the afternoon, and comfortable sitting at home during the night.
