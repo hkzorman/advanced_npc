@@ -87,7 +87,7 @@ function npc.trade.prices.get_items_for_currency_count(tier, count, price_factor
     if price.tier == tier and price.count <= count then
       result[item_name] = {price = price}
 
-      minetest.log("Item name: "..dump(item_name)..", Price: "..dump(price))
+      --minetest.log("Item name: "..dump(item_name)..", Price: "..dump(price))
 
       local min_buying_item_count = 1
       -- Calculate price NPC is going to buy for
@@ -111,11 +111,11 @@ function npc.trade.prices.get_items_for_currency_count(tier, count, price_factor
       --minetest.log("Maximum item buy quantity: "..dump(max_buying_item_count))
 
       result[item_name].min_buyable_item_count = min_buying_item_count
-      result[item_name].min_buyable_item_price = min_buying_item_count * buying_price_count
+      result[item_name].min_buyable_item_price = buying_price_count
       result[item_name].max_buyable_item_count = max_buying_item_count
     end
   end
-  --minetest.log("Final result: "..dump(result))
+  minetest.log("Final result: "..dump(result))
   return result
 end
 

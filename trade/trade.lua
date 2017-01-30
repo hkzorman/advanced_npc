@@ -147,7 +147,8 @@ function npc.trade.get_casual_trade_offer(self, offer_type)
     -- so that the price count is always an integer number
     local amount_to_buy = math.random(buyable_items[item].min_buyable_item_count, buyable_items[item].max_buyable_item_count)
     -- Create trade offer
-    result = npc.trade.create_offer(npc.trade.OFFER_BUY, item, price, amount_to_buy)
+    minetest.log("Buyable item: "..dump(buyable_items[item]))
+    result = npc.trade.create_offer(npc.trade.OFFER_BUY, item, buyable_items[item].price, buyable_items[item].min_buyable_item_price, amount_to_buy)
   else
     -- Make sell offer, NPC will sell items to player at regular price
     -- NPC will also offer items from their inventory
@@ -164,59 +165,33 @@ function npc.trade.get_casual_trade_offer(self, offer_type)
     -- Choose how many of this item will be sold to player
     local count = math.random(npc.get_item_count(item))
     -- Create trade offer
-    result = npc.trade.create_offer(npc.trade.OFFER_SELL, npc.get_item_name(item), nil, count)
+    result = npc.trade.create_offer(npc.trade.OFFER_SELL, npc.get_item_name(item), nil, nil, count)
   end
 
   return result
 end
 
 -- Creates a trade offer based on the offer type, given item and count. If
--- the offer is a "buy" offer, it is required to provide currency items for
--- payment. The currencies should come from either the NPC's inventory or a
--- chest belonging to it.
-function npc.trade.create_offer(offer_type, item, price_item_count, count)
-
-  minetest.log("Item:"..dump(item))
+-- the offer is a "buy" offer, it is required to provide the price item and
+-- the minimum price item count.
+function npc.trade.create_offer(offer_type, item, price, min_price_item_count, count)
   local result = {}
   -- Check offer type
   if offer_type == npc.trade.OFFER_BUY then
     -- Get price for the given item
-    local item_price = npc.trade.prices.table[item]
-    minetest.log("Item price: "..dump(item_price))
-    -- Choose buying quantity. Since this is a buy offer, NPC will buy items 
-    -- at half the price. Therefore, NPC will always ask for even quantities
-    -- so that the price count is always an integer number
-    minetest.log("Count: "..dump(count)..", price item count: "..dump(item_price.count))
-    local price_item_count = item_price.count * ((count) / 2)
-    minetest.log("Price item: "..dump(price_item_count))
-    -- Increase the amount to buy if the result of the price is a decimal number
-    while price_item_count % 1 ~= 0 do
-      minetest.log("Count: "..dump(count))
-      count = count + 1
-      price_item_count = item_price.count * ((count) / 2)
-      minetest.log("Price item: "..dump(price_item_count))
-    end
-    -- Check if the currency items can pay for the selected amount to buy
-    for i = 1, #currency_items do
-      minetest.log("Currency item: "..dump(currency_items[i]))
-      minetest.log("Name: "..dump(item_price.tier)..", Count: "..dump(price_item_count))
-      if currency_items[i].name == item_price.tier and currency_items[i].count >= item_price.count then
-        -- Create price itemstring
-        local price_string = item_price.tier.." "
-          ..tostring( item_price.count * (count / 2) )
+    -- Create price itemstring
+    local price_string = price.tier.." "
+      ..tostring( min_price_item_count * count )
 
-        -- Build the return object
-        result = {
-          offer_type = offer_type,
-          item = item.." "..count,
-          price = price_string
-        }
-      end
-    end
+    -- Build the return object
+    result = {
+      offer_type = offer_type,
+      item = item.." "..count,
+      price = price_string
+    }
   else
     -- Make sell offer, NPC will sell items to player at regular price
     -- Get and calculate price for this object
-    minetest.log("Item: "..dump(item)..", name: "..dump(npc.get_item_name(item)))
     local price_object = npc.trade.prices.table[item]
     -- Check price object, if price < 1 then offer to sell for 1
     if price_object.count < 1 then
