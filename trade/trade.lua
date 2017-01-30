@@ -48,6 +48,29 @@ npc.trade.CASUAL_TRADE_SELL_DIALOGUE = {
   }
 }
 
+-- Dedicated trade dialogue prompt
+npc.trade.DEDICATED_TRADER_PROMPT = {
+  text = "Hello there, would you like to trade?",
+  is_dedicated_trade_prompt = true,
+  responses = {
+    [1] = {
+      text = "Buy",
+      action_type = "function",
+      response_id = 1,
+      action = function(self, player)
+      end
+    },
+    [2] = {
+      text = "Sell",
+      action_type = "function",
+      response_id = 2,
+      action = function(self, player)
+
+      end
+    }
+  }
+}
+
 function npc.trade.show_trade_offer_formspec(self, player, offer_type)
   
   -- Strings for formspec, to include international support later
@@ -169,6 +192,15 @@ function npc.trade.get_casual_trade_offer(self, offer_type)
   end
 
   return result
+end
+
+-- The following function create buy and sell offers for dedicated traders,
+-- based on the trader list and the source of items. Initially, it will only
+-- be NPC inventories. In the future, it should support both NPC and chest
+-- inventories,
+function npc.trade.get_trade_offers_for_dedicated_trader(self)
+
+
 end
 
 -- Creates a trade offer based on the offer type, given item and count. If

@@ -42,6 +42,7 @@ function npc.dialogue.show_options_dialogue(self,
 																						is_married_dialogue,
 																						is_casual_trade_dialogue,
 																						casual_trade_type,
+                                            is_dedicated_trade_prompt,
 																						dismiss_option_label,
 																						player_name) 
 	local options_length = table.getn(responses) + 1	
@@ -65,6 +66,7 @@ function npc.dialogue.show_options_dialogue(self,
 		is_married_dialogue = is_married_dialogue,
 		is_casual_trade_dialogue = is_casual_trade_dialogue,
 		casual_trade_type = casual_trade_type,
+    is_dedicated_trade_prompt = is_dedicated_trade_prompt,
 		options = responses
 	}
 
@@ -182,6 +184,13 @@ function npc.dialogue.start_dialogue(self, player, show_married_dialogue)
 		return
 	end 
 
+  -- Show options dialogue for dedicated trader
+  if self.trader_data.trader_status == npc.trade.TRADER then
+    dialogue = npc.trade.DEDICATED_TRADER_PROMPT
+    npc.dialogue.process_dialogue(self, dialogue, player:get_player_name())
+    return
+  end
+
 	local chance = math.random(1, 100)
 	minetest.log("Chance: "..dump(chance))
 	if chance < 30 then
@@ -261,6 +270,7 @@ function npc.dialogue.process_dialogue(self, dialogue, player_name)
 			dialogue.is_married_dialogue,
 			dialogue.casual_trade_type ~= nil,
 			dialogue.casual_trade_type,
+      dialogue.is_dedicated_trade_prompt,
 			npc.dialogue.NEGATIVE_ANSWER_LABEL,
 			player_name
 		)
@@ -417,6 +427,12 @@ minetest.register_on_player_receive_fields(function (player, formname, fields)
 									.responses[player_response.options[i].response_id]
 									.action(player_response.npc, player) 
 							end
+              return
+            elseif player_response.is_dedicated_trade_prompt == true then
+              -- Get the functions for a dedicated trader prompt
+              npc.trade.DEDICATED_TRADER_PROMPT
+                .responses[player_response.options[i].response_id]
+                .action(player_response.npc, player)
               return
 						else
 							-- Get dialogues for sex and phase
