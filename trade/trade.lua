@@ -199,8 +199,47 @@ end
 -- be NPC inventories. In the future, it should support both NPC and chest
 -- inventories,
 function npc.trade.get_trade_offers_for_dedicated_trader(self)
+  local offers = { 
+    for_sell = {},
+    to_buy = {}
+  }
 
-
+  for i = 1, #self.trader_data.trade_list do
+    -- For each item on the trader list, check if it is in the NPC inventory.
+    -- If it is, create a sell offer, else create a buy offer if possible.
+    local item = npc.inventory_contains(self, self.trader_data.trade_list[i])
+    if item ~= nil then
+      -- Create sell offer for this item. Currently, traders will offer to sell only
+      -- of their items to allow the fine control for players to buy what they want.
+      -- This requires, however, that the trade offers are re-generated everytime a
+      -- sell is made.
+      table.insert(offers.for_sell, npc.trade.create_offer(npc.trade.OFFER_SELL, self.trader_data.trade_list[i], nil, nil, 1))
+    else
+      -- Create buy offer for this item
+      -- Only do if the NPC can actually afford the items.
+      local currencies = npc.trade.get_currencies_in_inventory(self)
+      -- Choose a random currency
+      local chosen_tier = currencies[math.random(#currencies)]
+      -- Get items for this currency
+      local buyable_items =
+        npc.trade.prices.get_items_for_currency_count(chosen_tier.name, chosen_tier.count, 0.5)
+      -- Check if the item from trader list is present in the buyable items list
+      for buyable_item, price_info in pairs(buyable_items) do
+        if buyable_item == self.trader_data.trade_list[i] then
+          -- If item found, create a buy offer for this item
+          -- Again, offers are created for one item only. Buy offers should be removed
+          -- after the NPC has bought a certain quantity, say, 5 items.
+          table.insert(offers.to_buy, npc.trade.create_offer(
+            npc.trade.OFFER_BUY, 
+            self.trader_data.trade_list[i], 
+            price_info.price, 
+            price_info.min_buyable_item_price, 
+            1))
+        end
+      end
+    end
+  end
+  return offers
 end
 
 -- Creates a trade offer based on the offer type, given item and count. If

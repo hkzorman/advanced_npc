@@ -524,7 +524,17 @@ local function npc_spawn(self, pos)
     --npc.add_action(ent, npc.actions.set_interval, {self=ent, interval=10, freeze=true})
     npc.add_action(ent, npc.actions.freeze, {freeze = false})
   end
+
+  -- Dedicated trade test
+  ent.trader_data.trade_list = {
+    "default:tree",
+    "default:cobble",
+    "default:wood"
+  }
   
+  local trade_offers = npc.trade.get_trade_offers_for_dedicated_trader(ent)
+  minetest.log("Trade offers: "..dump(trade_offers))
+
   -- npc.add_action(ent, npc.action.stand, {self = ent})
   -- npc.add_action(ent, npc.action.stand, {self = ent})
   -- npc.add_action(ent, npc.action.walk_step, {self = ent, dir = npc.direction.east})
