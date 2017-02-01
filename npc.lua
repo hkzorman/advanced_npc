@@ -381,16 +381,16 @@ local function choose_spawn_items(self)
   minetest.log("Initial inventory: "..dump(self.inventory))
 end
 
--- Creates new single buy and sell offers for NPCs that
--- trade casually.
-local function select_casual_trade_offers(self)
-  self.trader_data.buy_offers = {
-    [1] = npc.trade.get_casual_trade_offer(self, npc.trade.OFFER_BUY)
-  }
-  self.trader_data.sell_offers = {
-    [1] = npc.trade.get_casual_trade_offer(self, npc.trade.OFFER_SELL)
-  }
-end
+-- -- Creates new single buy and sell offers for NPCs that
+-- -- trade casually.
+-- local function select_casual_trade_offers(self)
+--   self.trader_data.buy_offers = {
+--     [1] = npc.trade.get_casual_trade_offer(self, npc.trade.OFFER_BUY)
+--   }
+--   self.trader_data.sell_offers = {
+--     [1] = npc.trade.get_casual_trade_offer(self, npc.trade.OFFER_SELL)
+--   }
+-- end
 
 -- Spawn function. Initializes all variables that the
 -- NPC will have and choose random, starting values
@@ -464,13 +464,18 @@ local function npc_spawn(self, pos)
     -- It is mostly related to its occupation.
     -- If empty, the NPC will revert to casual trading
     -- If not, it will try to sell those that it have, and buy the ones it not.
-    trade_list = {}
+    trade_list = {
+      sell = {},
+      buy = {},
+      both = {}
+    }
   }
 
-  -- Initialize trading offers if NPC is casual trader
-  if ent.trader_data.trader_status == npc.trade.CASUAL then
-    select_casual_trade_offers(ent)
-  end
+  -- Initialize trading offers for NPC
+  --npc.trade.generate_trade_offers_by_status(ent)
+  -- if ent.trader_data.trader_status == npc.trade.CASUAL then
+  --   select_casual_trade_offers(ent)
+  -- end
 
   -- Actions data
   ent.actions = {
@@ -526,14 +531,13 @@ local function npc_spawn(self, pos)
   end
 
   -- Dedicated trade test
-  ent.trader_data.trade_list = {
-    "default:tree",
-    "default:cobble",
-    "default:wood"
+  ent.trader_data.trade_list.both = {
+    ["default:tree"] = {},
+    ["default:cobble"] = {},
+    ["default:wood"] = {}
   }
-  
-  local trade_offers = npc.trade.get_trade_offers_for_dedicated_trader(ent)
-  minetest.log("Trade offers: "..dump(trade_offers))
+
+  npc.trade.generate_trade_offers_by_status(ent)
 
   -- npc.add_action(ent, npc.action.stand, {self = ent})
   -- npc.add_action(ent, npc.action.stand, {self = ent})

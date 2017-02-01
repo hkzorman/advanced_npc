@@ -22,7 +22,7 @@ npc.trade.CASUAL_TRADE_BUY_DIALOGUE = {
   casual_trade_type = npc.trade.OFFER_BUY,
   responses = {
     [1] = {
-      text = "Yes, let's see what you are looking for",
+      text = "Sell",
       action_type = "function",
       response_id = 1,
       action = function(self, player)
@@ -38,7 +38,7 @@ npc.trade.CASUAL_TRADE_SELL_DIALOGUE = {
   casual_trade_type = npc.trade.OFFER_SELL,
   responses = {
     [1] = {
-      text = "Yes, let's see what you have",
+      text = "Buy",
       action_type = "function",
       response_id = 1,
       action = function(self, player)
@@ -122,6 +122,38 @@ function npc.trade.get_random_trade_status()
 	end
 end
 
+-- This function generates and stores on the NPC data trade
+-- offers depending on the trader status. 
+function npc.trade.generate_trade_offers_by_status(self)
+  -- Get trader status
+  local status = self.trader_data.trader_status
+  -- Check what is the trader status
+  if status == npc.trade.NONE then
+    -- For none, clear all offers
+    self.trader_data.buy_offers = {}
+    self.trader_data.sell_offers = {}
+  elseif status == npc.trade.CASUAL then
+    -- For casual, generate one buy and one sell offer
+    self.trader_data.buy_offers = {
+      [1] = npc.trade.get_casual_trade_offer(self, npc.trade.OFFER_BUY)
+    }
+    self.trader_data.sell_offers = {
+      [1] = npc.trade.get_casual_trade_offer(self, npc.trade.OFFER_SELL)
+    }
+  elseif status == npc.trade.TRADER then
+    -- Get trade offers for a dedicated trader
+    local offers = npc.trade.get_dedicated_trade_offers(self)
+    -- Store buy offers
+    for i = 1, #offers.buy do
+      table.insert(self.trader_data.buy_offers, offers.buy[i])
+    end
+    -- Store sell offers
+    for i = 1, #offers.sell do
+      table.insert(self.trader_data.sell_offers, offers.sell[i])
+    end
+  end
+end
+
 -- Convenience method that retrieves all the currency
 -- items that a NPC has on his/her inventory
 function npc.trade.get_currencies_in_inventory(self)
@@ -198,43 +230,59 @@ end
 -- based on the trader list and the source of items. Initially, it will only
 -- be NPC inventories. In the future, it should support both NPC and chest
 -- inventories,
-function npc.trade.get_trade_offers_for_dedicated_trader(self)
+function npc.trade.get_dedicated_trade_offers(self)
   local offers = { 
-    for_sell = {},
-    to_buy = {}
+    sell = {},
+    buy = {}
   }
 
-  for i = 1, #self.trader_data.trade_list do
+  local trade_list = self.trader_data.trade_list.both
+
+  for item_name, trade_info in pairs(trade_list) do
     -- For each item on the trader list, check if it is in the NPC inventory.
     -- If it is, create a sell offer, else create a buy offer if possible.
-    local item = npc.inventory_contains(self, self.trader_data.trade_list[i])
+    local item = npc.inventory_contains(self, item_name)
     if item ~= nil then
       -- Create sell offer for this item. Currently, traders will offer to sell only
       -- of their items to allow the fine control for players to buy what they want.
       -- This requires, however, that the trade offers are re-generated everytime a
       -- sell is made.
-      table.insert(offers.for_sell, npc.trade.create_offer(npc.trade.OFFER_SELL, self.trader_data.trade_list[i], nil, nil, 1))
+      table.insert(offers.sell, npc.trade.create_offer(
+        npc.trade.OFFER_SELL, 
+        item_name, 
+        nil, 
+        nil, 
+        1)
+      )
+      -- Set last offer type
+      trade_info.last_offer_type = npc.trade.OFFER_SELL
     else
-      -- Create buy offer for this item
-      -- Only do if the NPC can actually afford the items.
-      local currencies = npc.trade.get_currencies_in_inventory(self)
-      -- Choose a random currency
-      local chosen_tier = currencies[math.random(#currencies)]
-      -- Get items for this currency
-      local buyable_items =
-        npc.trade.prices.get_items_for_currency_count(chosen_tier.name, chosen_tier.count, 0.5)
-      -- Check if the item from trader list is present in the buyable items list
-      for buyable_item, price_info in pairs(buyable_items) do
-        if buyable_item == self.trader_data.trade_list[i] then
-          -- If item found, create a buy offer for this item
-          -- Again, offers are created for one item only. Buy offers should be removed
-          -- after the NPC has bought a certain quantity, say, 5 items.
-          table.insert(offers.to_buy, npc.trade.create_offer(
-            npc.trade.OFFER_BUY, 
-            self.trader_data.trade_list[i], 
-            price_info.price, 
-            price_info.min_buyable_item_price, 
-            1))
+      -- Avoid flipping an item to the buy side if the stock was just depleted
+      if trade_info.last_offer_type ~= npc.trade.OFFER_SELL then
+        -- Create buy offer for this item
+        -- Only do if the NPC can actually afford the items.
+        local currencies = npc.trade.get_currencies_in_inventory(self)
+        -- Choose a random currency
+        local chosen_tier = currencies[math.random(#currencies)]
+        -- Get items for this currency
+        local buyable_items =
+          npc.trade.prices.get_items_for_currency_count(chosen_tier.name, chosen_tier.count, 0.5)
+        -- Check if the item from trader list is present in the buyable items list
+        for buyable_item, price_info in pairs(buyable_items) do
+          if buyable_item == item_name then
+            -- If item found, create a buy offer for this item
+            -- Again, offers are created for one item only. Buy offers should be removed
+            -- after the NPC has bought a certain quantity, say, 5 items.
+            table.insert(offers.buy, npc.trade.create_offer(
+              npc.trade.OFFER_BUY, 
+              item_name, 
+              price_info.price, 
+              price_info.min_buyable_item_price, 
+              price_info.min_buyable_item_count)
+            )
+            -- Set last offer type
+            trade_info.last_offer_type = npc.trade.OFFER_BUY
+          end
         end
       end
     end
