@@ -38,13 +38,13 @@ __Phase 2__: Dialogues: Complete
 - [x] NPCs should be able to perform complex dialogues:
   - [x] Use yes/no or multiple option dialogue boxes to interact with player
   - [x] Answers and responses by player
-- [x] Specific dialogues on certain flags (so that events can change what an NPC says) (in progress)
+- [x] Specific dialogues on certain flags (so that events can change what an NPC says)
 
 __Phase 3__: Trading: In progress
 - [ ] NPCs should be able to trade, either buy or sell items to/from player and other NPCs
   - There are two types of traders: casual and dedicated.
     - [x] Casual traders are normal NPC which occasionaly make buy or sell offers to the player
-    - [ ] Dedicated traders are traders that, when talked to, always make buy and sell offers. They have a greater variety too.
+    - [ ] Dedicated traders are traders that, when talked to, always make buy and sell offers. They have a greater variety too. (in progress)
 - [ ] NPCs will also be able to offer "services", for example, repairing tools, by receiving an item and a payment, and then returning a specific item.
 
 __Phase 4__: Actions: Complete
