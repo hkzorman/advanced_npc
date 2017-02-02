@@ -43,6 +43,7 @@ npc.trade.prices.table["farming:bread"]  =        {tier = npc.trade.prices.curre
 -- Tier 2 items: medium priced items
 
 -- Tier 1 items: expensive items
+npc.trade.prices.table["default:mese_crystal"]       = {tier = npc.trade.prices.currency.tier1.string, count = 45}
 npc.trade.prices.table["default:diamond"]            = {tier = npc.trade.prices.currency.tier1.string, count = 90}
 npc.trade.prices.table["advanced_npc:marriage_ring"] = {tier = npc.trade.prices.currency.tier1.string, count = 100}
 

@@ -58,6 +58,7 @@ npc.trade.DEDICATED_TRADER_PROMPT = {
       action_type = "function",
       response_id = 1,
       action = function(self, player)
+        npc.trade.show_dedicated_trade_formspec(self, player, npc.trade.OFFER_SELL)
       end
     },
     [2] = {
@@ -65,7 +66,7 @@ npc.trade.DEDICATED_TRADER_PROMPT = {
       action_type = "function",
       response_id = 2,
       action = function(self, player)
-
+        npc.trade.show_dedicated_trade_formspec(self, player, npc.trade.OFFER_BUY)
       end
     }
   }
@@ -105,6 +106,50 @@ function npc.trade.show_trade_offer_formspec(self, player, offer_type)
   }
   -- Show formspec to player
   minetest.show_formspec(player:get_player_name(), "advanced_npc:trade_offer", formspec)
+end
+
+
+function npc.trade.show_dedicated_trade_formspec(self, player, offers_type)
+
+  -- Choose the correct offers
+  local offers = self.trader_data.buy_offers
+  local menu_offer_type = "sell"
+  if offers_type == npc.trade.OFFER_SELL then
+    offers = self.trader_data.sell_offers
+    menu_offer_type = "buy"
+  end
+
+  -- Create a grid with the items for trade offer
+  local max_columns = 4
+  local current_x = 0.2
+  local current_y = 0.5
+  local current_col = 1
+  local current_row = 1
+  local formspec = "size[8.9,8.2]"..
+                default.gui_bg..
+                default.gui_bg_img..
+                default.gui_slots..
+                "label[0.2,0.05;Click on the price button to "..menu_offer_type.." item]"
+  for i = 1, #offers do
+    local price_item_name = minetest.registered_items[npc.get_item_name(offers[i].price)].description
+    formspec = formspec.. 
+      "box["..current_x..","..current_y..";2,2.3;#212121]"..
+      "item_image["..(current_x + 0.45)..","..(current_y + 0.15)..";1.3,1.3;"..npc.get_item_name(offers[i].item).."]"..
+      "item_image_button["..(current_x + 1.15)..","..(current_y + 1.4)..";1,1;"..offers[i].price..";price"..i..";]"..
+      "label["..(current_x + 0.15)..","..(current_y + 1.7)..";Price]"
+    current_x = current_x + 2.1
+    current_col = current_col + 1
+    if current_col > 4 then
+      current_col = 1
+      current_x = 0.2
+      current_y = current_y + 2.4
+    end
+  end
+
+  formspec = formspec .. "button_exit[2.5,7.9;3.9,0.5;exit;Nevermind]"
+
+  minetest.show_formspec(player:get_player_name(), "advanced_npc:dedicated_trading_offers", formspec)
+
 end
 
 function npc.trade.get_random_trade_status()

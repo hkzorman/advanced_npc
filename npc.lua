@@ -377,6 +377,16 @@ local function choose_spawn_items(self)
   -- For test
   npc.add_item_to_inventory(self, "default:tree", 10)
   npc.add_item_to_inventory(self, "default:cobble", 10)
+  npc.add_item_to_inventory(self, "default:diamond", 2)
+  npc.add_item_to_inventory(self, "default:mese_crystal", 2)
+  npc.add_item_to_inventory(self, "flowers:rose", 2)
+  npc.add_item_to_inventory(self, "advanced_npc:marriage_ring", 2)
+  npc.add_item_to_inventory(self, "flowers:geranium", 2)
+  npc.add_item_to_inventory(self, "mobs:meat", 2)
+  npc.add_item_to_inventory(self, "mobs:leather", 2)
+  npc.add_item_to_inventory(self, "default:sword_stone", 2)
+  npc.add_item_to_inventory(self, "default:shovel_stone", 2)
+  npc.add_item_to_inventory(self, "default:axe_stone", 2)
 
   minetest.log("Initial inventory: "..dump(self.inventory))
 end
@@ -534,7 +544,17 @@ local function npc_spawn(self, pos)
   ent.trader_data.trade_list.both = {
     ["default:tree"] = {},
     ["default:cobble"] = {},
-    ["default:wood"] = {}
+    ["default:wood"] = {},
+    ["default:diamond"] = {},
+    ["default:mese_crystal"] = {},
+    ["flowers:rose"] = {},
+    ["advanced_npc:marriage_ring"] = {},
+    ["flowers:geranium"] = {},
+    ["mobs:meat"] = {},
+    ["mobs:leather"] = {},
+    ["default:sword_stone"] = {},
+    ["default:shovel_stone"] = {},
+    ["default:axe_stone"] = {}
   }
 
   npc.trade.generate_trade_offers_by_status(ent)
@@ -675,7 +695,7 @@ mobs:register_mob("advanced_npc:npc", {
       -- Reset timer
       self.trader_data.change_offers_timer = 0
       -- Re-select casual trade offers
-      select_casual_trade_offers(self)
+      npc.trade.generate_trade_offers_by_status(self)
     end
   
 		-- Timer function for gifts
