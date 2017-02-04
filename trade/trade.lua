@@ -148,6 +148,13 @@ function npc.trade.show_dedicated_trade_formspec(self, player, offers_type)
 
   formspec = formspec .. "button_exit[2.5,7.9;3.9,0.5;exit;Nevermind]"
 
+   -- Create entry into results table
+  npc.trade.results.trade_offers[player:get_player_name()] = {
+    offers_type = offers_type,
+    offers = offers,
+    npc = self
+  }
+
   minetest.show_formspec(player:get_player_name(), "advanced_npc:dedicated_trading_offers", formspec)
 
 end
@@ -433,7 +440,7 @@ end
 -- Handler for chat formspec
 minetest.register_on_player_receive_fields(function (player, formname, fields)
   -- Additional checks for other forms should be handled here
-  -- Handle yes/no dialogue
+  -- Handle casual trade dialogue
   if formname == "advanced_npc:trade_offer" then
     local player_name = player:get_player_name()
 
@@ -449,6 +456,23 @@ minetest.register_on_player_receive_fields(function (player, formname, fields)
       end
 
     end
-  end
+  elseif formname == "advanced_npc:dedicated_trading_offers" then
+    local player_name = player:get_player_name()
 
+    if fields then
+      local player_response = npc.trade.results.trade_offers[player_name]
+      -- Unlock the action timer
+      npc.unlock_actions(player_response.npc)
+
+      local trade_offers = npc.trade.results.trade_offers[player_name].offers
+      -- Check which price was clicked
+      for i = 1, #trade_offers do
+        local price_button = "price"..tostring(i)
+        if fields[price_button] then
+          npc.trade.perform_trade(player_response.npc, player_name, trade_offers[i])
+          --minetest.log("Player selected: "..dump(trade_offers[i]))
+        end
+      end
+    end
+  end
 end)
