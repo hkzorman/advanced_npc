@@ -13,7 +13,7 @@ Installation
 
 __NOTE__: Advanced NPC is still under development. While the mod is largely stable, it lacks one of the most important pieces: spawning. Currently, NPCs will spawn on stone (default:stone) and the mg_villages' plotmarkers (mg_villages:plotmarker). The spawning is not controlled, so you will have several of them walking around. This is not how it is planned and is just for testing purposes. In the future, only a handful of NPCs should spawn at village house's plotmarker and they will know their way around the house and have specific jobs.
 
-Download the mod [here](https://github.com/hkzorman/advanced_npc/archive/master.zip)(link always pointing to latest version)
+Download the mod [here](https://github.com/hkzorman/advanced_npc/archive/master.zip) (link always pointing to latest version)
 
 For this mod to work correctly, you also need to install the [mobs_redo](https://github.com/tenplus1/mobs_redo) mod. After installation, make sure you enable it in your world.
 
@@ -28,4 +28,4 @@ The Jumper library is Copyright (c) 2012-2013 Roland Yonaba, licensed under MIT 
 Roadmap
 -------
 
-See it on the [wiki](https://github.com/hkzorman/advanced_npc/wiki)
+See it on the [wiki](https://github.com/hkzorman/advanced_npc/wiki).
