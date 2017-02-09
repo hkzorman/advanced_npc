@@ -82,7 +82,7 @@ end
 -- Gets all the item for a specified budget
 function npc.trade.prices.get_items_for_currency_count(tier, count, price_factor)
   local result = {}
-  minetest.log("Currency quantity: "..dump(count))
+  --minetest.log("Currency quantity: "..dump(count))
   for item_name, price in pairs(npc.trade.prices.table) do
     -- Check price currency is of the same tier
     if price.tier == tier and price.count <= count then
@@ -116,7 +116,7 @@ function npc.trade.prices.get_items_for_currency_count(tier, count, price_factor
       result[item_name].max_buyable_item_count = max_buying_item_count
     end
   end
-  minetest.log("Final result: "..dump(result))
+  --minetest.log("Final result: "..dump(result))
   return result
 end
 

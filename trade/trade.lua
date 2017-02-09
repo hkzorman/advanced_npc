@@ -9,6 +9,10 @@ npc.trade.NONE = "none"
 npc.trade.OFFER_BUY = "buy"
 npc.trade.OFFER_SELL = "sell"
 
+-- This variable establishes how much items a dedicated
+-- trader will buy until retiring the offer
+npc.trade.DEDICATED_MAX_BUY_AMOUNT = 5
+
 -- This table holds all responses for trades  
 npc.trade.results = {
   single_trade_offer = {},
@@ -193,6 +197,9 @@ function npc.trade.generate_trade_offers_by_status(self)
       [1] = npc.trade.get_casual_trade_offer(self, npc.trade.OFFER_SELL)
     }
   elseif status == npc.trade.TRADER then
+    -- Clear current offers
+    self.trader_data.buy_offers = {}
+    self.trader_data.sell_offers = {}
     -- Get trade offers for a dedicated trader
     local offers = npc.trade.get_dedicated_trade_offers(self)
     -- Store buy offers
@@ -291,49 +298,70 @@ function npc.trade.get_dedicated_trade_offers(self)
   local trade_list = self.trader_data.trade_list.both
 
   for item_name, trade_info in pairs(trade_list) do
+    -- Abort if more than 12 buy or sell offers are made
+    if table.getn(offers.sell) >= 12 or table.getn(offers.buy) >= 12 then
+      break
+    end
     -- For each item on the trader list, check if it is in the NPC inventory.
     -- If it is, create a sell offer, else create a buy offer if possible.
+    -- Also, avoid creating sell offers immediately if the item was just bought
     local item = npc.inventory_contains(self, item_name)
-    if item ~= nil then
-      -- Create sell offer for this item. Currently, traders will offer to sell only
-      -- of their items to allow the fine control for players to buy what they want.
-      -- This requires, however, that the trade offers are re-generated everytime a
-      -- sell is made.
-      table.insert(offers.sell, npc.trade.create_offer(
-        npc.trade.OFFER_SELL, 
-        item_name, 
-        nil, 
-        nil, 
-        1)
-      )
-      -- Set last offer type
-      trade_info.last_offer_type = npc.trade.OFFER_SELL
+    if item ~= nil and trade_info.last_offer_type ~= npc.trade.OFFER_BUY then
+    
+        -- Create sell offer for this item. Currently, traders will offer to sell only
+        -- of their items to allow the fine control for players to buy what they want.
+        -- This requires, however, that the trade offers are re-generated everytime a
+        -- sell is made.
+        table.insert(offers.sell, npc.trade.create_offer(
+          npc.trade.OFFER_SELL, 
+          item_name, 
+          nil, 
+          nil, 
+          1)
+        )
+        -- Set last offer type
+        trade_info.last_offer_type = npc.trade.OFFER_SELL
+      
     else
       -- Avoid flipping an item to the buy side if the stock was just depleted
       if trade_info.last_offer_type ~= npc.trade.OFFER_SELL then
         -- Create buy offer for this item
         -- Only do if the NPC can actually afford the items.
         local currencies = npc.trade.get_currencies_in_inventory(self)
-        -- Choose a random currency
-        local chosen_tier = currencies[math.random(#currencies)]
-        -- Get items for this currency
-        local buyable_items =
-          npc.trade.prices.get_items_for_currency_count(chosen_tier.name, chosen_tier.count, 0.5)
-        -- Check if the item from trader list is present in the buyable items list
-        for buyable_item, price_info in pairs(buyable_items) do
-          if buyable_item == item_name then
-            -- If item found, create a buy offer for this item
-            -- Again, offers are created for one item only. Buy offers should be removed
-            -- after the NPC has bought a certain quantity, say, 5 items.
-            table.insert(offers.buy, npc.trade.create_offer(
-              npc.trade.OFFER_BUY, 
-              item_name, 
-              price_info.price, 
-              price_info.min_buyable_item_price, 
-              price_info.min_buyable_item_count)
-            )
-            -- Set last offer type
-            trade_info.last_offer_type = npc.trade.OFFER_BUY
+        -- Check if currency isn't empty
+        if #currencies > 0 then
+          -- Choose a random currency
+          local chosen_tier = currencies[math.random(#currencies)]
+          -- Get items for this currency
+          local buyable_items =
+            npc.trade.prices.get_items_for_currency_count(chosen_tier.name, chosen_tier.count, 0.5)
+          -- Check if the item from trader list is present in the buyable items list
+          for buyable_item, price_info in pairs(buyable_items) do
+            if buyable_item == item_name then
+              -- If item found, create a buy offer for this item
+              -- Again, offers are created for one item only. Buy offers should be removed
+              -- after the NPC has bought a certain quantity, say, 5 items.
+              minetest.log("Item: "..item_name)
+              minetest.log("Trade info: "..dump(trade_info))
+              minetest.log("Logic: "..dump(trade_info.item_bought_count == nil 
+                or (trade_info.item_bought_count ~= nil and trade_info.item_bought_count <= npc.trade.DEDICATED_MAX_BUY_AMOUNT)))
+              if trade_info.item_bought_count == nil 
+                or (trade_info.item_bought_count ~= nil and trade_info.item_bought_count <= npc.trade.DEDICATED_MAX_BUY_AMOUNT) then
+                -- Create trade offer for this item
+                table.insert(offers.buy, npc.trade.create_offer(
+                  npc.trade.OFFER_BUY, 
+                  item_name, 
+                  price_info.price, 
+                  price_info.min_buyable_item_price, 
+                  price_info.min_buyable_item_count)
+                )
+                -- Set last offer type
+                trade_info.last_offer_type = npc.trade.OFFER_BUY
+              else
+                -- Clear the trade info for this item
+                trade_info.item_bought_count = 0
+              end
+            end
           end
         end
       end
@@ -382,8 +410,9 @@ function npc.trade.create_offer(offer_type, item, price, min_price_item_count, c
 end
 
 
--- TODO: THis method needs to be refactored to be able to manage
--- both NPC inventories and chest inventories
+-- TODO: This method needs to be refactored to be able to manage
+-- both NPC inventories and chest inventories.
+-- Returns true if trade was possible, else returns false.
 function npc.trade.perform_trade(self, player_name, offer)
 
   local item_stack = ItemStack(offer.item)
@@ -397,20 +426,25 @@ function npc.trade.perform_trade(self, player_name, offer)
     if inv:contains_item("main", item_stack) then
       -- Check if there is enough room to add the price item to player
       if inv:room_for_item("main", price_stack) then
-      -- Remove item from player
+        -- Remove item from player
         inv:remove_item("main", item_stack)
+         -- Remove price item from NPC
+        npc.take_item_from_inventory_itemstring(self, offer.price)
         -- Add item to NPC's inventory
         npc.add_item_to_inventory_itemstring(self, offer.item)
         -- Add price items to player
         inv:add_item("main", price_stack)
         -- Send message to player
         minetest.chat_send_player(player_name, "Thank you!")
+        return true
       else
         minetest.chat_send_player(player_name, 
           "Looks like you can't get what I'm giving you for payment!")
+        return false
       end
     else
       minetest.chat_send_player(player_name, "Looks like you don't have what I want to buy...")
+      return false
     end
   else
     -- If NPC is selling to the player, then player gives price and gets
@@ -419,19 +453,24 @@ function npc.trade.perform_trade(self, player_name, offer)
     if inv:contains_item("main", price_stack) then
       -- Check if there is enough room to add the item to player
       if inv:room_for_item("main", item_stack) then
-      -- Remove item from player
+        -- Remove price item from player
         inv:remove_item("main", price_stack)
+        -- Remove sell item from NPC
+        npc.take_item_from_inventory_itemstring(self, offer.item)
         -- Add item to NPC's inventory
         npc.add_item_to_inventory_itemstring(self, offer.price)
         -- Add price items to player
         inv:add_item("main", item_stack)
         -- Send message to player
         minetest.chat_send_player(player_name, "Thank you!")
+        return true
       else
         minetest.chat_send_player(player_name, "Looks like you can't carry anything else...")
+        return false
       end
     else
       minetest.chat_send_player(player_name, "Looks like you don't have what I'm asking for!")
+      return false
     end
   end
 end
@@ -469,7 +508,35 @@ minetest.register_on_player_receive_fields(function (player, formname, fields)
       for i = 1, #trade_offers do
         local price_button = "price"..tostring(i)
         if fields[price_button] then
-          npc.trade.perform_trade(player_response.npc, player_name, trade_offers[i])
+          local trade_result = npc.trade.perform_trade(player_response.npc, player_name, trade_offers[i])
+          if trade_result == true then
+            -- Lock actions
+            npc.lock_actions(player_response.npc)
+            -- Account for buyed items
+            if player_response.offers_type == npc.trade.OFFER_BUY then
+              -- Increase the item bought count
+              local offer_item_name = npc.get_item_name(trade_offers[i].item)
+              minetest.log("Bought item name: "..dump(offer_item_name))
+              minetest.log(dump(player_response.npc.trader_data.trade_list.both[offer_item_name]))
+              -- Check if this item has been bought before
+              if player_response.npc.trader_data.trade_list.both[offer_item_name].item_bought_count == nil then
+                -- Set first count to 1
+                player_response.npc.trader_data.trade_list.both[offer_item_name].item_bought_count = 1
+              else
+                -- Increase count
+                player_response.npc.trader_data.trade_list.both[offer_item_name].item_bought_count 
+                  = player_response.npc.trader_data.trade_list.both[offer_item_name].item_bought_count + 1
+              end
+            end
+            -- Re-generate trade offers
+            npc.trade.generate_trade_offers_by_status(player_response.npc)
+            -- Show refreshed formspec again to player
+            npc.trade.show_dedicated_trade_formspec(player_response.npc, player, player_response.offers_type)
+            return true
+          else
+            minetest.close_formspec(player_name, "advanced_npc:dedicated_trading_offers")
+            return false
+          end
           --minetest.log("Player selected: "..dump(trade_offers[i]))
         end
       end
