@@ -103,7 +103,7 @@ local function is_good_node(node, exceptions)
       break
     end
   end
-  if not minetest.registered_nodes[node.name].walkable then
+  if node.name ~= nil and not minetest.registered_nodes[node.name].walkable then
     return pathfinder.node_types.walkable
   elseif is_openable then
     return pathfinder.node_types.openable
