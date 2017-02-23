@@ -478,7 +478,10 @@ local function npc_spawn(self, pos)
       sell = {},
       buy = {},
       both = {}
-    }
+    },
+    -- Custom trade allows to specify more than one payment
+    -- and a custom prompt (instead of the usual buy or sell prompts)
+    custom_trades = {}
   }
 
   -- Initialize trading offers for NPC
@@ -558,6 +561,12 @@ local function npc_spawn(self, pos)
   }
 
   npc.trade.generate_trade_offers_by_status(ent)
+
+  -- Add a custom trade offer
+  local offer1 = npc.trade.create_custom_sell_trade_offer("Do you want me to fix your steel sword?", "Fix steel sword", "Fix steel sword", "default:sword_steel", {"default:sword_steel", "default:iron_lump 5"})
+  table.insert(ent.trader_data.custom_trades, offer1)
+  local offer2 = npc.trade.create_custom_sell_trade_offer("Do you want me to fix your mese sword?", "Fix mese sword", "Fix mese sword", "default:sword_mese", {"default:sword_mese", "default:copper_lump 10"})
+  table.insert(ent.trader_data.custom_trades, offer2)
 
   -- npc.add_action(ent, npc.action.stand, {self = ent})
   -- npc.add_action(ent, npc.action.stand, {self = ent})

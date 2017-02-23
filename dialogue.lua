@@ -24,6 +24,13 @@ npc.dialogue.NEGATIVE_ANSWER_LABEL = "Nevermind"
 npc.dialogue.MIN_DIALOGUES = 2
 npc.dialogue.MAX_DIALOGUES = 4
 
+npc.dialogue.dialogue_type = {
+  married = 1,
+  casual_trade = 2,
+  dedicated_trade = 3,
+  custom_trade = 4
+}
+
 -- This table contains the answers of dialogue boxes
 npc.dialogue.dialogue_results = {
 	options_dialogue = {},
@@ -38,13 +45,10 @@ npc.dialogue.dialogue_results = {
 -- Creates and shows a multi-option dialogue based on the number of responses
 -- that the dialogue object contains
 function npc.dialogue.show_options_dialogue(self, 
-																						responses, 
-																						is_married_dialogue,
-																						is_casual_trade_dialogue,
-																						casual_trade_type,
-                                            is_dedicated_trade_prompt,
+																						dialogue,
 																						dismiss_option_label,
 																						player_name) 
+  local responses = dialogue.responses
 	local options_length = table.getn(responses) + 1	
 	local formspec_height = (options_length * 0.7) + 0.4
 	local formspec = "size[7,"..tostring(formspec_height).."]"
@@ -63,10 +67,11 @@ function npc.dialogue.show_options_dialogue(self,
 	-- Create entry on options_dialogue table
 	npc.dialogue.dialogue_results.options_dialogue[player_name] = {
 		npc = self,
-		is_married_dialogue = is_married_dialogue,
-		is_casual_trade_dialogue = is_casual_trade_dialogue,
-		casual_trade_type = casual_trade_type,
-    is_dedicated_trade_prompt = is_dedicated_trade_prompt,
+		is_married_dialogue = (dialogue.dialogue_type == npc.dialogue.dialogue_type.married),
+		is_casual_trade_dialogue = (dialogue.dialogue_type == npc.dialogue.dialogue_type.casual_trade),
+    is_dedicated_trade_dialogue = (dialogue.dialogue_type == npc.dialogue.dialogue_type.dedicated_trade),
+    is_custom_trade_dialogue = (dialogue.dialogue_type == npc.dialogue.dialogue_type.custom_trade),
+		casual_trade_type = dialogue.casual_trade_type,
 		options = responses
 	}
 
@@ -170,6 +175,33 @@ function npc.dialogue.select_random_dialogues_for_npc(sex, phase, favorite_items
 	return result
 end
 
+-- This function creates a multi-option dialogue from the custom trades that the
+-- NPC have.
+function npc.dialogue.create_custom_trade_options(self, player)
+  -- Create the action for each option
+  local actions = {}
+  for i = 1, #self.trader_data.custom_trades do
+    table.insert(actions, function() npc.trade.show_custom_trade_offer(self, player, self.trader_data.custom_trades[i]) end)   
+  end
+  -- Default text to be shown for dialogue prompt
+  local text = npc.trade.CUSTOM_TRADES_PROMPT_TEXT
+  -- Get the options from each custom trade entry
+  local options = {}
+  if #self.trader_data.custom_trades == 1 then
+    table.insert(options, self.trader_data.custom_trades[1].button_prompt)
+    text = self.trader_data.custom_trades[1].option_prompt
+  else
+    for i = 1, #self.trader_data.custom_trades do
+      table.insert(options, self.trader_data.custom_trades[i].button_prompt)   
+    end
+  end
+  -- Create dialogue object
+  local dialogue = npc.dialogue.create_option_dialogue(text, options, actions)
+  dialogue.dialogue_type = npc.dialogue.dialogue_type.custom_trade
+
+  return dialogue
+end
+
 -- This function will choose randomly a dialogue from the NPC data
 -- and process it. 
 function npc.dialogue.start_dialogue(self, player, show_married_dialogue)
@@ -196,17 +228,30 @@ function npc.dialogue.start_dialogue(self, player, show_married_dialogue)
 	if chance < 30 then
 		-- If NPC is a casual trader, show a sell or buy dialogue 30% of the time, depending
 		-- on the state of the casual trader.
-		if self.trader_data.trader_status == npc.trade.CASUAL then
-			-- Show buy/sell with 50% chance each
-			local buy_or_sell_chance = math.random(1, 2)
-			if buy_or_sell_chance == 1 then
-				-- Show casual buy dialogue
-				dialogue = npc.trade.CASUAL_TRADE_BUY_DIALOGUE
-			else
-				-- Show casual sell dialogue
-				dialogue = npc.trade.CASUAL_TRADE_SELL_DIALOGUE
-			end
-		end
+    if self.trader_data.trader_status == npc.trade.NONE then
+      -- Show custom trade options if available
+      if table.getn(self.trader_data.custom_trades) > 0 then
+        -- Show custom trade options
+        dialogue = npc.dialogue.create_custom_trade_options(self, player)
+      end
+    elseif self.trader_data.trader_status == npc.trade.CASUAL then
+      local max_trade_chance = 2
+      if table.getn(self.trader_data.custom_trades) > 0 then
+        max_trade_chance = 3
+      end
+  		-- Show buy/sell with 50% chance each
+  		local trade_chance = math.random(1, max_trade_chance)
+  		if trade_chance == 1 then
+  			-- Show casual buy dialogue
+  			dialogue = npc.trade.CASUAL_TRADE_BUY_DIALOGUE
+  		elseif trade_chance == 2 then
+  			-- Show casual sell dialogue
+  			dialogue = npc.trade.CASUAL_TRADE_SELL_DIALOGUE
+  		elseif trade_chance == 3 then
+        -- Show custom trade options
+        dialogue = npc.dialogue.create_custom_trade_options(self, player)
+      end
+  	end
 	elseif chance >= 30 and chance < 90 then
     -- Choose a random dialogue from the common ones
 		dialogue = self.dialogues.normal[math.random(1, #self.dialogues.normal)]
@@ -214,8 +259,6 @@ function npc.dialogue.start_dialogue(self, player, show_married_dialogue)
     -- Choose a random dialogue line from the favorite/disliked item hints
 		dialogue = self.dialogues.hints[math.random(1, 4)]
 	end
-
-	minetest.log("Chosen dialogue: "..dump(dialogue))
 
 	local dialogue_result = npc.dialogue.process_dialogue(self, dialogue, player:get_player_name())
   if dialogue_result == false then
@@ -266,11 +309,7 @@ function npc.dialogue.process_dialogue(self, dialogue, player_name)
 	if dialogue.responses then
 		npc.dialogue.show_options_dialogue(
 			self,
-			dialogue.responses,
-			dialogue.is_married_dialogue,
-			dialogue.casual_trade_type ~= nil,
-			dialogue.casual_trade_type,
-      dialogue.is_dedicated_trade_prompt,
+			dialogue,
 			npc.dialogue.NEGATIVE_ANSWER_LABEL,
 			player_name
 		)
@@ -278,6 +317,16 @@ function npc.dialogue.process_dialogue(self, dialogue, player_name)
 
   -- Dialogue object processed successfully
   return true
+end
+
+function npc.dialogue.create_option_dialogue(prompt, options, actions)
+  local result = {}
+  result.text = prompt
+  result.responses = {}
+  for i = 1, #options do
+    table.insert(result.responses, {text = options[i], action_type="function", action=actions[i]})
+  end
+  return result
 end
 
 -----------------------------------------------------------------------------
@@ -428,12 +477,17 @@ minetest.register_on_player_receive_fields(function (player, formname, fields)
 									.action(player_response.npc, player) 
 							end
               return
-            elseif player_response.is_dedicated_trade_prompt == true then
+            elseif player_response.is_dedicated_trade_dialogue == true then
               -- Get the functions for a dedicated trader prompt
               npc.trade.DEDICATED_TRADER_PROMPT
                 .responses[player_response.options[i].response_id]
                 .action(player_response.npc, player)
               return
+            elseif player_response.is_custom_trade_dialogue == true then
+              -- Functions for a custom trade should be available from the same dialogue
+              -- object as it is created in memory
+              minetest.log("Player response: "..dump(player_response.options[i]))
+              player_response.options[i].action(player_response.npc, player)
 						else
 							-- Get dialogues for sex and phase
 							local dialogues = npc.data.DIALOGUES[player_response.npc.sex][phase]

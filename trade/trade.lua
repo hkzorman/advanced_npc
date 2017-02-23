@@ -19,11 +19,16 @@ npc.trade.results = {
   trade_offers = {}
 }
 
+-- This is the text to be shown each time the NPC has more
+-- than one custom trade options to choose from
+npc.trade.CUSTOM_TRADES_PROMPT_TEXT = "Hi there, how can I help you today?"
+
 -- Casual trader NPC dialogues definition
 -- Casual buyer
 npc.trade.CASUAL_TRADE_BUY_DIALOGUE = {
   text = "I'm looking to buy some items, are  you interested?",
   casual_trade_type = npc.trade.OFFER_BUY,
+  dialogue_type = npc.dialogue.dialogue_type.casual_trade,
   responses = {
     [1] = {
       text = "Sell",
@@ -39,6 +44,7 @@ npc.trade.CASUAL_TRADE_BUY_DIALOGUE = {
 -- Casual seller
 npc.trade.CASUAL_TRADE_SELL_DIALOGUE = {
   text = "I have some items to sell, are you interested?",
+  dialogue_type = npc.dialogue.dialogue_type.casual_trade,
   casual_trade_type = npc.trade.OFFER_SELL,
   responses = {
     [1] = {
@@ -55,7 +61,7 @@ npc.trade.CASUAL_TRADE_SELL_DIALOGUE = {
 -- Dedicated trade dialogue prompt
 npc.trade.DEDICATED_TRADER_PROMPT = {
   text = "Hello there, would you like to trade?",
-  is_dedicated_trade_prompt = true,
+  dialogue_type = npc.dialogue.dialogue_type.dedicated_trade,
   responses = {
     [1] = {
       text = "Buy",
@@ -71,6 +77,15 @@ npc.trade.DEDICATED_TRADER_PROMPT = {
       response_id = 2,
       action = function(self, player)
         npc.trade.show_dedicated_trade_formspec(self, player, npc.trade.OFFER_BUY)
+      end
+    },
+    [3] = {
+      text = "Other",
+      action_type = "function",
+      response_id = 3,
+      action = function(self, player)
+        local dialogue = npc.dialogue.create_custom_trade_options(self, player)
+        npc.dialogue.process_dialogue(self, dialogue, player:get_player_name())
       end
     }
   }
@@ -136,9 +151,14 @@ function npc.trade.show_dedicated_trade_formspec(self, player, offers_type)
                 "label[0.2,0.05;Click on the price button to "..menu_offer_type.." item]"
   for i = 1, #offers do
     local price_item_name = minetest.registered_items[npc.get_item_name(offers[i].price)].description
+    local count_label = ""
+    if npc.get_item_count(offers[i].item) > 1 then
+      count_label = "label["..(current_x + 1.35)..","..(current_y + 1)..";"..npc.get_item_count(offers[i].item).."]"
+    end
     formspec = formspec.. 
       "box["..current_x..","..current_y..";2,2.3;#212121]"..
       "item_image["..(current_x + 0.45)..","..(current_y + 0.15)..";1.3,1.3;"..npc.get_item_name(offers[i].item).."]"..
+      count_label..
       "item_image_button["..(current_x + 1.15)..","..(current_y + 1.4)..";1,1;"..offers[i].price..";price"..i..";]"..
       "label["..(current_x + 0.15)..","..(current_y + 1.7)..";Price]"
     current_x = current_x + 2.1
@@ -161,6 +181,59 @@ function npc.trade.show_dedicated_trade_formspec(self, player, offers_type)
 
   minetest.show_formspec(player:get_player_name(), "advanced_npc:dedicated_trading_offers", formspec)
 
+end
+
+-- For the moment, the trade offer for custom trade is always of sell type
+function npc.trade.show_custom_trade_offer(self, player, offer)
+  local for_string = "for"
+  -- Create payments grid. Try to center it. When there are 4 
+  -- payment options, a grid is to be displayed.
+  local price_count = #offer.price
+  local start_x = 2
+  local margin_x = 0
+  local start_y = 1.45
+  if price_count == 2 then
+    start_x = 1.5
+    margin_x = 0.3
+  elseif price_count == 3 then
+    start_x = 1.15
+    margin_x = 0.85
+  elseif price_count == 4 then
+    start_x = 1.5
+    start_y = 0.8
+    margin_x = 0.3
+  end
+
+  -- Create payment grid
+  local price_grid = ""
+  for i = 1, #offer.price do
+    price_grid = price_grid.."item_image_button["..start_x..","..start_y..";1,1;"..offer.price[i]..";price"..i..";]"
+    if #offer.price == 4 and i == 2 then
+      start_x = 1.5
+      start_y = start_y + 1
+    else
+      start_x = start_x + 1
+    end
+  end
+
+  local formspec = "size[8,4]"..
+                default.gui_bg..
+                default.gui_bg_img..
+                default.gui_slots..
+                "label[2,0.1;"..self.nametag..": "..offer.dialogue_prompt.."]"..
+                price_grid..
+                "label["..(margin_x + 3.75)..",1.75;"..for_string.."]"..
+                "item_image_button["..(margin_x + 4.8)..",1.3;1.2,1.2;"..offer.item..";item;]"..
+                "button_exit[1,3.3;2.9,0.5;yes_option;"..offer.button_prompt.."]"..
+                "button_exit[4.1,3.3;2.9,0.5;no_option;"..npc.dialogue.NEGATIVE_ANSWER_LABEL.."]" 
+
+  -- Create entry into results table
+  npc.trade.results.single_trade_offer[player:get_player_name()] = {
+    trade_offer = trade_offer,
+    npc = self
+  }
+  -- Show formspec to player
+  minetest.show_formspec(player:get_player_name(), "advanced_npc:trade_offer", formspec)
 end
 
 function npc.trade.get_random_trade_status()
@@ -309,7 +382,7 @@ function npc.trade.get_dedicated_trade_offers(self)
     if item ~= nil and trade_info.last_offer_type ~= npc.trade.OFFER_BUY then
     
         -- Create sell offer for this item. Currently, traders will offer to sell only
-        -- of their items to allow the fine control for players to buy what they want.
+        -- one of their items to allow the fine control for players to buy what they want.
         -- This requires, however, that the trade offers are re-generated everytime a
         -- sell is made.
         table.insert(offers.sell, npc.trade.create_offer(
@@ -409,6 +482,23 @@ function npc.trade.create_offer(offer_type, item, price, min_price_item_count, c
   
 end
 
+-- A custom sell trade offer is a special type of trading the NPC can
+-- have where a different prompt and multiple payment objects are
+-- required from the player. A good example is offering to repair a sword,
+-- where the player has to give an amount of currency and the sword to
+-- repair in exchange to get a fully repaired sword.
+-- For the moment being, only sell is supported.
+function npc.trade.create_custom_sell_trade_offer(option_prompt, dialogue_prompt, button_prompt, item, payments)
+  return {
+    offer_type = npc.OFFER_SELL,
+    option_prompt = option_prompt,
+    dialogue_prompt = dialogue_prompt,
+    button_prompt = button_prompt,
+    item = item,
+    price = payments
+  }
+end
+
 
 -- TODO: This method needs to be refactored to be able to manage
 -- both NPC inventories and chest inventories.
@@ -474,7 +564,6 @@ function npc.trade.perform_trade(self, player_name, offer)
     end
   end
 end
-
 
 -- Handler for chat formspec
 minetest.register_on_player_receive_fields(function (player, formname, fields)
