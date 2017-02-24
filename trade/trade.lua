@@ -16,7 +16,8 @@ npc.trade.DEDICATED_MAX_BUY_AMOUNT = 5
 -- This table holds all responses for trades  
 npc.trade.results = {
   single_trade_offer = {},
-  trade_offers = {}
+  trade_offers = {},
+  custom_trade_offer = {}
 }
 
 -- This is the text to be shown each time the NPC has more
@@ -114,7 +115,7 @@ function npc.trade.show_trade_offer_formspec(self, player, offer_type)
                 "label[2,0.1;"..self.nametag..prompt_string.."]"..
                 "item_image_button[2,1.3;1.2,1.2;"..trade_offer.item..";item;]"..
                 "label[3.75,1.75;"..for_string.."]"..
-                "item_image_button[4.8,1.3;1.2,1.2;"..trade_offer.price..";price;]"..
+                "item_image_button[4.8,1.3;1.2,1.2;"..trade_offer.price[1]..";price;]"..
                 "button_exit[1,3.3;2.9,0.5;yes_option;"..buy_sell_string.."]"..
                 "button_exit[4.1,3.3;2.9,0.5;no_option;"..npc.dialogue.NEGATIVE_ANSWER_LABEL.."]" 
 
@@ -150,7 +151,7 @@ function npc.trade.show_dedicated_trade_formspec(self, player, offers_type)
                 default.gui_slots..
                 "label[0.2,0.05;Click on the price button to "..menu_offer_type.." item]"
   for i = 1, #offers do
-    local price_item_name = minetest.registered_items[npc.get_item_name(offers[i].price)].description
+    local price_item_name = minetest.registered_items[npc.get_item_name(offers[i].price[1])].description
     local count_label = ""
     if npc.get_item_count(offers[i].item) > 1 then
       count_label = "label["..(current_x + 1.35)..","..(current_y + 1)..";"..npc.get_item_count(offers[i].item).."]"
@@ -159,7 +160,7 @@ function npc.trade.show_dedicated_trade_formspec(self, player, offers_type)
       "box["..current_x..","..current_y..";2,2.3;#212121]"..
       "item_image["..(current_x + 0.45)..","..(current_y + 0.15)..";1.3,1.3;"..npc.get_item_name(offers[i].item).."]"..
       count_label..
-      "item_image_button["..(current_x + 1.15)..","..(current_y + 1.4)..";1,1;"..offers[i].price..";price"..i..";]"..
+      "item_image_button["..(current_x + 1.15)..","..(current_y + 1.4)..";1,1;"..offers[i].price[1]..";price"..i..";]"..
       "label["..(current_x + 0.15)..","..(current_y + 1.7)..";Price]"
     current_x = current_x + 2.1
     current_col = current_col + 1
@@ -228,12 +229,12 @@ function npc.trade.show_custom_trade_offer(self, player, offer)
                 "button_exit[4.1,3.3;2.9,0.5;no_option;"..npc.dialogue.NEGATIVE_ANSWER_LABEL.."]" 
 
   -- Create entry into results table
-  npc.trade.results.single_trade_offer[player:get_player_name()] = {
-    trade_offer = trade_offer,
+  npc.trade.results.custom_trade_offer[player:get_player_name()] = {
+    trade_offer = offer,
     npc = self
   }
   -- Show formspec to player
-  minetest.show_formspec(player:get_player_name(), "advanced_npc:trade_offer", formspec)
+  minetest.show_formspec(player:get_player_name(), "advanced_npc:custom_trade_offer", formspec)
 end
 
 function npc.trade.get_random_trade_status()
@@ -456,10 +457,11 @@ function npc.trade.create_offer(offer_type, item, price, min_price_item_count, c
       ..tostring( min_price_item_count * count )
 
     -- Build the return object
+    -- Price is always an array, in this case of size 1
     result = {
       offer_type = offer_type,
       item = item.." "..count,
-      price = price_string
+      price = {[1] = price_string}
     }
   else
     -- Make sell offer, NPC will sell items to player at regular price
@@ -471,10 +473,11 @@ function npc.trade.create_offer(offer_type, item, price, min_price_item_count, c
     end
     local price_string = price_object.tier.." "..tostring(price_object.count * count)
     -- Build return object
+    -- Price is always an array, in this case of size 1
     result = {
      offer_type = offer_type,
      item = npc.get_item_name(item).." "..count,
-     price = price_string
+     price = {[1] = price_string}
     }
   end
 
@@ -506,7 +509,11 @@ end
 function npc.trade.perform_trade(self, player_name, offer)
 
   local item_stack = ItemStack(offer.item)
-  local price_stack = ItemStack(offer.price)
+  -- Create item stacks for each price item
+  local price_stacks = {}
+  for i = 1, #offer.price do
+    table.insert(price_stacks, ItemStack(offer.price[i]))
+  end
   local inv = minetest.get_inventory({type = "player", name = player_name})
 
   -- Check if offer is a buy or sell
@@ -518,12 +525,16 @@ function npc.trade.perform_trade(self, player_name, offer)
       if inv:room_for_item("main", price_stack) then
         -- Remove item from player
         inv:remove_item("main", item_stack)
-         -- Remove price item from NPC
-        npc.take_item_from_inventory_itemstring(self, offer.price)
+         -- Remove price item(s) from NPC
+        for i = 1, #price_stacks do
+          npc.take_item_from_inventory_itemstring(self, price_stacks[i])
+        end
         -- Add item to NPC's inventory
         npc.add_item_to_inventory_itemstring(self, offer.item)
         -- Add price items to player
-        inv:add_item("main", price_stack)
+        for i = 1, #price_stacks do
+          inv:add_item("main", price_stacks[i])
+        end
         -- Send message to player
         minetest.chat_send_player(player_name, "Thank you!")
         return true
@@ -538,18 +549,22 @@ function npc.trade.perform_trade(self, player_name, offer)
     end
   else
     -- If NPC is selling to the player, then player gives price and gets
-    -- item, NPC loses item and gets price
+    -- item, NPC loses item and gets price.
     -- Check NPC has the required item to pay
     if inv:contains_item("main", price_stack) then
       -- Check if there is enough room to add the item to player
       if inv:room_for_item("main", item_stack) then
         -- Remove price item from player
-        inv:remove_item("main", price_stack)
+        for i = 1, #price_stacks do
+          inv:remove_item("main", price_stacks[i])
+        end
         -- Remove sell item from NPC
         npc.take_item_from_inventory_itemstring(self, offer.item)
-        -- Add item to NPC's inventory
-        npc.add_item_to_inventory_itemstring(self, offer.price)
-        -- Add price items to player
+        -- Add price to NPC's inventory
+        for i = 1, #offer.price do
+          npc.add_item_to_inventory_itemstring(self, offer.price[i])
+        end
+        -- Add item items to player
         inv:add_item("main", item_stack)
         -- Send message to player
         minetest.chat_send_player(player_name, "Thank you!")
@@ -629,6 +644,22 @@ minetest.register_on_player_receive_fields(function (player, formname, fields)
           --minetest.log("Player selected: "..dump(trade_offers[i]))
         end
       end
+    end
+  elseif formname == "advanced_npc:custom_trade_offer" then
+    -- Handle custom trade formspec
+    local player_name = player:get_player_name()
+
+    if fields then
+      local player_response = npc.trade.results.custom_trade_offer[player_name]
+      -- Unlock the action timer
+      npc.unlock_actions(player_response.npc)
+      
+      if fields.yes_option then
+        npc.trade.perform_trade(player_response.npc, player_name, player_response.trade_offer)
+      elseif fields.no_option then
+        minetest.chat_send_player(player_name, "Talk to me if you change your mind!")
+      end
+
     end
   end
 end)
