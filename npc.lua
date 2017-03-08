@@ -333,6 +333,129 @@ function npc.unlock_actions(self)
 end
 
 ---------------------------------------------------------------------------------------
+-- Schedule functionality
+---------------------------------------------------------------------------------------
+-- Schedules allow the NPC to do different things depending on the time of the day.
+-- The time of the day is in 24 hours and is consistent with the Minetest Game 
+-- /time command. Hours will be written as numbers: 1 for 1:00, 13 for 13:00 or 1:00 PM
+-- The API is as following: a schedule can be created for a specific date or for a
+-- day of the week. A date is a string in the format MM:DD
+npc.schedule_types = {
+  ["generic"] = "generic",
+  ["date_based"] = "date_based"
+}
+
+local function get_time_in_hours() 
+  return minetest.get_timeofday() * 24
+end
+
+-- Create a schedule on a NPC.
+-- Schedule types:
+--  - Generic: Returns nil if there are already
+--    seven schedules, one for each day of the
+--    week or if the schedule attempting to add
+--    already exists. The date parameter is the 
+--    day of the week it represents as follows:
+--      - 1: Monday
+--      - 2: Tuesday
+--      - 3: Wednesday
+--      - 4: Thursday
+--      - 5: Friday
+--      - 6: Saturday
+--      - 7: Sunday
+--  - Date-based: The date parameter should be a
+--    string of the format "MM:DD". If it already
+--    exists, function retuns nil
+function npc.create_schedule(self, schedule_type, date)
+  if schedule_type == npc.schedule_types.generic then
+    -- Check that there are no more than 7 schedules
+    if #self.schedules.generic == 7 then
+      -- Unable to add schedule
+      return nil
+    elseif #self.schedules.generic < 7 then
+      -- Check schedule doesn't exists already
+      if self.schedules.generic[date] == nil then
+        -- Add schedule
+        self.schedules.generic[date] = {}
+      else
+        -- Schedule already present
+        return nil
+      end
+    end
+  elseif schedule_type == npc.schedule_types.date then
+    -- Check schedule doesn't exists already
+    if self.schedules.date_based[date] == nil then
+      -- Add schedule 
+      self.schedules.date_based[date] = {}
+    else
+      -- Schedule already present
+      return nil
+    end
+  end
+end
+
+function npc.delete_schedule(self, schedule_type, date)
+  -- Delete schedule by setting entry to nil
+  self.schedules[schedule_type][date] = nil
+end
+
+-- Schedule entries API
+-- Allows to add, get, update and delete entries from each
+-- schedule. Attempts to be as safe-fail as possible to avoid crashes. 
+
+-- Actions is an array of actions and tasks that the NPC
+-- will perform at the scheduled time on the scheduled date
+function npc.add_schedule_entry(self, schedule_type, date, time, actions)
+  -- Check that schedule for date exists
+  if self.schedules[schedule_type][date] ~= nil then
+    -- Add schedule entry
+    self.schedules[schedule_type][date][time] = actions
+  else
+    -- No schedule found, need to be created for date
+    return nil
+  end
+end
+
+function npc.get_schedule_entry(self, schedule_type, date, time)
+  -- Check if schedule for date exists
+  if self.schedules[schedule_type][date] ~= nil then
+    -- Return schedule
+    return self.schedules[schedule_type][date][time]
+  else
+    -- Schedule for date not found
+    return nil
+  end
+end
+
+function npc.update_schedule_entry(self, schedule_type, date, time, actions)
+  -- Check schedule for date exists
+  if self.schedules[schedule_type][date] ~= nil then
+    -- Check that a schedule entry for that time exists
+    if self.schedules[schedule_type][date][time] ~= nil then
+      -- Set the new actions
+      self.schedules[schedule_type][date][time] = actions
+    else
+      -- Schedule not found for specified time
+      return nil
+    end
+  else
+    -- Schedule not found for date
+    return nil
+  end
+end
+
+function npc.delete_schedule_entry(self, schedule_type, date, time)
+  -- Check schedule for date exists
+  if self.schedules[schedule_type][date] ~= nil then
+    -- Remove schedule entry by setting to nil
+    self.schedules[schedule_type][date][time] = nil
+  else
+    -- Schedule not found for date
+    return nil
+  end
+end
+
+---------------------------------------------------------------------------------------
 -- Spawning functions
 ---------------------------------------------------------------------------------------
 -- These functions are used at spawn time to determine several
@@ -390,17 +513,6 @@ local function choose_spawn_items(self)
 
   minetest.log("Initial inventory: "..dump(self.inventory))
 end
-
--- -- Creates new single buy and sell offers for NPCs that
--- -- trade casually.
--- local function select_casual_trade_offers(self)
---   self.trader_data.buy_offers = {
---     [1] = npc.trade.get_casual_trade_offer(self, npc.trade.OFFER_BUY)
---   }
---   self.trader_data.sell_offers = {
---     [1] = npc.trade.get_casual_trade_offer(self, npc.trade.OFFER_SELL)
---   }
--- end
 
 -- Spawn function. Initializes all variables that the
 -- NPC will have and choose random, starting values
@@ -521,6 +633,22 @@ local function npc_spawn(self, pos)
   -- This map will hold all the places for the NPC
   -- Map entries should be like: "bed" = {x=1, y=1, z=1}
   ent.places_map = {}
+
+  -- Schedule data
+  ent.schedules = {
+    -- Flag to enable or disable the schedules functionality
+    enabled = true, 
+    -- Lock for when executing a schedule
+    lock = false,
+    -- An array of schedules, meant to be one per day at some point
+    -- when calendars are implemented. Allows for only 7 schedules,
+    -- one for each day of the week
+    generic = {},
+    -- An array of schedules, meant to be for specific dates in the 
+    -- year. Can contain as many as possible. The keys will be strings
+    -- in the format MM:DD
+    date_based = {}
+  }
 
   -- Temporary initialization of actions for testing
   local nodes = npc.places.find_node_nearby(ent.object:getpos(), {"default:furnace"}, 20)
@@ -756,6 +884,37 @@ mobs:register_mob("advanced_npc:npc", {
         end
       end
     end
+
+    -- Schedule timer
+    -- Check if schedules are enabled
+    if self.schedules.enabled == true then
+      -- Get time of day
+      local time = get_time_in_hours()
+      -- Check if time is an hour
+      if time % 1 < 0.1 and self.schedules.lock == false then
+        -- Activate lock to avoid more than one entry to this code
+        self.schedules.lock = true
+        -- Get integer part of time
+        time = (time) - (time % 1)
+        -- Check if there is a schedule entry for this time
+        -- Note: Currently only one schedule is supported, for day 0
+        minetest.log("Time: "..dump(time))
+        local schedule = self.schedules.generic[0]
+        if schedule ~= nil then
+          -- Check if schedule for this time exists
+          if schedule[time] ~= nil then
+            -- Execute schedule
+          end
+        end
+      else
+        -- Check if lock can be released
+        if time % 1 > 0.1 then
+          -- Release lock
+          self.schedules.lock = false
+        end
+      end
+    end
+
     
     return self.freeze
 	end
