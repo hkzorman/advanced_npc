@@ -405,11 +405,15 @@ end
 
 -- Actions is an array of actions and tasks that the NPC
 -- will perform at the scheduled time on the scheduled date
-function npc.add_schedule_entry(self, schedule_type, date, time, actions)
+function npc.add_schedule_entry(self, schedule_type, date, time, check, actions)
   -- Check that schedule for date exists
   if self.schedules[schedule_type][date] ~= nil then
     -- Add schedule entry
-    self.schedules[schedule_type][date][time] = actions
+    if check == nil then
+      self.schedules[schedule_type][date][time] = actions
+    else
+      self.schedules[schedule_type][date][time].check = check
+    end
   else
     -- No schedule found, need to be created for date
     return nil
@@ -427,13 +431,17 @@ function npc.get_schedule_entry(self, schedule_type, date, time)
   end
 end
 
-function npc.update_schedule_entry(self, schedule_type, date, time, actions)
+function npc.update_schedule_entry(self, schedule_type, date, time, check, actions)
   -- Check schedule for date exists
   if self.schedules[schedule_type][date] ~= nil then
     -- Check that a schedule entry for that time exists
     if self.schedules[schedule_type][date][time] ~= nil then
       -- Set the new actions
-      self.schedules[schedule_type][date][time] = actions
+      if check == nil then
+        self.schedules[schedule_type][date][time] = actions
+      else
+        self.schedules[schedule_type][date][time].check = check
+      end
     else
       -- Schedule not found for specified time
       return nil
@@ -696,6 +704,16 @@ local function npc_spawn(self, pos)
   local offer2 = npc.trade.create_custom_sell_trade_offer("Do you want me to fix your mese sword?", "Fix mese sword", "Fix mese sword", "default:sword_mese", {"default:sword_mese", "default:copper_lump 10"})
   table.insert(ent.trader_data.custom_trades, offer2)
 
+  -- Add a simple schedule for testing
+  npc.create_schedule(ent, npc.schedule_types.generic, 0)
+  -- Add schedule entries
+  local morning_actions = { [1] = {action = npc.actions.sit, args = {}} } 
+  npc.add_schedule_entry(ent, npc.schedule_types.generic, 0, 7, nil, morning_actions)
+  local afternoon_actions = { [1] = {action = npc.actions.stand, args = {}} }
+  npc.add_schedule_entry(ent, npc.schedule_types.generic, 0, 9, nil, afternoon_actions)
+  -- local night_actions = {action: npc.action, args: {}}
+  -- npc.add_schedule_entry(self, npc.schedule_type.generic, 0, 19, check, actions)
+
   -- npc.add_action(ent, npc.action.stand, {self = ent})
   -- npc.add_action(ent, npc.action.stand, {self = ent})
   -- npc.add_action(ent, npc.action.walk_step, {self = ent, dir = npc.direction.east})
@@ -902,8 +920,23 @@ mobs:register_mob("advanced_npc:npc", {
         local schedule = self.schedules.generic[0]
         if schedule ~= nil then
           -- Check if schedule for this time exists
+          minetest.log("Found default schedule")
           if schedule[time] ~= nil then
-            -- Execute schedule
+            minetest.log("Found schedule for time "..dump(time)..": "..dump(schedule[time]))
+            minetest.log("Check: "..dump(schedule[time].check))
+            -- Check if schedule has a check function
+            if schedule[time].check ~= nil then
+              -- Execute check function and then add corresponding action
+              -- to action queue. This is for jobs.
+              -- TODO: Need to implement
+            else
+              minetest.log("Adding actions to action queue")
+              -- Add to action queue all actions on schedule
+              for i = 1, #schedule[time] do
+                npc.add_action(self, schedule[time][i].action, schedule[time][i].args)
+              end
+              minetest.log("New action queue: "..dump(self.actions))
+            end
           end
         end
       else
