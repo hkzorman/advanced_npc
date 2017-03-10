@@ -315,7 +315,10 @@ end
 -- with the fuel items the NPC will take whatever was cooked and whatever
 -- remained to cook. The function received the position of the furnace
 -- to use, and the item to cook in furnace. Item is an itemstring
-function npc.actions.use_furnace(self, pos, item, freeze)
+function npc.actions.use_furnace(self, args)
+  local pos = args.pos
+  local item = args.item
+  local freeze = args.freeze
   -- Define which items are usable as fuels. The NPC
   -- will mainly use this as fuels to avoid getting useful
   -- items (such as coal lumps) for burning
@@ -487,7 +490,9 @@ end
 
 -- This function makes the NPC lay or stand up from a bed. The
 -- pos is the location of the bed, action can be lay or get up
-function npc.actions.use_sittable(self, pos, action)
+function npc.actions.use_sittable(self, args)
+  local pos = args.pos
+  local action = args.action
   local node = minetest.get_node(pos)
 
   if action == npc.actions.const.sittable.SIT then

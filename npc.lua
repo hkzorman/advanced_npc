@@ -659,7 +659,7 @@ local function npc_spawn(self, pos)
   }
 
   -- Temporary initialization of actions for testing
-  local nodes = npc.places.find_node_nearby(ent.object:getpos(), {"default:furnace"}, 20)
+  local nodes = npc.places.find_node_nearby(ent.object:getpos(), {"cottages:bench"}, 20)
   minetest.log("Found nodes: "..dump(nodes))
 
   --local path = pathfinder.find_path(ent.object:getpos(), nodes[1], 20)
@@ -667,17 +667,17 @@ local function npc_spawn(self, pos)
   --npc.add_action(ent, npc.actions.use_door, {self = ent, pos = nodes[1], action = npc.actions.door_action.OPEN})
   --npc.add_action(ent, npc.actions.stand, {self = ent})
   --npc.add_action(ent, npc.actions.stand, {self = ent})
-  if nodes[1] ~= nil then
-    npc.add_task(ent, npc.actions.walk_to_pos, {end_pos=nodes[1], walkable={}})
-    npc.actions.use_furnace(ent, nodes[1], "default:cobble 5", false)
-    --npc.add_action(ent, npc.actions.sit, {self = ent})
-    -- npc.add_action(ent, npc.actions.lay, {self = ent})
-    -- npc.add_action(ent, npc.actions.lay, {self = ent})
-    -- npc.add_action(ent, npc.actions.lay, {self = ent})
-    --npc.actions.use_sittable(ent, nodes[1], npc.actions.const.sittable.GET_UP)
-    --npc.add_action(ent, npc.actions.set_interval, {self=ent, interval=10, freeze=true})
-    npc.add_action(ent, npc.actions.freeze, {freeze = false})
-  end
+  -- if nodes[1] ~= nil then
+  --   npc.add_task(ent, npc.actions.walk_to_pos, {end_pos=nodes[1], walkable={}})
+  --   npc.actions.use_furnace(ent, nodes[1], "default:cobble 5", false)
+  --   --npc.add_action(ent, npc.actions.sit, {self = ent})
+  --   -- npc.add_action(ent, npc.actions.lay, {self = ent})
+  --   -- npc.add_action(ent, npc.actions.lay, {self = ent})
+  --   -- npc.add_action(ent, npc.actions.lay, {self = ent})
+  --   --npc.actions.use_sittable(ent, nodes[1], npc.actions.const.sittable.GET_UP)
+  --   --npc.add_action(ent, npc.actions.set_interval, {self=ent, interval=10, freeze=true})
+  --   npc.add_action(ent, npc.actions.freeze, {freeze = false})
+  -- end
 
   -- Dedicated trade test
   ent.trader_data.trade_list.both = {
@@ -707,7 +707,11 @@ local function npc_spawn(self, pos)
   -- Add a simple schedule for testing
   npc.create_schedule(ent, npc.schedule_types.generic, 0)
   -- Add schedule entries
-  local morning_actions = { [1] = {action = npc.actions.sit, args = {}} } 
+  local morning_actions = { 
+    [1] = {task = npc.actions.walk_to_pos, args = {end_pos=nodes[1], walkable={}} } ,
+    [2] = {task = npc.actions.use_sittable, args = {pos=nodes[1], action=npc.actions.const.sittable.SIT} }, 
+    [3] = {action = npc.actions.freeze, args = {freeze = true}}
+  }
   npc.add_schedule_entry(ent, npc.schedule_types.generic, 0, 7, nil, morning_actions)
   local afternoon_actions = { [1] = {action = npc.actions.stand, args = {}} }
   npc.add_schedule_entry(ent, npc.schedule_types.generic, 0, 9, nil, afternoon_actions)
@@ -922,8 +926,6 @@ mobs:register_mob("advanced_npc:npc", {
           -- Check if schedule for this time exists
           minetest.log("Found default schedule")
           if schedule[time] ~= nil then
-            minetest.log("Found schedule for time "..dump(time)..": "..dump(schedule[time]))
-            minetest.log("Check: "..dump(schedule[time].check))
             -- Check if schedule has a check function
             if schedule[time].check ~= nil then
               -- Execute check function and then add corresponding action
@@ -933,7 +935,13 @@ mobs:register_mob("advanced_npc:npc", {
               minetest.log("Adding actions to action queue")
               -- Add to action queue all actions on schedule
               for i = 1, #schedule[time] do
-                npc.add_action(self, schedule[time][i].action, schedule[time][i].args)
+                if schedule[time][i].action == nil then
+                  -- Add task
+                  npc.add_task(self, schedule[time][i].task, schedule[time][i].args)
+                else
+                  -- Add action
+                  npc.add_action(self, schedule[time][i].action, schedule[time][i].args)
+                end
               end
               minetest.log("New action queue: "..dump(self.actions))
             end
