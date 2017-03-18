@@ -964,7 +964,7 @@ mobs:register_mob("advanced_npc:npc", {
 -- Spawn
 mobs:spawn({
 	name = "advanced_npc:npc",
-	nodes = {"mg_villages:plotmarker", "default:stone"},
+	nodes = {"mg_villages:plotmarker"},
 	min_light = 3,
 	active_object_count = 1,
   interval = 5,
