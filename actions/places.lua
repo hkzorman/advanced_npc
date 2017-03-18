@@ -8,34 +8,57 @@
 -- to know where the farm they work is located, or where the bed they sleep is.
 -- Other mods have to be supported for this to work correctly, as there are
 -- many sitting nodes, many beds, many tables, chests, etc. For now, by default,
--- support for default and cottages is going to be provided.
+-- support for default MTG games and cottages mod is going to be provided.
 
 npc.places = {}
 
 npc.places.nodes = {
-  BEDS = {
+  BED_TYPE = {
 	 "beds:bed_bottom",
-	 "beds:fancy_bed_bottom"
-  }, 
-  SITTABLE = {
+	 "beds:fancy_bed_bottom",
+   "cottages:bed_foot",
+   "cottages:straw_mat",
+   "cottages:sleeping_mat"
+  },
+  SITTABLE_TYPE = {
 	 "cottages:bench",
-   -- TODO: Register all stairs node that are supported for sitting
-   -- Hint: wood
+   -- TODO: Register other stair types
    "stairs:stair_wood"
   },
-  CHESTS = {
+  STORAGE_TYPE = {
 	 "default:chest",
-	 "default:chest_locked"
+	 "default:chest_locked",
+   "cottages:shelf"
+  },
+  FURNACE_TYPE = {
+    "default:furnace",
+    "default:furnace_active"
+  },
+  OPENABLE_TYPE = {
+    -- TODO: Register fences
+    "doors:door_glass_a",
+    "doors:door_glass_b",
+    "doors:door_obsidian_a",
+    "doors:door_obsidian_b",
+    "doors:door_steel_a",
+    "doors:door_steel_b",
+    "doors:door_wood_a",
+    "doors:door_wood_b",
+    "cottages:gate_open",
+    "cottages:gate_closed",
+    "cottages:half_door"
   }
 }
 
 npc.places.PLACE_TYPE = {
-	"OWN_BED",
-	"OWN_CHEST",
-	"HOUSE_CHAIR",
-	"HOUSE_TABLE",
-	"HOUSE_FURNACE",
-	"HOUSE_ENTRANCE"
+  NPC_HOUSE = {
+    "OWN_BED",
+    "OWN_ROOM_DOOR",
+    "OWN_STORAGE",
+    "SHARED_FURNACE",
+    "SHARED_SITTABLE",
+    "ENTRANCE_DOOR"
+  }
 }
 
 
