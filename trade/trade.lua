@@ -307,7 +307,7 @@ function npc.trade.get_currencies_in_inventory(self)
                           count = npc.get_item_count(tier1.item_string)} )
   end
 
-  minetest.log("Found currency in inventory: "..dump(result))
+  --minetest.log("Found currency in inventory: "..dump(result))
   return result
 end
 
@@ -335,7 +335,7 @@ function npc.trade.get_casual_trade_offer(self, offer_type)
     -- so that the price count is always an integer number
     local amount_to_buy = math.random(buyable_items[item].min_buyable_item_count, buyable_items[item].max_buyable_item_count)
     -- Create trade offer
-    minetest.log("Buyable item: "..dump(buyable_items[item]))
+    --minetest.log("Buyable item: "..dump(buyable_items[item]))
     result = npc.trade.create_offer(npc.trade.OFFER_BUY, item, buyable_items[item].price, buyable_items[item].min_buyable_item_price, amount_to_buy)
   else
     -- Make sell offer, NPC will sell items to player at regular price
@@ -417,8 +417,8 @@ function npc.trade.get_dedicated_trade_offers(self)
               -- after the NPC has bought a certain quantity, say, 5 items.
               minetest.log("Item: "..item_name)
               minetest.log("Trade info: "..dump(trade_info))
-              minetest.log("Logic: "..dump(trade_info.item_bought_count == nil 
-                or (trade_info.item_bought_count ~= nil and trade_info.item_bought_count <= npc.trade.DEDICATED_MAX_BUY_AMOUNT)))
+              --minetest.log("Logic: "..dump(trade_info.item_bought_count == nil 
+              --  or (trade_info.item_bought_count ~= nil and trade_info.item_bought_count <= npc.trade.DEDICATED_MAX_BUY_AMOUNT)))
               if trade_info.item_bought_count == nil 
                 or (trade_info.item_bought_count ~= nil and trade_info.item_bought_count <= npc.trade.DEDICATED_MAX_BUY_AMOUNT) then
                 -- Create trade offer for this item

@@ -53,7 +53,7 @@ npc.spawner.mg_villages_supported_building_types = {
 }
 
 npc.spawner.replace_activated = true
-npc.spawn_delay = 5
+npc.spawner.spawn_delay = 5
 -- npc.spawner.max_replace_count = 1
 -- spawner.replace_count = 0
 
@@ -122,13 +122,13 @@ local function choose_spawn_items(self)
   npc.add_item_to_inventory(self, "default:shovel_stone", 2)
   npc.add_item_to_inventory(self, "default:axe_stone", 2)
 
-  minetest.log("Initial inventory: "..dump(self.inventory))
+  --minetest.log("Initial inventory: "..dump(self.inventory))
 end
 
 -- Spawn function. Initializes all variables that the
 -- NPC will have and choose random, starting values
 local function spawn(entity, pos)
-  minetest.log("Spawning new NPC: "..dump(entity))
+  minetest.log("Spawning new NPC at pos: "..dump(pos))
 
   -- Get Lua Entity
   local ent = entity:get_luaentity()
@@ -263,7 +263,7 @@ local function spawn(entity, pos)
 
   -- Temporary initialization of actions for testing
   local nodes = npc.places.find_node_nearby(ent.object:getpos(), {"cottages:bench"}, 20)
-  minetest.log("Found nodes: "..dump(nodes))
+  --minetest.log("Found nodes: "..dump(nodes))
 
   --local path = pathfinder.find_path(ent.object:getpos(), nodes[1], 20)
   --minetest.log("Path to node: "..dump(path))
@@ -340,8 +340,8 @@ local function spawn(entity, pos)
   --   npc.places.add_owned(ent, "bed1", npc.places.PLACE_TYPE.OWN_BED, bed_nodes[1])
   -- end
 
-  minetest.log(dump(ent))
-  
+  --minetest.log(dump(ent))
+  minetest.log("Successfully spawned NPC with name "..dump(ent.nametag))
   -- Refreshes entity
   ent.object:set_properties(ent)
 end
@@ -372,7 +372,7 @@ function spawner.scan_area(start_pos, end_pos)
   result.storage_type = npc.places.find_node_in_area(start_pos, end_pos, npc.places.nodes.STORAGE_TYPE)
   result.openable_type = npc.places.find_node_in_area(start_pos, end_pos, npc.places.nodes.OPENABLE_TYPE)
 
-  minetest.log("Found nodes inside area: "..dump(result))
+  --minetest.log("Found nodes inside area: "..dump(result))
   return result
 end
 
@@ -389,9 +389,9 @@ function npc.spawner.spawn_npc(pos)
   minetest.log("Currently spawned "..dump(spawned_npc_count).." of "..dump(npc_count).." NPCs")
   if spawned_npc_count < npc_count then
     -- Spawn a NPC
-    local npc = minetest.add_entity(pos, "advanced_npc:npc")
-    if npc and npc:get_luaentity() then
-      spawn(npc, pos)
+    local ent = minetest.add_entity(pos, "advanced_npc:npc")
+    if ent and ent:get_luaentity() then
+      spawn(ent, pos)
       -- Increase NPC spawned count
       spawned_npc_count = spawned_npc_count + 1
       -- Store count into node
@@ -400,10 +400,12 @@ function npc.spawner.spawn_npc(pos)
       if spawned_npc_count >= npc_count then
         -- Stop timer
         timer:stop()
+      else
+        timer:start(npc.spawner.spawn_delay)
       end
       return true
     else
-        npc:remove()
+        ent:remove()
       return false
     end
   end
@@ -412,6 +414,12 @@ end
 
 -- This function takes care of calculating how many NPCs will be spawn
 function spawner.calculate_npc_spawning(pos)
+  -- Check node
+  local node = minetest.get_node(pos)
+  if node.name ~= "advanced_npc:plotmarker_auto_spawner" then
+    return
+  end 
+  -- Check node metadata
   local meta = minetest.get_meta(pos)
   -- Get nodes for this building
   local node_data = minetest.deserialize(meta:get_string("node_data"))
@@ -439,7 +447,7 @@ function spawner.calculate_npc_spawning(pos)
   meta:set_int("spawned_npc_count", 0)
   -- Start timer
   local timer = minetest.get_node_timer(pos)
-  timer:start(npc.spawn_delay)
+  timer:start(npc.spawner.spawn_delay)
 end
 
 ---------------------------------------------------------------------------------------
@@ -568,7 +576,7 @@ if minetest.get_modpath("mg_villages") ~= nil then
   minetest.register_abm({
     label = "Replace mg_villages:plotmarker with Advanced NPC auto spawners",
     nodenames = {"mg_villages:plotmarker"},
-    interval = 60,
+    interval = 30,
     chance = 1,
     catch_up = true,
     action = function(pos, node, active_object_count, active_object_count_wider)
@@ -585,7 +593,6 @@ if minetest.get_modpath("mg_villages") ~= nil then
 end
 
 -- Chat commands to manage spawners
-
 minetest.register_chatcommand("restore_plotmarkers", {
   description = "Replaces all advanced_npc:plotmarker_auto_spawner with mg_villages:plotmarker in the specified radius.",
   privs = {server=true},
