@@ -69,15 +69,6 @@ function npc.get_item_count(item_string)
   return ItemStack(item_string):get_count()
 end
 
-local function initialize_inventory()
-  return {
-    [1] = "",  [2] = "",  [3] = "",  [4] = "",
-    [5] = "",  [6] = "",  [7] = "",  [8] = "",
-    [9] = "",  [10] = "", [11] = "", [12] = "",
-    [13] = "", [14] = "", [15] = "", [16] = "",
-  }
-end
-
 -- Add an item to inventory. Returns true if add successful
 -- These function can be used to give items to other NPCs
 -- given that the "self" variable can be any NPC
@@ -464,287 +455,6 @@ function npc.delete_schedule_entry(self, schedule_type, date, time)
 end
 
 ---------------------------------------------------------------------------------------
--- Spawning functions
----------------------------------------------------------------------------------------
--- These functions are used at spawn time to determine several
--- random attributes for the NPC in case they are not already
--- defined. On a later phase, pre-defining many of the NPC values
--- will be allowed.
-
--- This function checks for "female" text on the texture name
-local function is_female_texture(textures)
-  for i = 1, #textures do
-    if string.find(textures[i], "female") ~= nil then
-      return true
-    end
-  end
-  return false
-end
-
--- Choose whether NPC can have relationships. Only 30% of NPCs cannot have relationships
-local function can_have_relationships()
-  local chance = math.random(1,10)
-  return chance > 3
-end
-
--- Choose a maximum of two items that the NPC will have at spawn time
--- These items are chosen from the favorite items list.
-local function choose_spawn_items(self)
-  local number_of_items_to_add = math.random(1, 2)
-  local number_of_items = #npc.FAVORITE_ITEMS[self.sex].phase1
-  
-  for i = 1, number_of_items_to_add do
-    npc.add_item_to_inventory(
-       self,
-       npc.FAVORITE_ITEMS[self.sex].phase1[math.random(1, number_of_items)].item, 
-       math.random(1,5)
-      )
-  end
-  -- Add currency to the items spawned with. Will add 5-10 tier 3
-  -- currency items
-  local currency_item_count = math.random(5, 10)
-  npc.add_item_to_inventory(self, npc.trade.prices.currency.tier3.string, currency_item_count)
-
-  -- For test
-  npc.add_item_to_inventory(self, "default:tree", 10)
-  npc.add_item_to_inventory(self, "default:cobble", 10)
-  npc.add_item_to_inventory(self, "default:diamond", 2)
-  npc.add_item_to_inventory(self, "default:mese_crystal", 2)
-  npc.add_item_to_inventory(self, "flowers:rose", 2)
-  npc.add_item_to_inventory(self, "advanced_npc:marriage_ring", 2)
-  npc.add_item_to_inventory(self, "flowers:geranium", 2)
-  npc.add_item_to_inventory(self, "mobs:meat", 2)
-  npc.add_item_to_inventory(self, "mobs:leather", 2)
-  npc.add_item_to_inventory(self, "default:sword_stone", 2)
-  npc.add_item_to_inventory(self, "default:shovel_stone", 2)
-  npc.add_item_to_inventory(self, "default:axe_stone", 2)
-
-  minetest.log("Initial inventory: "..dump(self.inventory))
-end
-
--- Spawn function. Initializes all variables that the
--- NPC will have and choose random, starting values
-local function npc_spawn(self, pos)
-  minetest.log("Spawning new NPC:")
-
-  -- Get Lua Entity
-  local ent = self:get_luaentity()
-
-  -- Avoid NPC to be removed by mobs_redo API
-  ent.remove_ok = false
-
-  -- Set name
-  ent.nametag = "Kio"
-
-  -- Set ID
-  ent.npc_id = tostring(math.random(1000, 9999))..":"..ent.nametag
-  
-  -- Determine sex based on textures
-  if (is_female_texture(ent.base_texture)) then
-    ent.sex = npc.FEMALE
-  else
-    ent.sex = npc.MALE
-  end
-  
-  -- Initialize all gift data
-  ent.gift_data = {
-    -- Choose favorite items. Choose phase1 per default
-    favorite_items = npc.relationships.select_random_favorite_items(ent.sex, "phase1"),
-    -- Choose disliked items. Choose phase1 per default
-    disliked_items = npc.relationships.select_random_disliked_items(ent.sex),
-  }
-  
-  -- Flag that determines if NPC can have a relationship
-  ent.can_have_relationship = can_have_relationships()
-
-  -- Initialize relationships object
-  ent.relationships = {}
-
-  -- Determines if NPC is married or not
-  ent.is_married_to = nil
-
-  -- Initialize dialogues
-  ent.dialogues = npc.dialogue.select_random_dialogues_for_npc(ent.sex, 
-                                                               "phase1",
-                                                               ent.gift_data.favorite_items,
-                                                               ent.gift_data.disliked_items)
-  
-  -- Declare NPC inventory
-  ent.inventory = initialize_inventory()
-
-  -- Choose items to spawn with
-  choose_spawn_items(ent)
-
-  -- Flags: generic booleans or functions that help drive functionality
-  ent.flags = {}
-
-  -- Declare trade data
-  ent.trader_data = {
-    -- Type of trader
-    trader_status = npc.trade.get_random_trade_status(),
-    -- Current buy offers
-    buy_offers = {},
-    -- Current sell offers
-    sell_offers = {},
-    -- Items to buy change timer
-    change_offers_timer = 0,
-    -- Items to buy change timer interval
-    change_offers_timer_interval = 60,
-    -- Trading list: a list of item names the trader is expected to trade in.
-    -- It is mostly related to its occupation.
-    -- If empty, the NPC will revert to casual trading
-    -- If not, it will try to sell those that it have, and buy the ones it not.
-    trade_list = {
-      sell = {},
-      buy = {},
-      both = {}
-    },
-    -- Custom trade allows to specify more than one payment
-    -- and a custom prompt (instead of the usual buy or sell prompts)
-    custom_trades = {}
-  }
-
-  -- Initialize trading offers for NPC
-  --npc.trade.generate_trade_offers_by_status(ent)
-  -- if ent.trader_data.trader_status == npc.trade.CASUAL then
-  --   select_casual_trade_offers(ent)
-  -- end
-
-  -- Actions data
-  ent.actions = {
-    -- The queue is a queue of actions to be performed on each interval
-    queue = {},
-    -- Current value of the action timer
-    action_timer = 0,
-    -- Determines the interval for each action in the action queue
-    -- Default is 1. This can be changed via actions
-    action_interval = 1,
-    -- Avoid the execution of the action timer
-    action_timer_lock = false,
-    -- Defines the state of the current action
-    current_action_state = npc.action_state.none,
-    -- Store information about action on state before lock
-    state_before_lock = {
-      -- State of the mobs_redo API
-      freeze = false,
-      -- State of execution
-      action_state = npc.action_state.none,
-      -- Action executed while on lock
-      interrupted_action = {}
-    }
-  }
-
-  -- This flag is checked on every step. If it is true, the rest of 
-  -- Mobs Redo API is not executed
-  ent.freeze = nil
-
-  -- This map will hold all the places for the NPC
-  -- Map entries should be like: "bed" = {x=1, y=1, z=1}
-  ent.places_map = {}
-
-  -- Schedule data
-  ent.schedules = {
-    -- Flag to enable or disable the schedules functionality
-    enabled = true, 
-    -- Lock for when executing a schedule
-    lock = false,
-    -- An array of schedules, meant to be one per day at some point
-    -- when calendars are implemented. Allows for only 7 schedules,
-    -- one for each day of the week
-    generic = {},
-    -- An array of schedules, meant to be for specific dates in the 
-    -- year. Can contain as many as possible. The keys will be strings
-    -- in the format MM:DD
-    date_based = {}
-  }
-
-  -- Temporary initialization of actions for testing
-  local nodes = npc.places.find_node_nearby(ent.object:getpos(), {"cottages:bench"}, 20)
-  minetest.log("Found nodes: "..dump(nodes))
-
-  --local path = pathfinder.find_path(ent.object:getpos(), nodes[1], 20)
-  --minetest.log("Path to node: "..dump(path))
-  --npc.add_action(ent, npc.actions.use_door, {self = ent, pos = nodes[1], action = npc.actions.door_action.OPEN})
-  --npc.add_action(ent, npc.actions.stand, {self = ent})
-  --npc.add_action(ent, npc.actions.stand, {self = ent})
-  -- if nodes[1] ~= nil then
-  --   npc.add_task(ent, npc.actions.walk_to_pos, {end_pos=nodes[1], walkable={}})
-  --   npc.actions.use_furnace(ent, nodes[1], "default:cobble 5", false)
-  --   --npc.add_action(ent, npc.actions.sit, {self = ent})
-  --   -- npc.add_action(ent, npc.actions.lay, {self = ent})
-  --   -- npc.add_action(ent, npc.actions.lay, {self = ent})
-  --   -- npc.add_action(ent, npc.actions.lay, {self = ent})
-  --   --npc.actions.use_sittable(ent, nodes[1], npc.actions.const.sittable.GET_UP)
-  --   --npc.add_action(ent, npc.actions.set_interval, {self=ent, interval=10, freeze=true})
-  --   npc.add_action(ent, npc.actions.freeze, {freeze = false})
-  -- end
-
-  -- Dedicated trade test
-  ent.trader_data.trade_list.both = {
-    ["default:tree"] = {},
-    ["default:cobble"] = {},
-    ["default:wood"] = {},
-    ["default:diamond"] = {},
-    ["default:mese_crystal"] = {},
-    ["flowers:rose"] = {},
-    ["advanced_npc:marriage_ring"] = {},
-    ["flowers:geranium"] = {},
-    ["mobs:meat"] = {},
-    ["mobs:leather"] = {},
-    ["default:sword_stone"] = {},
-    ["default:shovel_stone"] = {},
-    ["default:axe_stone"] = {}
-  }
-
-  npc.trade.generate_trade_offers_by_status(ent)
-
-  -- Add a custom trade offer
-  local offer1 = npc.trade.create_custom_sell_trade_offer("Do you want me to fix your steel sword?", "Fix steel sword", "Fix steel sword", "default:sword_steel", {"default:sword_steel", "default:iron_lump 5"})
-  table.insert(ent.trader_data.custom_trades, offer1)
-  local offer2 = npc.trade.create_custom_sell_trade_offer("Do you want me to fix your mese sword?", "Fix mese sword", "Fix mese sword", "default:sword_mese", {"default:sword_mese", "default:copper_lump 10"})
-  table.insert(ent.trader_data.custom_trades, offer2)
-
-  -- Add a simple schedule for testing
-  npc.create_schedule(ent, npc.schedule_types.generic, 0)
-  -- Add schedule entries
-  local morning_actions = { 
-    [1] = {task = npc.actions.walk_to_pos, args = {end_pos=nodes[1], walkable={}} } ,
-    [2] = {task = npc.actions.use_sittable, args = {pos=nodes[1], action=npc.actions.const.sittable.SIT} }, 
-    [3] = {action = npc.actions.freeze, args = {freeze = true}}
-  }
-  npc.add_schedule_entry(ent, npc.schedule_types.generic, 0, 7, nil, morning_actions)
-  local afternoon_actions = { [1] = {action = npc.actions.stand, args = {}} }
-  npc.add_schedule_entry(ent, npc.schedule_types.generic, 0, 9, nil, afternoon_actions)
-  -- local night_actions = {action: npc.action, args: {}}
-  -- npc.add_schedule_entry(self, npc.schedule_type.generic, 0, 19, check, actions)
-
-  -- npc.add_action(ent, npc.action.stand, {self = ent})
-  -- npc.add_action(ent, npc.action.stand, {self = ent})
-  -- npc.add_action(ent, npc.action.walk_step, {self = ent, dir = npc.direction.east})
-  -- npc.add_action(ent, npc.action.walk_step, {self = ent, dir = npc.direction.east})
-  -- npc.add_action(ent, npc.action.walk_step, {self = ent, dir = npc.direction.east})
-  -- npc.add_action(ent, npc.action.walk_step, {self = ent, dir = npc.direction.east})
-  -- npc.add_action(ent, npc.action.walk_step, {self = ent, dir = npc.direction.east})
-  -- npc.add_action(ent, npc.action.walk_step, {self = ent, dir = npc.direction.east})
-  -- npc.add_action(ent, npc.action.sit, {self = ent})
-  -- npc.add_action(ent, npc.action.rotate, {self = ent, dir = npc.direction.south})
-  -- npc.add_action(ent, npc.action.lay, {self = ent})
-
-  -- Temporary initialization of places
-  -- local bed_nodes = npc.places.find_new_nearby(ent, npc.places.nodes.BEDS, 8)
-  -- minetest.log("Number of bed nodes: "..dump(#bed_nodes))
-  -- if #bed_nodes > 0 then
-  --   npc.places.add_owned(ent, "bed1", npc.places.PLACE_TYPE.OWN_BED, bed_nodes[1])
-  -- end
-
-  minetest.log(dump(ent))
-  
-  -- Refreshes entity
-  ent.object:set_properties(ent)
-end
-
-
----------------------------------------------------------------------------------------
 -- NPC Definition
 ---------------------------------------------------------------------------------------
 mobs:register_mob("advanced_npc:npc", {
@@ -846,132 +556,139 @@ mobs:register_mob("advanced_npc:npc", {
 	end,
 	do_custom = function(self, dtime)
 
-    -- Timer function for casual traders to reset their trade offers  
-    self.trader_data.change_offers_timer = self.trader_data.change_offers_timer + dtime
-    -- Check if time has come to change offers
-    if self.trader_data.trader_status == npc.trade.CASUAL and 
-      self.trader_data.change_offers_timer >= self.trader_data.change_offers_timer_interval then
-      -- Reset timer
-      self.trader_data.change_offers_timer = 0
-      -- Re-select casual trade offers
-      npc.trade.generate_trade_offers_by_status(self)
+    if self.trader_data ~= nil then
+      -- Timer function for casual traders to reset their trade offers  
+      self.trader_data.change_offers_timer = self.trader_data.change_offers_timer + dtime
+      -- Check if time has come to change offers
+      if self.trader_data.trader_status == npc.trade.CASUAL and 
+        self.trader_data.change_offers_timer >= self.trader_data.change_offers_timer_interval then
+        -- Reset timer
+        self.trader_data.change_offers_timer = 0
+        -- Re-select casual trade offers
+        npc.trade.generate_trade_offers_by_status(self)
+      end
     end
   
-		-- Timer function for gifts
-    for i = 1, #self.relationships do
-      local relationship = self.relationships[i]
-      -- Gift timer check
-      if relationship.gift_timer_value < relationship.gift_interval then
-        relationship.gift_timer_value = relationship.gift_timer_value + dtime
-      elseif relationship.talk_timer_value < relationship.gift_interval then
-        -- Relationship talk timer - only allows players to increase relationship
-        -- by talking on the same intervals as gifts
-        relationship.talk_timer_value = relationship.talk_timer_value + dtime
-      else
-        -- Relationship decrease timer
-        if relationship.relationship_decrease_timer_value 
-            < relationship.relationship_decrease_interval then
-          relationship.relationship_decrease_timer_value = 
-            relationship.relationship_decrease_timer_value + dtime
+    if self.relationships ~= nil then
+  		-- Timer function for gifts
+      for i = 1, #self.relationships do
+        local relationship = self.relationships[i]
+        -- Gift timer check
+        if relationship.gift_timer_value < relationship.gift_interval then
+          relationship.gift_timer_value = relationship.gift_timer_value + dtime
+        elseif relationship.talk_timer_value < relationship.gift_interval then
+          -- Relationship talk timer - only allows players to increase relationship
+          -- by talking on the same intervals as gifts
+          relationship.talk_timer_value = relationship.talk_timer_value + dtime
         else
-          -- Check if married to decrease half
-          if relationship.phase == "phase6" then
-            -- Avoid going below the marriage phase limit
-            if (relationship.points - 0.5) >= 
-              npc.relationships.RELATIONSHIP_PHASE["phase5"].limit then
-              relationship.points = relationship.points - 0.5
-            end
+          -- Relationship decrease timer
+          if relationship.relationship_decrease_timer_value 
+              < relationship.relationship_decrease_interval then
+            relationship.relationship_decrease_timer_value = 
+              relationship.relationship_decrease_timer_value + dtime
           else
-            relationship.points = relationship.points - 1
+            -- Check if married to decrease half
+            if relationship.phase == "phase6" then
+              -- Avoid going below the marriage phase limit
+              if (relationship.points - 0.5) >= 
+                npc.relationships.RELATIONSHIP_PHASE["phase5"].limit then
+                relationship.points = relationship.points - 0.5
+              end
+            else
+              relationship.points = relationship.points - 1
+            end
+            relationship.relationship_decrease_timer_value = 0
+            --minetest.log(dump(self))
           end
-          relationship.relationship_decrease_timer_value = 0
-          --minetest.log(dump(self))
         end
       end
     end
 
     -- Action queue timer
     -- Check if actions and timers aren't locked
-    if self.actions.action_timer_lock == false then
-      -- Increment action timer
-      self.actions.action_timer = self.actions.action_timer + dtime
-      if self.actions.action_timer >= self.actions.action_interval then
-        -- Reset action timer
-        self.actions.action_timer = 0
-        -- Execute action
-        self.freeze = npc.execute_action(self)
-        -- Check if there are still remaining actions in the queue
-        if self.freeze == nil and table.getn(self.actions.queue) > 0 then
-          self.freeze = false
+    if self.actions ~= nil then
+      if self.actions.action_timer_lock == false then
+        -- Increment action timer
+        self.actions.action_timer = self.actions.action_timer + dtime
+        if self.actions.action_timer >= self.actions.action_interval then
+          -- Reset action timer
+          self.actions.action_timer = 0
+          -- Execute action
+          self.freeze = npc.execute_action(self)
+          -- Check if there are still remaining actions in the queue
+          if self.freeze == nil and table.getn(self.actions.queue) > 0 then
+            self.freeze = false
+          end
         end
       end
     end
 
     -- Schedule timer
     -- Check if schedules are enabled
-    if self.schedules.enabled == true then
-      -- Get time of day
-      local time = get_time_in_hours()
-      -- Check if time is an hour
-      if time % 1 < 0.1 and self.schedules.lock == false then
-        -- Activate lock to avoid more than one entry to this code
-        self.schedules.lock = true
-        -- Get integer part of time
-        time = (time) - (time % 1)
-        -- Check if there is a schedule entry for this time
-        -- Note: Currently only one schedule is supported, for day 0
-        minetest.log("Time: "..dump(time))
-        local schedule = self.schedules.generic[0]
-        if schedule ~= nil then
-          -- Check if schedule for this time exists
-          minetest.log("Found default schedule")
-          if schedule[time] ~= nil then
-            -- Check if schedule has a check function
-            if schedule[time].check ~= nil then
-              -- Execute check function and then add corresponding action
-              -- to action queue. This is for jobs.
-              -- TODO: Need to implement
-            else
-              minetest.log("Adding actions to action queue")
-              -- Add to action queue all actions on schedule
-              for i = 1, #schedule[time] do
-                if schedule[time][i].action == nil then
-                  -- Add task
-                  npc.add_task(self, schedule[time][i].task, schedule[time][i].args)
-                else
-                  -- Add action
-                  npc.add_action(self, schedule[time][i].action, schedule[time][i].args)
+    if self.schedules ~= nil then
+      if self.schedules.enabled == true then
+        -- Get time of day
+        local time = get_time_in_hours()
+        -- Check if time is an hour
+        if time % 1 < 0.1 and self.schedules.lock == false then
+          -- Activate lock to avoid more than one entry to this code
+          self.schedules.lock = true
+          -- Get integer part of time
+          time = (time) - (time % 1)
+          -- Check if there is a schedule entry for this time
+          -- Note: Currently only one schedule is supported, for day 0
+          minetest.log("Time: "..dump(time))
+          local schedule = self.schedules.generic[0]
+          if schedule ~= nil then
+            -- Check if schedule for this time exists
+            minetest.log("Found default schedule")
+            if schedule[time] ~= nil then
+              -- Check if schedule has a check function
+              if schedule[time].check ~= nil then
+                -- Execute check function and then add corresponding action
+                -- to action queue. This is for jobs.
+                -- TODO: Need to implement
+              else
+                minetest.log("Adding actions to action queue")
+                -- Add to action queue all actions on schedule
+                for i = 1, #schedule[time] do
+                  if schedule[time][i].action == nil then
+                    -- Add task
+                    npc.add_task(self, schedule[time][i].task, schedule[time][i].args)
+                  else
+                    -- Add action
+                    npc.add_action(self, schedule[time][i].action, schedule[time][i].args)
+                  end
                 end
+                minetest.log("New action queue: "..dump(self.actions))
               end
-              minetest.log("New action queue: "..dump(self.actions))
             end
           end
-        end
-      else
-        -- Check if lock can be released
-        if time % 1 > 0.1 then
-          -- Release lock
-          self.schedules.lock = false
+        else
+          -- Check if lock can be released
+          if time % 1 > 0.1 then
+            -- Release lock
+            self.schedules.lock = false
+          end
         end
       end
     end
 
-    
     return self.freeze
 	end
 })
 
 -- Spawn
-mobs:spawn({
-	name = "advanced_npc:npc",
-	nodes = {"mg_villages:plotmarker"},
-	min_light = 3,
-	active_object_count = 1,
-  interval = 5,
-  chance = 1,
-	--max_height = 0,
-	on_spawn = npc_spawn,
-})
+-- mobs:spawn({
+-- 	name = "advanced_npc:npc",
+-- 	nodes = {"mg_villages:plotmarker"},
+-- 	min_light = 3,
+-- 	active_object_count = 1,
+--   interval = 5,
+--   chance = 1,
+-- 	--max_height = 0,
+-- 	on_spawn = npc_spawn,
+-- })
 
 -------------------------------------------------------------------------
 -- Item definitions
