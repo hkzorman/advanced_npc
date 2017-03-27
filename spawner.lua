@@ -53,299 +53,8 @@ npc.spawner.mg_villages_supported_building_types = {
 }
 
 npc.spawner.replace_activated = true
-npc.spawner.spawn_delay = 5
--- npc.spawner.max_replace_count = 1
--- spawner.replace_count = 0
-
----------------------------------------------------------------------------------------
--- Spawning functions
----------------------------------------------------------------------------------------
--- These functions are used at spawn time to determine several
--- random attributes for the NPC in case they are not already
--- defined. On a later phase, pre-defining many of the NPC values
--- will be allowed.
-
-local function initialize_inventory()
-  return {
-    [1] = "",  [2] = "",  [3] = "",  [4] = "",
-    [5] = "",  [6] = "",  [7] = "",  [8] = "",
-    [9] = "",  [10] = "", [11] = "", [12] = "",
-    [13] = "", [14] = "", [15] = "", [16] = "",
-  }
-end
-
--- This function checks for "female" text on the texture name
-local function is_female_texture(textures)
-  for i = 1, #textures do
-    if string.find(textures[i], "female") ~= nil then
-      return true
-    end
-  end
-  return false
-end
-
--- Choose whether NPC can have relationships. Only 30% of NPCs cannot have relationships
-local function can_have_relationships()
-  local chance = math.random(1,10)
-  return chance > 3
-end
-
--- Choose a maximum of two items that the NPC will have at spawn time
--- These items are chosen from the favorite items list.
-local function choose_spawn_items(self)
-  local number_of_items_to_add = math.random(1, 2)
-  local number_of_items = #npc.FAVORITE_ITEMS[self.sex].phase1
-  
-  for i = 1, number_of_items_to_add do
-    npc.add_item_to_inventory(
-       self,
-       npc.FAVORITE_ITEMS[self.sex].phase1[math.random(1, number_of_items)].item, 
-       math.random(1,5)
-      )
-  end
-  -- Add currency to the items spawned with. Will add 5-10 tier 3
-  -- currency items
-  local currency_item_count = math.random(5, 10)
-  npc.add_item_to_inventory(self, npc.trade.prices.currency.tier3.string, currency_item_count)
-
-  -- For test
-  npc.add_item_to_inventory(self, "default:tree", 10)
-  npc.add_item_to_inventory(self, "default:cobble", 10)
-  npc.add_item_to_inventory(self, "default:diamond", 2)
-  npc.add_item_to_inventory(self, "default:mese_crystal", 2)
-  npc.add_item_to_inventory(self, "flowers:rose", 2)
-  npc.add_item_to_inventory(self, "advanced_npc:marriage_ring", 2)
-  npc.add_item_to_inventory(self, "flowers:geranium", 2)
-  npc.add_item_to_inventory(self, "mobs:meat", 2)
-  npc.add_item_to_inventory(self, "mobs:leather", 2)
-  npc.add_item_to_inventory(self, "default:sword_stone", 2)
-  npc.add_item_to_inventory(self, "default:shovel_stone", 2)
-  npc.add_item_to_inventory(self, "default:axe_stone", 2)
-
-  --minetest.log("Initial inventory: "..dump(self.inventory))
-end
-
--- Spawn function. Initializes all variables that the
--- NPC will have and choose random, starting values
-local function spawn(entity, pos)
-  minetest.log("Spawning new NPC at pos: "..dump(pos))
-
-  -- Get Lua Entity
-  local ent = entity:get_luaentity()
-
-  -- Avoid NPC to be removed by mobs_redo API
-  ent.remove_ok = false
-
-  -- Set name
-  ent.nametag = "Kio"
-
-  -- Set ID
-  ent.npc_id = tostring(math.random(1000, 9999))..":"..ent.nametag
-  
-  -- Determine sex based on textures
-  if (is_female_texture(ent.base_texture)) then
-    ent.sex = npc.FEMALE
-  else
-    ent.sex = npc.MALE
-  end
-  
-  -- Initialize all gift data
-  ent.gift_data = {
-    -- Choose favorite items. Choose phase1 per default
-    favorite_items = npc.relationships.select_random_favorite_items(ent.sex, "phase1"),
-    -- Choose disliked items. Choose phase1 per default
-    disliked_items = npc.relationships.select_random_disliked_items(ent.sex),
-  }
-  
-  -- Flag that determines if NPC can have a relationship
-  ent.can_have_relationship = can_have_relationships()
-
-  -- Initialize relationships object
-  ent.relationships = {}
-
-  -- Determines if NPC is married or not
-  ent.is_married_to = nil
-
-  -- Initialize dialogues
-  ent.dialogues = npc.dialogue.select_random_dialogues_for_npc(ent.sex, 
-                                                               "phase1",
-                                                               ent.gift_data.favorite_items,
-                                                               ent.gift_data.disliked_items)
-  
-  -- Declare NPC inventory
-  ent.inventory = initialize_inventory()
-
-  -- Choose items to spawn with
-  choose_spawn_items(ent)
-
-  -- Flags: generic booleans or functions that help drive functionality
-  ent.flags = {}
-
-  -- Declare trade data
-  ent.trader_data = {
-    -- Type of trader
-    trader_status = npc.trade.get_random_trade_status(),
-    -- Current buy offers
-    buy_offers = {},
-    -- Current sell offers
-    sell_offers = {},
-    -- Items to buy change timer
-    change_offers_timer = 0,
-    -- Items to buy change timer interval
-    change_offers_timer_interval = 60,
-    -- Trading list: a list of item names the trader is expected to trade in.
-    -- It is mostly related to its occupation.
-    -- If empty, the NPC will revert to casual trading
-    -- If not, it will try to sell those that it have, and buy the ones it not.
-    trade_list = {
-      sell = {},
-      buy = {},
-      both = {}
-    },
-    -- Custom trade allows to specify more than one payment
-    -- and a custom prompt (instead of the usual buy or sell prompts)
-    custom_trades = {}
-  }
-
-  -- Initialize trading offers for NPC
-  --npc.trade.generate_trade_offers_by_status(ent)
-  -- if ent.trader_data.trader_status == npc.trade.CASUAL then
-  --   select_casual_trade_offers(ent)
-  -- end
-
-  -- Actions data
-  ent.actions = {
-    -- The queue is a queue of actions to be performed on each interval
-    queue = {},
-    -- Current value of the action timer
-    action_timer = 0,
-    -- Determines the interval for each action in the action queue
-    -- Default is 1. This can be changed via actions
-    action_interval = 1,
-    -- Avoid the execution of the action timer
-    action_timer_lock = false,
-    -- Defines the state of the current action
-    current_action_state = npc.action_state.none,
-    -- Store information about action on state before lock
-    state_before_lock = {
-      -- State of the mobs_redo API
-      freeze = false,
-      -- State of execution
-      action_state = npc.action_state.none,
-      -- Action executed while on lock
-      interrupted_action = {}
-    }
-  }
-
-  -- This flag is checked on every step. If it is true, the rest of 
-  -- Mobs Redo API is not executed
-  ent.freeze = nil
-
-  -- This map will hold all the places for the NPC
-  -- Map entries should be like: "bed" = {x=1, y=1, z=1}
-  ent.places_map = {}
-
-  -- Schedule data
-  ent.schedules = {
-    -- Flag to enable or disable the schedules functionality
-    enabled = true, 
-    -- Lock for when executing a schedule
-    lock = false,
-    -- An array of schedules, meant to be one per day at some point
-    -- when calendars are implemented. Allows for only 7 schedules,
-    -- one for each day of the week
-    generic = {},
-    -- An array of schedules, meant to be for specific dates in the 
-    -- year. Can contain as many as possible. The keys will be strings
-    -- in the format MM:DD
-    date_based = {}
-  }
-
-  -- Temporary initialization of actions for testing
-  local nodes = npc.places.find_node_nearby(ent.object:getpos(), {"cottages:bench"}, 20)
-  --minetest.log("Found nodes: "..dump(nodes))
-
-  --local path = pathfinder.find_path(ent.object:getpos(), nodes[1], 20)
-  --minetest.log("Path to node: "..dump(path))
-  --npc.add_action(ent, npc.actions.use_door, {self = ent, pos = nodes[1], action = npc.actions.door_action.OPEN})
-  --npc.add_action(ent, npc.actions.stand, {self = ent})
-  --npc.add_action(ent, npc.actions.stand, {self = ent})
-  -- if nodes[1] ~= nil then
-  --   npc.add_task(ent, npc.actions.walk_to_pos, {end_pos=nodes[1], walkable={}})
-  --   npc.actions.use_furnace(ent, nodes[1], "default:cobble 5", false)
-  --   --npc.add_action(ent, npc.actions.sit, {self = ent})
-  --   -- npc.add_action(ent, npc.actions.lay, {self = ent})
-  --   -- npc.add_action(ent, npc.actions.lay, {self = ent})
-  --   -- npc.add_action(ent, npc.actions.lay, {self = ent})
-  --   --npc.actions.use_sittable(ent, nodes[1], npc.actions.const.sittable.GET_UP)
-  --   --npc.add_action(ent, npc.actions.set_interval, {self=ent, interval=10, freeze=true})
-  --   npc.add_action(ent, npc.actions.freeze, {freeze = false})
-  -- end
-
-  -- Dedicated trade test
-  ent.trader_data.trade_list.both = {
-    ["default:tree"] = {},
-    ["default:cobble"] = {},
-    ["default:wood"] = {},
-    ["default:diamond"] = {},
-    ["default:mese_crystal"] = {},
-    ["flowers:rose"] = {},
-    ["advanced_npc:marriage_ring"] = {},
-    ["flowers:geranium"] = {},
-    ["mobs:meat"] = {},
-    ["mobs:leather"] = {},
-    ["default:sword_stone"] = {},
-    ["default:shovel_stone"] = {},
-    ["default:axe_stone"] = {}
-  }
-
-  npc.trade.generate_trade_offers_by_status(ent)
-
-  -- Add a custom trade offer
-  local offer1 = npc.trade.create_custom_sell_trade_offer("Do you want me to fix your steel sword?", "Fix steel sword", "Fix steel sword", "default:sword_steel", {"default:sword_steel", "default:iron_lump 5"})
-  table.insert(ent.trader_data.custom_trades, offer1)
-  local offer2 = npc.trade.create_custom_sell_trade_offer("Do you want me to fix your mese sword?", "Fix mese sword", "Fix mese sword", "default:sword_mese", {"default:sword_mese", "default:copper_lump 10"})
-  table.insert(ent.trader_data.custom_trades, offer2)
-
-  -- Add a simple schedule for testing
-  npc.create_schedule(ent, npc.schedule_types.generic, 0)
-  -- Add schedule entries
-  local morning_actions = { 
-    [1] = {task = npc.actions.walk_to_pos, args = {end_pos=nodes[1], walkable={}} } ,
-    [2] = {task = npc.actions.use_sittable, args = {pos=nodes[1], action=npc.actions.const.sittable.SIT} }, 
-    [3] = {action = npc.actions.freeze, args = {freeze = true}}
-  }
-  npc.add_schedule_entry(ent, npc.schedule_types.generic, 0, 7, nil, morning_actions)
-  local afternoon_actions = { [1] = {action = npc.actions.stand, args = {}} }
-  npc.add_schedule_entry(ent, npc.schedule_types.generic, 0, 9, nil, afternoon_actions)
-  -- local night_actions = {action: npc.action, args: {}}
-  -- npc.add_schedule_entry(self, npc.schedule_type.generic, 0, 19, check, actions)
-
-  -- npc.add_action(ent, npc.action.stand, {self = ent})
-  -- npc.add_action(ent, npc.action.stand, {self = ent})
-  -- npc.add_action(ent, npc.action.walk_step, {self = ent, dir = npc.direction.east})
-  -- npc.add_action(ent, npc.action.walk_step, {self = ent, dir = npc.direction.east})
-  -- npc.add_action(ent, npc.action.walk_step, {self = ent, dir = npc.direction.east})
-  -- npc.add_action(ent, npc.action.walk_step, {self = ent, dir = npc.direction.east})
-  -- npc.add_action(ent, npc.action.walk_step, {self = ent, dir = npc.direction.east})
-  -- npc.add_action(ent, npc.action.walk_step, {self = ent, dir = npc.direction.east})
-  -- npc.add_action(ent, npc.action.sit, {self = ent})
-  -- npc.add_action(ent, npc.action.rotate, {self = ent, dir = npc.direction.south})
-  -- npc.add_action(ent, npc.action.lay, {self = ent})
-
-  -- Temporary initialization of places
-  -- local bed_nodes = npc.places.find_new_nearby(ent, npc.places.nodes.BEDS, 8)
-  -- minetest.log("Number of bed nodes: "..dump(#bed_nodes))
-  -- if #bed_nodes > 0 then
-  --   npc.places.add_owned(ent, "bed1", npc.places.PLACE_TYPE.OWN_BED, bed_nodes[1])
-  -- end
-
-  --minetest.log(dump(ent))
-  minetest.log("Successfully spawned NPC with name "..dump(ent.nametag))
-  -- Refreshes entity
-  ent.object:set_properties(ent)
-end
-
+npc.spawner.replacement_interval = 60
+npc.spawner.spawn_delay = 10
 
 ---------------------------------------------------------------------------------------
 -- Scanning functions
@@ -356,8 +65,8 @@ end
 -- Returns a table with these classifications
 function spawner.scan_area(start_pos, end_pos)
   minetest.log("Scanning area for nodes...")
-  minetest.log("Start pos: "..dump(start_pos))
-  minetest.log("End pos: "..dump(end_pos))
+  minetest.log("Start pos: "..minetest.pos_to_string(start_pos))
+  minetest.log("End pos: "..minetest.pos_to_string(end_pos))
   local result = {
     bed_type = {},
     sittable_type = {},
@@ -388,23 +97,31 @@ function npc.spawner.spawn_npc(pos)
   local spawned_npc_count = meta:get_int("spawned_npc_count")
   minetest.log("Currently spawned "..dump(spawned_npc_count).." of "..dump(npc_count).." NPCs")
   if spawned_npc_count < npc_count then
+    minetest.log("[advanced_npc] Spawning NPC at "..minetest.pos_to_string(pos))
     -- Spawn a NPC
     local ent = minetest.add_entity(pos, "advanced_npc:npc")
     if ent and ent:get_luaentity() then
-      spawn(ent, pos)
+      ent:get_luaentity().initialized = false
+      npc.initialize(ent, pos)
       -- Increase NPC spawned count
       spawned_npc_count = spawned_npc_count + 1
       -- Store count into node
       meta:set_int("spawned_npc_count", spawned_npc_count)
+      meta:set_string("infotext", meta:get_string("infotext")..", "..spawned_npc_count)
+      minetest.log("[advanced_npc] Spawning successful!")
       -- Check if there are more NPCs to spawn
       if spawned_npc_count >= npc_count then
         -- Stop timer
+        minetest.log("[advanced_npc] No more NPCs to spawn at this location")
         timer:stop()
       else
+        -- Start another timer to spawn more NPC
+        minetest.log("[advanced_npc] Spawning one more NPC in "..dump(npc.spawner.spawn_delay).."s")
         timer:start(npc.spawner.spawn_delay)
       end
       return true
     else
+        minetest.log("[advanced_npc] Spawning failed!")
         ent:remove()
       return false
     end
@@ -424,12 +141,12 @@ function spawner.calculate_npc_spawning(pos)
   -- Get nodes for this building
   local node_data = minetest.deserialize(meta:get_string("node_data"))
   if node_data == nil then
-    minetest.log("ERROR: Mis-configured advanced_npc:plotmarker_auto_spawner at position: "..dump(pos))
+    minetest.log("[advanced_npc] ERROR: Mis-configured advanced_npc:plotmarker_auto_spawner at position: "..minetest.pos_to_string(pos))
     return
   end
   -- Check number of beds
   local beds_count = #node_data.bed_type
-  minetest.log("Number of beds: "..dump(beds_count))
+  minetest.log("[advanced_npc] INFO: Found "..dump(beds_count).." beds in the building at "..minetest.pos_to_string(pos))
   local npc_count = 0
   -- If number of beds is zero or beds/2 is less than one, spawn
   -- a single NPC.
@@ -440,7 +157,7 @@ function spawner.calculate_npc_spawning(pos)
     -- Spawn beds_count/2 NPCs
     npc_count = ((beds_count / 2) - ((beds_count / 2) % 1))
   end
-  minetest.log("Will spawn "..dump(npc_count).." NPCs at "..dump(pos))
+  minetest.log("Will spawn "..dump(npc_count).." NPCs at "..minetest.pos_to_string(pos))
   -- Store amount of NPCs to spawn
   meta:set_int("npc_count", npc_count)
   -- Store amount of NPCs spawned
@@ -490,7 +207,7 @@ function spawner.replace_mg_villages_plotmarker(pos)
 
     if building_type == value then
 
-      minetest.log("Replacing mg_villages:plotmarker at "..dump(pos))
+      minetest.log("Replacing mg_villages:plotmarker at "..minetest.pos_to_string(pos))
       -- Replace the plotmarker for auto-spawner
       minetest.set_node(pos, {name="advanced_npc:plotmarker_auto_spawner"})
       -- Store old plotmarker metadata again
@@ -540,7 +257,6 @@ if minetest.get_modpath("mg_villages") ~= nil then
     end,
 
     on_timer = function(pos, elapsed)
-      minetest.log("Calling spawning function...")
       npc.spawner.spawn_npc(pos)
     end,
 
@@ -576,7 +292,7 @@ if minetest.get_modpath("mg_villages") ~= nil then
   minetest.register_abm({
     label = "Replace mg_villages:plotmarker with Advanced NPC auto spawners",
     nodenames = {"mg_villages:plotmarker"},
-    interval = 30,
+    interval = npc.spawner.replacement_interval,
     chance = 1,
     catch_up = true,
     action = function(pos, node, active_object_count, active_object_count_wider)
@@ -622,7 +338,7 @@ minetest.register_chatcommand("restore_plotmarkers", {
     end
     -- Replace all nodes
     for i = 1, #nodes do
-      minetest.log(dump(nodes[i]))
+      --minetest.log(dump(nodes[i]))
       local meta = minetest.get_meta(nodes[i])
       local village_id = meta:get_string("village_id")
       local plot_nr = meta:get_int("plot_nr")
@@ -635,6 +351,6 @@ minetest.register_chatcommand("restore_plotmarkers", {
       meta:set_int("plot_nr", plot_nr)
       meta:set_string("infotext", infotext)
     end
-    minetest.chat_send_player(name, "Finished "..dump(#nodes).." replacement successfully")
+    minetest.chat_send_player(name, "Finished replacement of "..dump(#nodes).." auto-spawners successfully")
   end
 })

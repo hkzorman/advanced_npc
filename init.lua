@@ -25,6 +25,7 @@ mobs.intllib = S
 
 -- NPC
 dofile(path .. "/npc.lua")
+dofile(path .. "/spawner.lua")
 dofile(path .. "/relationships.lua")
 dofile(path .. "/dialogue.lua")
 dofile(path .. "/trade/trade.lua")
@@ -34,6 +35,5 @@ dofile(path .. "/actions/places.lua")
 dofile(path .. "/actions/pathfinder.lua")
 dofile(path .. "/actions/node_registry.lua")
 dofile(path .. "/random_data.lua")
-dofile(path .. "/spawner.lua")
 
 print (S("[Mod] Advanced NPC loaded"))
