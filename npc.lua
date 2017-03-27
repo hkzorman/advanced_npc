@@ -123,11 +123,14 @@ end
 
 -- Spawn function. Initializes all variables that the
 -- NPC will have and choose random, starting values
-function npc.initialize(entity, pos)
-  minetest.log("Spawning new NPC at pos: "..dump(pos))
+function npc.initialize(entity, pos, is_lua_entity)
+  minetest.log("[advanced_npc] INFO: Initializing NPC at "..minetest.pos_to_string(pos))
 
-  -- Get variable
-  local ent = entity:get_luaentity()
+  -- Get variables
+  local ent = entity
+  if not is_lua_entity then
+    ent = entity:get_luaentity()
+  end
 
   ent.initialized = true
 
@@ -851,7 +854,7 @@ mobs:register_mob("advanced_npc:npc", {
       -- mobs_redo. This functionality will be removed in the future in
       -- favor of a better manual spawning method with customization 
       minetest.log("[advanced_npc] WARNING: Initializing NPC from entity step. This message should only be appearing if an NPC is being spawned from inventory with egg!")
-      npc.initialize(self, self.object:getpos())
+      npc.initialize(self, self.object:getpos(), true)
     else
       -- NPC is initialized, check other variables
       -- Timer function for casual traders to reset their trade offers  
