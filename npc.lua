@@ -61,6 +61,11 @@ end
 -- defined. On a later phase, pre-defining many of the NPC values
 -- will be allowed.
 
+local function get_random_name(sex)
+  local i = math.random(#npc.data.FIRST_NAMES[sex])
+  return npc.data.FIRST_NAMES[sex][i]
+end
+
 local function initialize_inventory()
   return {
     [1] = "",  [2] = "",  [3] = "",  [4] = "",
@@ -136,12 +141,6 @@ function npc.initialize(entity, pos, is_lua_entity)
 
   -- Avoid NPC to be removed by mobs_redo API
   ent.remove_ok = false
-
-  -- Set name
-  ent.nametag = "Kio"
-
-  -- Set ID
-  ent.npc_id = tostring(math.random(1000, 9999))..":"..ent.nametag
   
   -- Determine sex based on textures
   if (is_female_texture(ent.base_texture)) then
@@ -149,6 +148,12 @@ function npc.initialize(entity, pos, is_lua_entity)
   else
     ent.sex = npc.MALE
   end
+
+  -- Set name
+  ent.nametag = get_random_name(ent.sex)
+
+  -- Set ID
+  ent.npc_id = tostring(math.random(1000, 9999))..":"..ent.nametag
   
   -- Initialize all gift data
   ent.gift_data = {

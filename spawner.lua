@@ -56,9 +56,30 @@ npc.spawner.replace_activated = true
 npc.spawner.replacement_interval = 60
 npc.spawner.spawn_delay = 10
 
+npc.spawner.spawn_data = {
+ status = {
+    "dead" = 0,
+    "alive" = 1
+  }
+}
+
 ---------------------------------------------------------------------------------------
 -- Scanning functions
 ---------------------------------------------------------------------------------------
+
+-- Creates an array of {pos=<node_pos>, owner=''} for managing
+-- which NPC owns what
+function spawner.get_nodes_by_type(start_pos, end_pos, type)
+  local result = {}
+  local nodes = npc.places.find_node_in_area(start_pos, end_pos, type)
+  for _,node_pos in pairs(nodes) do
+    local entry = {}
+    entry["node_pos"] = node_pos
+    entry["owner"] = ''
+    table.insert(result, entry)
+  end
+  return result
+end
 
 -- Scans an area for the supported nodes: beds, benches,
 -- furnaces, storage (e.g. chests) and openable (e.g. doors).
@@ -75,14 +96,21 @@ function spawner.scan_area(start_pos, end_pos)
     openable_type = {}
   }
 
-  result.bed_type = npc.places.find_node_in_area(start_pos, end_pos, npc.places.nodes.BED_TYPE)
-  result.sittable_type = npc.places.find_node_in_area(start_pos, end_pos, npc.places.nodes.SITTABLE_TYPE)
-  result.furnace_type = npc.places.find_node_in_area(start_pos, end_pos, npc.places.nodes.FURNACE_TYPE)
-  result.storage_type = npc.places.find_node_in_area(start_pos, end_pos, npc.places.nodes.STORAGE_TYPE)
-  result.openable_type = npc.places.find_node_in_area(start_pos, end_pos, npc.places.nodes.OPENABLE_TYPE)
+  result.bed_type = spawner.get_nodes_by_type(start_pos, end_pos, npc.places.nodes.BED_TYPE)
+  result.sittable_type = spawner.get_nodes_by_type(start_pos, end_pos, npc.places.nodes.SITTABLE_TYPE)
+  result.furnace_type = spawner.get_nodes_by_type(start_pos, end_pos, npc.places.nodes.FURNACE_TYPE)
+  result.storage_type = spawner.get_nodes_by_type(start_pos, end_pos, npc.places.nodes.STORAGE_TYPE)
+  result.openable_type = spawner.get_nodes_by_type(start_pos, end_pos, npc.places.nodes.OPENABLE_TYPE)
 
   --minetest.log("Found nodes inside area: "..dump(result))
   return result
+end
+
+-- This function will assign places to every NPC that belongs to a specific
+-- house/building. It will use the resources of the house and give them
+-- until there's no more. Call this function after NPCs are initialized
+function spawner.assign_places(pos, self)
+
 end
 
 -- This function is called when the node timer for spawning NPC
@@ -107,6 +135,19 @@ function npc.spawner.spawn_npc(pos)
       spawned_npc_count = spawned_npc_count + 1
       -- Store count into node
       meta:set_int("spawned_npc_count", spawned_npc_count)
+      -- Store spawned NPC data into node
+      local npc_table = minetest.deserialize(meta:get_string("npcs"))
+      -- TODO: Add more information here at some time...
+      local entry = {
+        status = npc.spawner.spawn_data.status.alive,
+        name = ent:get_luaentity().nametag,
+        id = ent:get_luaentity().npc_id,
+        born_day = minetest.get_day_count()
+      }
+      table.insert(npc_table, entry)
+      -- Store into metadata
+      meta:set_string("npcs", minetest.serialize(npc_table))
+      -- Temp
       meta:set_string("infotext", meta:get_string("infotext")..", "..spawned_npc_count)
       minetest.log("[advanced_npc] Spawning successful!")
       -- Check if there are more NPCs to spawn
@@ -220,6 +261,9 @@ function spawner.replace_mg_villages_plotmarker(pos)
       local nodedata = spawner.scan_mg_villages_building(pos, building_data)
       -- Store nodedata into the spawner's metadata
       meta:set_string("node_data", minetest.serialize(nodedata))
+      -- Initialize NPCs
+      local npcs = {}
+      meta:set_string("npcs", minetest.serialize(npcs))
       -- Stop searching for building type
       break
 

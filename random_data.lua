@@ -322,6 +322,29 @@ npc.data.DIALOGUES.male["phase6"] = {
 	},
 }
 
+-- Names
+npc.data.FIRST_NAMES = {
+	female = {
+		"Kimy",
+		"Lili",
+		"Cora",
+		"Caroline",
+		"Gloria",
+		"Mary",
+		"Mayra",
+		"Arlene"
+	},
+	male = {
+		"Jote",
+		"Luis",
+		"Charles",
+		"Joseph",
+		"Gerald",
+		"Kiko",
+		"Michael"
+	}
+}
+
 -- Items
 -- Favorite items, disliked items lists
 npc.FAVORITE_ITEMS = {
