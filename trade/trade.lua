@@ -522,26 +522,28 @@ function npc.trade.perform_trade(self, player_name, offer)
     -- Check player has the item being buyed
     if inv:contains_item("main", item_stack) then
       -- Check if there is enough room to add the price item to player
-      if inv:room_for_item("main", price_stack) then
-        -- Remove item from player
-        inv:remove_item("main", item_stack)
-         -- Remove price item(s) from NPC
-        for i = 1, #price_stacks do
-          npc.take_item_from_inventory_itemstring(self, price_stacks[i])
+      for i = 1, #price_stacks do
+        if inv:room_for_item("main", price_stacks[i]) then
+          -- Remove item from player
+          inv:remove_item("main", item_stack)
+           -- Remove price item(s) from NPC
+          for j = 1, #price_stacks do
+            npc.take_item_from_inventory_itemstring(self, price_stacks[j])
+          end
+          -- Add item to NPC's inventory
+          npc.add_item_to_inventory_itemstring(self, offer.item)
+          -- Add price items to player
+          for j = 1, #price_stacks do
+            inv:add_item("main", price_stacks[j])
+          end
+          -- Send message to player
+          minetest.chat_send_player(player_name, "Thank you!")
+          return true
+        else
+          minetest.chat_send_player(player_name, 
+            "Looks like you can't get what I'm giving you for payment!")
+          return false
         end
-        -- Add item to NPC's inventory
-        npc.add_item_to_inventory_itemstring(self, offer.item)
-        -- Add price items to player
-        for i = 1, #price_stacks do
-          inv:add_item("main", price_stacks[i])
-        end
-        -- Send message to player
-        minetest.chat_send_player(player_name, "Thank you!")
-        return true
-      else
-        minetest.chat_send_player(player_name, 
-          "Looks like you can't get what I'm giving you for payment!")
-        return false
       end
     else
       minetest.chat_send_player(player_name, "Looks like you don't have what I want to buy...")
@@ -550,32 +552,34 @@ function npc.trade.perform_trade(self, player_name, offer)
   else
     -- If NPC is selling to the player, then player gives price and gets
     -- item, NPC loses item and gets price.
-    -- Check NPC has the required item to pay
-    if inv:contains_item("main", price_stack) then
-      -- Check if there is enough room to add the item to player
-      if inv:room_for_item("main", item_stack) then
-        -- Remove price item from player
-        for i = 1, #price_stacks do
-          inv:remove_item("main", price_stacks[i])
+    for i = 1, #price_stacks do
+      -- Check NPC has the required item to pay
+      if inv:contains_item("main", price_stacks[i]) then
+        -- Check if there is enough room to add the item to player
+        if inv:room_for_item("main", item_stack) then
+          -- Remove price item from player
+          for j = 1, #price_stacks do
+            inv:remove_item("main", price_stacks[j])
+          end
+          -- Remove sell item from NPC
+          npc.take_item_from_inventory_itemstring(self, offer.item)
+          -- Add price to NPC's inventory
+          for i = 1, #offer.price do
+            npc.add_item_to_inventory_itemstring(self, offer.price[i])
+          end
+          -- Add item items to player
+          inv:add_item("main", item_stack)
+          -- Send message to player
+          minetest.chat_send_player(player_name, "Thank you!")
+          return true
+        else
+          minetest.chat_send_player(player_name, "Looks like you can't carry anything else...")
+          return false
         end
-        -- Remove sell item from NPC
-        npc.take_item_from_inventory_itemstring(self, offer.item)
-        -- Add price to NPC's inventory
-        for i = 1, #offer.price do
-          npc.add_item_to_inventory_itemstring(self, offer.price[i])
-        end
-        -- Add item items to player
-        inv:add_item("main", item_stack)
-        -- Send message to player
-        minetest.chat_send_player(player_name, "Thank you!")
-        return true
       else
-        minetest.chat_send_player(player_name, "Looks like you can't carry anything else...")
+        minetest.chat_send_player(player_name, "Looks like you don't have what I'm asking for!")
         return false
       end
-    else
-      minetest.chat_send_player(player_name, "Looks like you don't have what I'm asking for!")
-      return false
     end
   end
 end
