@@ -131,6 +131,36 @@ function npc.places.find_node_in_area(start_pos, end_pos, type)
   return nodes
 end
 
+-- Specialized function to find doors that are an entrance to a building.
+-- The criteria for an entrance door is the following:
+--   - Node in front and above door is air, or
+--   - Node two nodes from front of door and above door is air and,
+--     - Up to two nodes above is air
+-- This needs to be fine-tuned with more practical scenarios.
+-- The given position is assumed to be the openable node's lower node
+-- (in the case of doors which have two-node heights)
+function npc.places.openable_node_is_entrance(pos)
+  local result = false
+  -- Calculate the first position to check
+  -- Need to get the direction of the openable node
+  local node = minetest.get_node(pos)
+  local x_adj = 0
+  local z_adj = 0
+  if node.param2 then
+    if node.param2 == 0 then
+
+    elseif node.param2 == 1 then
+
+    elseif node.param2 == 2 then
+
+    elseif node.param2 == 3 then
+
+    end
+  end
+  --local first_check_pos = {x=, y=, z=}
+
+end
+
 -- Specialized function to find all sittable nodes supported by the
 -- mod, namely default stairs and cottages' benches. Since not all
 -- stairs nodes placed aren't meant to simulate benches, this function

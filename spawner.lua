@@ -58,8 +58,8 @@ npc.spawner.spawn_delay = 10
 
 npc.spawner.spawn_data = {
  status = {
-    "dead" = 0,
-    "alive" = 1
+    ["dead"] = 0,
+    ["alive"] = 1
   }
 }
 
@@ -109,6 +109,15 @@ end
 -- This function will assign places to every NPC that belongs to a specific
 -- house/building. It will use the resources of the house and give them
 -- until there's no more. Call this function after NPCs are initialized
+-- The basic assumption:
+--   - Use only items that are up to y+3 (first floor of building) for now
+--   - Tell the NPC where the furnaces are
+--   - Assign a unique bed to the NPC
+--   - If there are as many chests as beds, assign one to a NPC
+--     - Else, just let the NPC know one of the chests, but not to be owned
+--   - If there are as many benches as beds, assign one to a NPC
+--     - Else, just let the NPC know one of the benches, but not own them
+--   - Let the NPC know all doors to the house. Identify the front one as the entrance
 function spawner.assign_places(pos, self)
 
 end
