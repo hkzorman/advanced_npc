@@ -9,29 +9,6 @@
 -- by Roland Yonaba (https://github.com/Yonaba/Jumper).
 -- Mapping algorithm: transforms a Minetest map surface to a 2d grid.
 
-local path = minetest.get_modpath("advanced_npc")
-
--- Below code for require is taken and slightly modified
--- from irc mod by Diego Martinez (kaeza)
--- https://github.com/minetest-mods/irc
--- Handle mod security if needed
-local ie, req_ie = _G, minetest.request_insecure_environment
-if req_ie then ie = req_ie() end
-if not ie then
-  error("The Advances NPC mod requires access to insecure functions in "..
-    "order to work.  Please add the Advanced NPC mod to the "..
-    "secure.trusted_mods setting or disable the mod.")
-end
-
--- Modify package path so that it can find the Jumper library files
-ie.package.path = 
-  path .. "/Jumper/?.lua;"..
-  ie.package.path
-
--- Require the main files from Jumper
-local Grid = ie.require("jumper.grid")
-local Pathfinder = ie.require("jumper.pathfinder")
-
 pathfinder = {}
 
 pathfinder.node_types = {
@@ -238,7 +215,7 @@ function pathfinder.normalize_map(map)
   return result
 end
 
--- This function returns an array of tables with to parameters: type and pos.
+-- This function returns an array of tables with two parameters: type and pos.
 -- The position parameter is the actual coordinate on the Minetest map. The
 -- type is the type of the node at the coordinate defined as pathfinder.node_types.
 function pathfinder.get_path(map, path_nodes)

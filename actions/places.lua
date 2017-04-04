@@ -146,6 +146,7 @@ function npc.places.openable_node_is_entrance(pos)
   local node = minetest.get_node(pos)
   local x_adj = 0
   local z_adj = 0
+  minetest.log(node.param2)
   if node.param2 then
     if node.param2 == 0 then
 
@@ -157,7 +158,8 @@ function npc.places.openable_node_is_entrance(pos)
 
     end
   end
-  --local first_check_pos = {x=, y=, z=}
+  local y_adj = 2
+  local first_check_pos = {x=pos.x + x_adj, y=pos.y + y_adj, z=pos.z + z_adj}
 
 end
 
