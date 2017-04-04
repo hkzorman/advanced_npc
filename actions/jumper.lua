@@ -1,20 +1,51 @@
--- Code based on Jumper library
+---------------------------------------------------------------------------------------
+-- This code is entirely based on the Jumper library by Roland Yonaba.
+-- The modifications are only to make it work under Minetest's secure
+-- environment. Therefore, the code in this file is under the MIT license
+-- as the original Jumper library. The original library code can be found
+-- here: https://github.com/Yonaba/Jumper
 
---- The Pathfinder class
+-- Modifications are by Hector Franqui (Zorman2000)
 
--- Modification by Zorman2000:
--- This file has been modified to be usable with Minetest.
--- Do to Minetest's mod security, the global "require()" call
--- is disabled, and needs to be replaced by one using Minetest's
--- environment.
---  - Get Minetest's insecure environment
---  - Change all "require" calls to "ie.require()"
--- 
--- The rest of the code is left intact and is (c) 2012-2013 Roland Yonaba
+---------------------------------------------------------------------------------------
+-- Copyright (c) 2012-2013 Roland Yonaba
 
+-- Permission is hereby granted, free of charge, to any person obtaining a
+-- copy of this software and associated documentation files (the
+-- "Software"), to deal in the Software without restriction, including
+-- without limitation the rights to use, copy, modify, merge, publish,
+-- distribute, sublicense, and/or sell copies of the Software, and to
+-- permit persons to whom the Software is furnished to do so, subject to
+-- the following conditions:
+
+-- The above copyright notice and this permission notice shall be included
+-- in all copies or substantial portions of the Software.
+
+-- THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+-- OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+-- MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+-- IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+-- CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+-- TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+-- SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+--
+---------------------------------------------------------------------------------------
+---------------------------------------------------------------------------------------
+---------------------------------------------------------------------------------------
+
+-- Local variables declarations
 local abs = math.abs
 local sqrt = math.sqrt
+local max = math.max
+local floor = math.floor
+local t_insert, t_remove = table.insert, table.remove
+local huge = math.huge
 
+
+---------------------------------------------------------------------------------------
+-- Heuristics based on implementation by Ronald Yonaba
+-- Original code here: https://github.com/Yonaba/Jumper/jumper/core/heuristics.lua
+---------------------------------------------------------------------------------------
 local Heuristics = {
   	['MANHATTAN'] = function(nodeA, nodeB) 
 			local dx = abs(nodeA._x - nodeB._x)
@@ -28,6 +59,11 @@ local Heuristics = {
 		end
 }
 
+
+---------------------------------------------------------------------------------------
+-- Node class implementation by Ronald Yonaba
+-- Original code here: https://github.com/Yonaba/Jumper/jumper/core/node.lua
+---------------------------------------------------------------------------------------
 local Node = setmetatable({},
 		{__call = function(self,...) 
 			return Node:new(...) 
@@ -106,14 +142,11 @@ local Node = setmetatable({},
 		return self
 	end
 
----------------------------------------------------------------
--- Path class implementation by Ronald Yonaba
--- Original code here: 
----------------------------------------------------------------
--- Local references
-local abs, max = math.abs, math.max
-local t_insert, t_remove = table.insert, table.remove
 
+---------------------------------------------------------------------------------------
+-- Path class implementation by Ronald Yonaba
+-- Original code here: https://github.com/Yonaba/Jumper/jumper/core/path.lua
+---------------------------------------------------------------------------------------
 --- The `Path` class.<br/>
 -- This class is callable.
 -- Therefore, <em><code>Path(...)</code></em> acts as a shortcut to <em><code>Path:new(...)</code></em>.
@@ -294,12 +327,12 @@ function Path:append(p)
 	for node in p:nodes() do self:addNode(node)	end
 	return self
 end
-	
 
 
-	-- Local reference
-local floor = math.floor
-
+---------------------------------------------------------------------------------------
+-- Utils class based on implementation by Ronald Yonaba
+-- Original code here: https://github.com/Yonaba/Jumper/jumper/core/utils.lua
+---------------------------------------------------------------------------------------
 local Utils = {
 	traceBackPath = function(finder, node, startNode)
     local path = Path:new()
@@ -358,11 +391,11 @@ local Utils = {
   end
 }
 
----------------------------------------------------------------
--- B-Heap implementation by Ronald Yonaba
--- Original code here: 
----------------------------------------------------------------
 
+---------------------------------------------------------------------------------------
+-- Bheap class implementation by Ronald Yonaba
+-- Original code here: https://github.com/Yonaba/Jumper/jumper/core/bheap.lua
+---------------------------------------------------------------------------------------
 -- Default comparison function
 local function f_min(a,b) return a < b end
 
@@ -507,15 +540,15 @@ function heap:heapify(item)
 	return self
 end
 
----------------------------------------------------------------
--- Grid implementation by Ronald Yonaba
--- Original code here: 
----------------------------------------------------------------
+
+---------------------------------------------------------------------------------------
+-- Grid class implementation by Ronald Yonaba
+-- Original code here: https://github.com/Yonaba/Jumper/jumper/grid.lua
+---------------------------------------------------------------------------------------
 local pairs = pairs
 local assert = assert
 local next = next
 local setmetatable = setmetatable
-local floor = math.floor
 local coroutine = coroutine
 
 -- Offsets for straights moves
@@ -904,13 +937,12 @@ function PostProcessGrid:getNodeAt(x,y)
 end
 
 
----------------------------------------------------------------
--- A* algorithm implementation by Ronald Yonaba
--- Original code here: 
----------------------------------------------------------------
+---------------------------------------------------------------------------------------
+-- A* algorithm based on implementation by Ronald Yonaba
+-- Original code here: https://github.com/Yonaba/Jumper/jumper/search/astar.lua
+---------------------------------------------------------------------------------------
 -- Internalization
 local ipairs = ipairs
-local huge = math.huge
 
 -- Updates G-cost
 local function computeCost(node, neighbour, finder, clearance)
@@ -973,6 +1005,11 @@ local function ASTAR(finder, startNode, endNode, clearance, toClear, overrideHeu
 	return nil 
 end
 
+
+---------------------------------------------------------------------------------------
+-- Pathfinder class based on implementation by Ronald Yonaba
+-- Original code here: https://github.com/Yonaba/Jumper/jumper/pathfinder.lua
+---------------------------------------------------------------------------------------
 local Finders = {
   ['ASTAR'] = ASTAR
 }

@@ -273,7 +273,7 @@ function npc.initialize(entity, pos, is_lua_entity)
 
   minetest.log("Self destination: "..minetest.pos_to_string(nodes[1]))
 
-  local path = pathfinder.find_path(ent.object:getpos(), nodes[1], 20, {})
+  --local path = pathfinder.find_path(ent.object:getpos(), nodes[1], 20, {})
   --minetest.log("Path to node: "..dump(path))
   --npc.add_action(ent, npc.actions.use_door, {self = ent, pos = nodes[1], action = npc.actions.door_action.OPEN})
   --npc.add_action(ent, npc.actions.stand, {self = ent})
