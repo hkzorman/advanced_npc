@@ -22,7 +22,7 @@ License
 
 __advanced_npc__ is Copyright (C) 2016-2017 Hector Franqui (zorman2000), licensed under the GPLv3 license. See `license.txt` for details.
 
-The Jumper library is Copyright (c) 2012-2013 Roland Yonaba, licensed under MIT license. See `Jumper/LICENSE.txt` for details.
+The `jumper.lua` file contains code based on the [Jumper library](https://github.com/Yonaba/Jumper), which is Copyright (c) 2012-2013 Roland Yonaba, licensed under MIT license. See `actions/jumper.lua` for details.
 
 
 Roadmap
