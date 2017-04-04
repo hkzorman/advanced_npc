@@ -5,8 +5,9 @@
 -- This class contains functions that allows to map the 3D map of Minetest into 
 -- a 2D array (basically by ignoring the y coordinate for the moment being) in order
 -- to use the A* pathfinding algorithm to find the shortest path from one node to
--- another. The A* algorithm implementation is in the external Jumper LUA library,
--- by Roland Yonaba (https://github.com/Yonaba/Jumper).
+-- another. The A* algorithm implementation is in the 'jumper.lua' file which a 
+-- reduced and slightly modified version of the Jumper library, by Roland Yonaba 
+-- (https://github.com/Yonaba/Jumper).
 -- Mapping algorithm: transforms a Minetest map surface to a 2d grid.
 
 pathfinder = {}
@@ -96,8 +97,8 @@ end
 
 function pathfinder.create_map(start_pos, end_pos, extra_range, walkables)
 
-  minetest.log("Start pos: "..dump(start_pos))
-  minetest.log("End pos: "..dump(end_pos))
+  minetest.log("Start pos: "..minetest.pos_to_string(start_pos))
+  minetest.log("End pos: "..minetest.pos_to_string(end_pos))
 
   -- Calculate all signs to ensure:
   -- 1. Correct area calculation
@@ -180,7 +181,7 @@ end
 -- for the pathfinding algorithm to use
 function pathfinder.find_start_and_end_pos(map)
   -- This is for debug
-  print_map(map)
+  --print_map(map)
   local result = {}
   for z,row in pairs(map) do
     for x,node in pairs(row) do
@@ -193,7 +194,7 @@ function pathfinder.find_start_and_end_pos(map)
       end
     end
   end
-  minetest.log("Found start and end positions: "..dump(result))
+  --minetest.log("Found start and end positions: ("..result.start_pos.)..", "..minetest.pos_to_string(result.end_pos))
   return result
 end
 
