@@ -1,9 +1,10 @@
 ---------------------------------------------------------------------------------------
--- This code is entirely based on the Jumper library by Roland Yonaba.
+-- This code is entirely based on Jumper library 1.8.1 by Roland Yonaba.
 -- The modifications are only to make it work under Minetest's secure
 -- environment. Therefore, the code in this file is under the MIT license
--- as the original Jumper library. The original library code can be found
--- here: https://github.com/Yonaba/Jumper
+-- as the original Jumper library (please see copyright notice below). 
+-- The original library code can be found here: 
+-- https://github.com/Yonaba/Jumper/releases/tag/jumper-1.8.1-1
 
 -- Modifications are by Hector Franqui (Zorman2000)
 
