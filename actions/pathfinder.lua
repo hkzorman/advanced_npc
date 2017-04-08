@@ -140,7 +140,7 @@ function pathfinder.create_map(start_pos, end_pos, extra_range, walkables)
       else
         -- Check if node is walkable
         local node = minetest.get_node(current_pos)
-        if node.name == "default:air" then
+        if node.name == "air" then
           -- If air do no more checks
           table.insert(current_row, {pos=current_pos, type=pathfinder.node_types.walkable})
         else
@@ -181,7 +181,7 @@ end
 -- for the pathfinding algorithm to use
 function pathfinder.find_start_and_end_pos(map)
   -- This is for debug
-  --print_map(map)
+  print_map(map)
   local result = {}
   for z,row in pairs(map) do
     for x,node in pairs(row) do

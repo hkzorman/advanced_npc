@@ -788,7 +788,7 @@ mobs:register_mob("advanced_npc:npc", {
 	-- Added walk chance
 	walk_chance = 30,
 	-- Added stepheight
-	stepheight = 0.,
+	stepheight = 0.6,
 	walk_velocity = 1,
 	run_velocity = 3,
 	jump = true,
@@ -940,11 +940,11 @@ mobs:register_mob("advanced_npc:npc", {
           time = (time) - (time % 1)
           -- Check if there is a schedule entry for this time
           -- Note: Currently only one schedule is supported, for day 0
-          minetest.log("Time: "..dump(time))
+          --minetest.log("Time: "..dump(time))
           local schedule = self.schedules.generic[0]
           if schedule ~= nil then
             -- Check if schedule for this time exists
-            minetest.log("Found default schedule")
+            --minetest.log("Found default schedule")
             if schedule[time] ~= nil then
               -- Check if schedule has a check function
               if schedule[time].check ~= nil then

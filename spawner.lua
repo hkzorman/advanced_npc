@@ -72,6 +72,7 @@ npc.spawner.spawn_data = {
 function spawner.get_nodes_by_type(start_pos, end_pos, type)
   local result = {}
   local nodes = npc.places.find_node_in_area(start_pos, end_pos, type)
+  --minetest.log("Found "..dump(#nodes).." nodes of type: "..dump(type))
   for _,node_pos in pairs(nodes) do
     local entry = {}
     entry["node_pos"] = node_pos
@@ -84,10 +85,8 @@ end
 -- Scans an area for the supported nodes: beds, benches,
 -- furnaces, storage (e.g. chests) and openable (e.g. doors).
 -- Returns a table with these classifications
-function spawner.scan_area(start_pos, end_pos)
-  minetest.log("Scanning area for nodes...")
-  minetest.log("Start pos: "..minetest.pos_to_string(start_pos))
-  minetest.log("End pos: "..minetest.pos_to_string(end_pos))
+function spawner.scan_area(pos1, pos2)
+
   local result = {
     bed_type = {},
     sittable_type = {},
@@ -95,7 +94,8 @@ function spawner.scan_area(start_pos, end_pos)
     storage_type = {},
     openable_type = {}
   }
-
+  local start_pos, end_pos = vector.sort(pos1, pos2)
+ 
   result.bed_type = spawner.get_nodes_by_type(start_pos, end_pos, npc.places.nodes.BED_TYPE)
   result.sittable_type = spawner.get_nodes_by_type(start_pos, end_pos, npc.places.nodes.SITTABLE_TYPE)
   result.furnace_type = spawner.get_nodes_by_type(start_pos, end_pos, npc.places.nodes.FURNACE_TYPE)
@@ -230,8 +230,38 @@ function spawner.scan_mg_villages_building(pos, building_data)
   local x_size = building_data.sizex
   local y_size = building_data.ysize
   local z_size = building_data.sizez
+  local brotate = building_data.brotate
   local start_pos = {x=pos.x, y=pos.y, z=pos.z}
-  local end_pos = {x=pos.x + x_size, y=pos.y + y_size, z=pos.z + z_size}
+  local x_sign, z_sign = 1, 1
+
+  -- Check plot direction
+  -- 0 - facing West, -X
+  -- 1 - facing North, +Z
+  -- 2 - facing East, +X
+  -- 3 - facing South -Z
+  if brotate == 0 then
+    x_sign, z_sign = 1, -1
+  elseif brotate ==1 then
+    x_sign, z_sign = -1, -1
+    local temp = z_size
+    z_size = x_size
+    x_size = temp
+  elseif brotate ==2 then
+    x_sign, z_sign = -1, -1
+  elseif brotate ==3 then
+    x_sign, z_sign = 1, 1
+  end
+
+  minetest.log("Start pos: "..minetest.pos_to_string(start_pos))
+  minetest.log("Brotate: "..dump(brotate))
+  minetest.log("X_sign: "..dump(x_sign))
+  minetest.log("X_adj: "..dump(x_sign*x_size))
+  minetest.log("Z_sign: "..dump(z_sign))
+  minetest.log("Z_adj: "..dump(z_sign*z_size))
+
+  local end_pos = {x=pos.x + (x_sign * x_size), y=pos.y + y_size, z=pos.z + (z_sign * z_size)}
+
+  minetest.log("Calculated end pos: "..minetest.pos_to_string(end_pos))
 
   return spawner.scan_area(start_pos, end_pos)
 end
@@ -266,7 +296,12 @@ function spawner.replace_mg_villages_plotmarker(pos)
       meta:set_string("infotext", infotext)
       -- Store building type in metadata
       meta:set_string("building_type", building_type)
+      -- Store plot information
+      local plot_info = mg_villages.all_villages[village_id].to_add_data.bpos[plot_nr]
+      -- minetest.log("Plot info at replacement time: "..dump(plot_info))
+      meta:set_string("plot_info", minetest.serialize(plot_info))
       -- Scan building for nodes
+      building_data.brotate = mg_villages.all_villages[village_id].to_add_data.bpos[plot_nr].brotate
       local nodedata = spawner.scan_mg_villages_building(pos, building_data)
       -- Store nodedata into the spawner's metadata
       meta:set_string("node_data", minetest.serialize(nodedata))
@@ -302,6 +337,21 @@ if minetest.get_modpath("mg_villages") ~= nil then
     groups = {cracky=3,stone=2},
 
     on_rightclick = function( pos, node, clicker, itemstack, pointed_thing)
+      -- Get all openable-type nodes for this building
+      local meta = minetest.get_meta(pos)
+      local doors = minetest.deserialize(meta:get_string("node_data")).openable_type
+      minetest.log("Found "..dump(#doors).." openable nodes")
+    
+      local entrance = npc.places.find_entrance_from_openable_nodes(doors, pos)
+      if entrance then
+        minetest.log("Found building entrance at: "..minetest.pos_to_string(entrance.node_pos))
+      else
+        minetest.log("Unable to find building entrance!")
+      end
+
+      local plot_info = minetest.deserialize(meta:get_string("plot_info"))
+      minetest.log("Plot info:"..dump(plot_info))
+
       return mg_villages.plotmarker_formspec( pos, nil, {}, clicker )
     end,
 

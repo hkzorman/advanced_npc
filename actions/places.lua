@@ -132,35 +132,50 @@ function npc.places.find_node_in_area(start_pos, end_pos, type)
 end
 
 -- Specialized function to find doors that are an entrance to a building.
--- The criteria for an entrance door is the following:
---   - Node in front and above door is air, or
---   - Node two nodes from front of door and above door is air and,
---     - Up to two nodes above is air
--- This needs to be fine-tuned with more practical scenarios.
--- The given position is assumed to be the openable node's lower node
--- (in the case of doors which have two-node heights)
-function npc.places.openable_node_is_entrance(pos)
-  local result = false
-  -- Calculate the first position to check
-  -- Need to get the direction of the openable node
-  local node = minetest.get_node(pos)
-  local x_adj = 0
-  local z_adj = 0
-  minetest.log(node.param2)
-  if node.param2 then
-    if node.param2 == 0 then
+-- The definition of an entrance is:
+--   The openable node with the shortest path to the plotmarker node
+-- Based on this definition, other entrances aren't going to be used
+-- by the NPC to get into the building
+function npc.places.find_entrance_from_openable_nodes(openable_nodes, marker_pos)
+  local result = nil
+  local min = 100
 
-    elseif node.param2 == 1 then
+  for i = 1, #openable_nodes do
+    local open_pos = openable_nodes[i].node_pos
+    -- Get node name - check if this node is a 'door'. The way to check
+    -- is by explicitly checking for 'door' string
+    local name = minetest.get_node(open_pos).name
+    local start_i, end_i = string.find(name, "door")
+    if start_i ~= nil then
+      -- Define start and end pos
+      local start_pos, end_pos = open_pos, marker_pos
+      -- Check if there's any difference in vertical position
+      minetest.log("Openable node pos: "..minetest.pos_to_string(open_pos))
+      minetest.log("Plotmarker node pos: "..minetest.pos_to_string(marker_pos))
 
-    elseif node.param2 == 2 then
+      if open_pos.y ~= marker_pos.y then
+        -- Adjust to make pathfinder find nodes one node above
+        start_pos.y = marker_pos.y
+      end
 
-    elseif node.param2 == 3 then
+      start_pos.y = start_pos.y + 1
+      end_pos.y = end_pos.y + 1 
 
+      -- Find path from the openable node to the plotmarker
+      local path = pathfinder.find_path(start_pos, end_pos, 20, {})
+      if path ~= nil then
+        minetest.log("Path distance: "..dump(#path))
+        -- Check if path length is less than the minimum found so far
+        if #path < min then
+          -- Set min to path length and the result to the currently found node
+          min = #path
+          result = openable_nodes[i]
+        end
+      end
     end
   end
-  local y_adj = 2
-  local first_check_pos = {x=pos.x + x_adj, y=pos.y + y_adj, z=pos.z + z_adj}
-
+  -- Return result
+  return result
 end
 
 -- Specialized function to find all sittable nodes supported by the
