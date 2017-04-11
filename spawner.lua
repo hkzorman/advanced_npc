@@ -67,6 +67,11 @@ npc.spawner.spawn_data = {
 -- Scanning functions
 ---------------------------------------------------------------------------------------
 
+function spawner.filter_first_floor_nodes(nodes)
+  local result = {}
+  
+end
+
 -- Creates an array of {pos=<node_pos>, owner=''} for managing
 -- which NPC owns what
 function spawner.get_nodes_by_type(start_pos, end_pos, type)

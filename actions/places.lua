@@ -140,24 +140,30 @@ function npc.places.find_entrance_from_openable_nodes(openable_nodes, marker_pos
   local result = nil
   local min = 100
 
+
   for i = 1, #openable_nodes do
+
     local open_pos = openable_nodes[i].node_pos
+
     -- Get node name - check if this node is a 'door'. The way to check
     -- is by explicitly checking for 'door' string
     local name = minetest.get_node(open_pos).name
     local start_i, end_i = string.find(name, "door")
+
     if start_i ~= nil then
       -- Define start and end pos
-      local start_pos, end_pos = open_pos, marker_pos
-      -- Check if there's any difference in vertical position
-      minetest.log("Openable node pos: "..minetest.pos_to_string(open_pos))
-      minetest.log("Plotmarker node pos: "..minetest.pos_to_string(marker_pos))
+      local start_pos = {x=open_pos.x, y=open_pos.y, z=open_pos.z}
+      local end_pos = {x=marker_pos.x, y=marker_pos.y, z=marker_pos.z}
 
-      if open_pos.y ~= marker_pos.y then
+      -- Check if there's any difference in vertical position
+      -- minetest.log("Openable node pos: "..minetest.pos_to_string(open_pos))
+      -- minetest.log("Plotmarker node pos: "..minetest.pos_to_string(marker_pos))
+      if start_pos.y ~= end_pos.y then
         -- Adjust to make pathfinder find nodes one node above
-        start_pos.y = marker_pos.y
+        end_pos.y = start_pos.y
       end
 
+      -- This adjustment allows the map to be created correctly
       start_pos.y = start_pos.y + 1
       end_pos.y = end_pos.y + 1 
 
@@ -170,7 +176,25 @@ function npc.places.find_entrance_from_openable_nodes(openable_nodes, marker_pos
           -- Set min to path length and the result to the currently found node
           min = #path
           result = openable_nodes[i]
+        else
+          -- Specific check to prefer mtg's doors to cottages' doors.
+          -- The reason? Sometimes a cottages' door could be closer to the
+          -- plotmarker, but not being the building entrance. MTG doors
+          -- are usually the entrance... so yes, hackity hack.
+          -- Get the name of the currently mininum-distance door
+          min_node_name = minetest.get_node(result.node_pos).name
+          -- Check if this is a door from MTG's doors.
+          local doors_st, doors_en = string.find(name, "doors:")
+          -- Check if min-distance door is a cottages door
+          -- while we have a MTG door
+          if min_node_name == "cottages:half_door" and doors_st ~= nil then
+            minetest.log("Assigned new door...")
+            min = #path
+            result = openable_nodes[i]
+          end
         end
+      else
+        minetest.log("Path not found to marker from "..minetest.pos_to_string(start_pos))
       end
     end
   end
