@@ -141,7 +141,7 @@ function npc.spawner.spawn_npc(pos)
   if spawned_npc_count < npc_count then
     minetest.log("[advanced_npc] Spawning NPC at "..minetest.pos_to_string(pos))
     -- Spawn a NPC
-    local ent = minetest.add_entity(pos, "advanced_npc:npc")
+    local ent = minetest.add_entity({x=pos.x, y=pos.y+1, z=pos.z}, "advanced_npc:npc")
     if ent and ent:get_luaentity() then
       ent:get_luaentity().initialized = false
       npc.initialize(ent, pos)

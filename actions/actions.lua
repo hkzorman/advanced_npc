@@ -2,7 +2,7 @@
 ---------------------------------------------------------------------------------------
 -- Action functionality
 ---------------------------------------------------------------------------------------
--- The NPCs will be able to perform five fundamental actions that will allow
+-- The NPCs will be able to perform six fundamental actions that will allow
 -- for them to perform any other kind of interaction in the world. These
 -- fundamental actions are: place a node, dig a node, put items on an inventory,
 -- take items from an inventory, find a node closeby (radius 3) and
@@ -35,9 +35,12 @@ npc.actions.const = {
   }
 }
 
-npc.actions.one_nps_speed = 0.98
-npc.actions.one_half_nps_speed = 1.40
-npc.actions.two_nps_speed = 1.90
+--npc.actions.one_nps_speed = 0.98
+--npc.actions.one_half_nps_speed = 1.40
+--npc.actions.two_nps_speed = 1.90'
+npc.actions.one_nps_speed = 1
+npc.actions.one_half_nps_speed = 1.5
+npc.actions.two_nps_speed = 2
 
 ---------------------------------------------------------------------------------------
 -- Actions
@@ -96,11 +99,20 @@ end
 function npc.actions.walk_step(self, args)
   local dir = args.dir
   local speed = args.speed
+  local target_pos = args.target_pos
   local vel = {}
   -- Set default node per seconds
   if speed == nil then
     speed = npc.actions.one_nps_speed
   end
+  -- If there is a target position to reach, set it
+  if target_pos ~= nil then
+    self.actions.walking.target_pos = target_pos
+  end
+
+  -- Set is_walking = true
+  self.actions.walking.is_walking = true
+
   if dir == npc.direction.north then
     vel = {x=0, y=0, z=speed}
   elseif dir == npc.direction.east then
@@ -125,6 +137,8 @@ end
 function npc.actions.stand(self, args)
   local pos = args.pos
   local dir = args.dir
+  -- Set is_walking = true
+    self.actions.walking.is_walking = false
   -- Stop NPC
   self.object:setvelocity({x=0, y=0, z=0})
   -- If position given, set to that position
@@ -422,7 +436,7 @@ function npc.actions.use_furnace(self, args)
          count = npc.get_item_count(item),
          is_furnace = false
       }
-      minetest.log("Taking item back: "..dump(pos))
+      minetest.log("Taking item back: "..minetest.pos_to_string(pos))
       npc.add_action(self, npc.actions.take_item_from_external_inventory, args)
 
       minetest.log("Inventory: "..dump(self.inventory))
@@ -496,8 +510,10 @@ function npc.actions.use_sittable(self, args)
   local node = minetest.get_node(pos)
 
   if action == npc.actions.const.sittable.SIT then
+    -- minetest.log("On sittable: Node: "..dump(node))
+    -- minetest.log("On sittable: Sittable stuff: "..dump(npc.actions.nodes.sittable[node.name]))
+    -- minetest.log("On sittable: HAHA: "..dump(node))
     -- Calculate position depending on bench
-    minetest.log("Got sit position: "..dump(sit_pos))
     local sit_pos = npc.actions.nodes.sittable[node.name].get_sit_pos(pos, node.param2)
     -- Sit down on bench/chair/stairs
     npc.add_action(self, npc.actions.sit, {pos=sit_pos, dir=(node.param2 + 2) % 4})
@@ -561,7 +577,9 @@ function npc.actions.walk_to_pos(self, args)
   local path = pathfinder.find_path(start_pos, end_pos, 20, walkable_nodes)
 
   if path ~= nil then
-    minetest.log("Found path to node: "..dump(end_pos))
+    minetest.log("[advanced_npc] Found path to node: "..minetest.pos_to_string(end_pos))
+    -- Store path
+    self.actions.walking.path = path
 
     -- Local variables
     local door_opened = false
@@ -571,6 +589,9 @@ function npc.actions.walk_to_pos(self, args)
     -- the increased speed when walking.
     npc.add_action(self, npc.actions.set_interval, {interval=0.5, freeze=true})
 
+    -- Set the initial last and target positions
+    self.actions.walking.target_pos = path[1].pos
+
     -- Add steps to path
     for i = 1, #path do
       -- Do not add an extra step if reached the goal node
@@ -578,7 +599,7 @@ function npc.actions.walk_to_pos(self, args)
         -- Add direction to last node
         local dir = npc.actions.get_direction(path[i].pos, end_pos)
         -- Add stand animation at end
-        npc.add_action(self, npc.actions.stand, { dir = dir})
+        npc.add_action(self, npc.actions.stand, {dir = dir})
         break
       end
       -- Get direction to move from path[i] to path[i+1]
@@ -597,8 +618,9 @@ function npc.actions.walk_to_pos(self, args)
           door_opened = true
         end
       end
+
       -- Add walk action to action queue
-      npc.add_action(self, npc.actions.walk_step, {dir = dir, speed = speed})
+      npc.add_action(self, npc.actions.walk_step, {dir = dir, speed = speed, target_pos = path[i+1].pos})
 
       if door_opened then
           -- Stop to close door, this avoids misplaced movements later on

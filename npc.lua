@@ -240,7 +240,18 @@ function npc.initialize(entity, pos, is_lua_entity)
       action_state = npc.action_state.none,
       -- Action executed while on lock
       interrupted_action = {}
-    }
+    },
+		-- Walking variables -- required for implementing accurate movement code
+		walking = {
+			-- Defines whether NPC is walking to specific position or not
+			is_walking = false,
+			-- Path that the NPC is following
+			path = {},
+			-- Target position the NPC is supposed to walk to in this step. NOTE: 
+			-- This is NOT the end of the path, but the next position in the path
+			-- relative to the last position
+			target_pos = {}
+		}
   }
 
   -- This flag is checked on every step. If it is true, the rest of 
@@ -270,8 +281,7 @@ function npc.initialize(entity, pos, is_lua_entity)
   -- Temporary initialization of actions for testing
   local nodes = npc.places.find_node_nearby(ent.object:getpos(), {"cottages:bench"}, 20)
 
-
-  minetest.log("Self destination: "..minetest.pos_to_string(nodes[1]))
+  --minetest.log("Self destination: "..minetest.pos_to_string(nodes[1]))
 
   --local path = pathfinder.find_path(ent.object:getpos(), nodes[1], 20, {})
   --minetest.log("Path to node: "..dump(path))
@@ -288,7 +298,7 @@ function npc.initialize(entity, pos, is_lua_entity)
   --   --npc.actions.use_sittable(ent, nodes[1], npc.actions.const.sittable.GET_UP)
   --   --npc.add_action(ent, npc.actions.set_interval, {self=ent, interval=10, freeze=true})
   --   npc.add_action(ent, npc.actions.freeze, {freeze = false})
-  -- end
+  --end
 
   -- Dedicated trade test
   ent.trader_data.trade_list.both = {
@@ -324,7 +334,8 @@ function npc.initialize(entity, pos, is_lua_entity)
     [3] = {action = npc.actions.freeze, args = {freeze = true}}
   }
   npc.add_schedule_entry(ent, npc.schedule_types.generic, 0, 7, nil, morning_actions)
-  local afternoon_actions = { [1] = {action = npc.actions.stand, args = {}} }
+  --local afternoon_actions = { [1] = {action = npc.actions.stand, args = {}} }
+  local afternoon_actions = {[1] = {task = npc.actions.use_sittable, args = {pos=nodes[1], action=npc.actions.const.sittable.GET_UP} } }
   npc.add_schedule_entry(ent, npc.schedule_types.generic, 0, 9, nil, afternoon_actions)
   -- local night_actions = {action: npc.action, args: {}}
   -- npc.add_schedule_entry(self, npc.schedule_type.generic, 0, 19, check, actions)
@@ -535,10 +546,13 @@ function npc.execute_action(self)
     return self.freeze
   end
   local action_obj = self.actions.queue[1]
+  if action_obj.action == nil then
+    return
+  end
   -- If the entry is a task, then push all this new operations in
   -- stack fashion
   if action_obj.is_task == true then
-    minetest.log("Executing task")
+    minetest.log("Executing task: "..dump(action_obj))
     -- Backup current queue
     local backup_queue = self.actions.queue
     -- Remove this "task" action from queue
@@ -918,6 +932,11 @@ mobs:register_mob("advanced_npc:npc", {
         if self.actions.action_timer >= self.actions.action_interval then
           -- Reset action timer
           self.actions.action_timer = 0
+          -- Check if NPC is walking
+          if self.actions.walking.is_walking == true then
+            local pos = self.actions.walking.target_pos
+            self.object:moveto({x=pos.x, y=pos.y + 1, z=pos.z})
+          end
           -- Execute action
           self.freeze = npc.execute_action(self)
           -- Check if there are still remaining actions in the queue
