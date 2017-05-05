@@ -50,17 +50,22 @@ npc.places.nodes = {
   }
 }
 
+
 npc.places.PLACE_TYPE = {
-  NPC_HOUSE = {
-    "OWN_BED",
-    "OWN_ROOM_DOOR",
-    "OWN_STORAGE",
-    "SHARED_FURNACE",
-    "SHARED_SITTABLE",
-    "ENTRANCE_DOOR"
+  BED = {
+    "PRIMARY"
+  },
+  SITTABLE = {
+    "PRIMARY"
+  },
+  OPENABLE = {
+    "HOME_ENTRANCE_DOOR"
+  },
+  OTHER = {
+    "HOME_INSIDE",
+    "HOME_OUTSIDE"
   }
 }
-
 
 function npc.places.add_public(self, place_name, place_type, pos)
 	self.places_map[place_name] = {type=place_type, pos=pos}
@@ -297,4 +302,42 @@ function npc.places.is_in_staircase(pos)
   end
   -- This is not a stairs node
   return nil
+end
+
+-- Specialized function to find the node position right behind
+-- a door. Used to make NPCs enter buildings.
+function npc.places.find_node_behind_door(door_pos)
+  local door = minetest.get_node(door_pos)
+  if door.param2 == 0 then
+    -- Looking south
+    return {x=door_pos.x, y=door_pos.y, z=door_pos.z + 1}
+  elseif door.param2 == 1 then
+    -- Looking east
+    return {x=door_pos.x - 1, y=door_pos.y, z=door_pos.z}
+  elseif door.param2 == 2 then
+    -- Looking north
+    return {x=door_pos.x, y=door_pos.y, z=door_pos.z - 1}
+    -- Looking west
+  elseif door.param2 == 3 then
+    return {x=door_pos.x + 1, y=door_pos.y, z=door_pos.z}
+  end
+end
+
+-- Specialized function to find the node position right in
+-- front of a door. Used to make NPCs exit buildings.
+function npc.places.find_node_in_front_of_door(door_pos)
+  local door = minetest.get_node(door_pos)
+  if door.param2 == 0 then
+    -- Looking south
+    return {x=door_pos.x, y=door_pos.y, z=door_pos.z - 1}
+  elseif door.param2 == 1 then
+    -- Looking east
+    return {x=door_pos.x + 1, y=door_pos.y, z=door_pos.z}
+  elseif door.param2 == 2 then
+    -- Looking north
+    return {x=door_pos.x, y=door_pos.y, z=door_pos.z + 1}
+    -- Looking west
+  elseif door.param2 == 3 then
+    return {x=door_pos.x - 1, y=door_pos.y, z=door_pos.z}
+  end
 end

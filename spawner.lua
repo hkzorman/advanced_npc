@@ -67,9 +67,14 @@ npc.spawner.spawn_data = {
 -- Scanning functions
 ---------------------------------------------------------------------------------------
 
-function spawner.filter_first_floor_nodes(nodes)
+function spawner.filter_first_floor_nodes(nodes, ground_pos)
   local result = {}
-  
+  for _,node in pairs(nodes) do
+    if node.node_pos.y <= ground_pos.y + 3 then
+      table.insert(result, node)
+    end
+  end
+  return result
 end
 
 -- Creates an array of {pos=<node_pos>, owner=''} for managing
@@ -123,7 +128,7 @@ end
 --   - If there are as many benches as beds, assign one to a NPC
 --     - Else, just let the NPC know one of the benches, but not own them
 --   - Let the NPC know all doors to the house. Identify the front one as the entrance
-function spawner.assign_places(pos, self)
+function spawner.assign_places(self, pos)
 
 end
 
@@ -145,6 +150,8 @@ function npc.spawner.spawn_npc(pos)
     if ent and ent:get_luaentity() then
       ent:get_luaentity().initialized = false
       npc.initialize(ent, pos)
+      -- Assign nodes
+      spawner.assign_places(ent, pos)
       -- Increase NPC spawned count
       spawned_npc_count = spawned_npc_count + 1
       -- Store count into node
@@ -341,8 +348,9 @@ if minetest.get_modpath("mg_villages") ~= nil then
     },
     groups = {cracky=3,stone=2},
 
-    on_rightclick = function( pos, node, clicker, itemstack, pointed_thing)
+    on_rightclick = function(pos, node, clicker, itemstack, pointed_thing)
       -- Get all openable-type nodes for this building
+      -- NOTE: This is temporary code for testing...
       local meta = minetest.get_meta(pos)
       local doors = minetest.deserialize(meta:get_string("node_data")).openable_type
       minetest.log("Found "..dump(#doors).." openable nodes")
