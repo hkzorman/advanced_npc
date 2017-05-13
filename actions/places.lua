@@ -53,22 +53,23 @@ npc.places.nodes = {
 
 npc.places.PLACE_TYPE = {
   BED = {
-    "PRIMARY"
+    PRIMARY = "primary"
   },
   SITTABLE = {
-    "PRIMARY"
+    PRIMARY = "primary"
   },
   OPENABLE = {
-    "HOME_ENTRANCE_DOOR"
+    HOME_ENTRANCE_DOOR = "home_entrance_door"
   },
   OTHER = {
-    "HOME_INSIDE",
-    "HOME_OUTSIDE"
+    HOME_INSIDE = "home_inside",
+    HOME_OUTSIDE = "home_outside"
   }
 }
 
 function npc.places.add_public(self, place_name, place_type, pos)
-	self.places_map[place_name] = {type=place_type, pos=pos}
+  --minetest.log("Place name: "..dump(place_name)..", type: "..dump(place_type))
+	self.places_map[place_name] = {type=place_type, pos=pos, status="shared"}
 end
 
 -- Adds a specific node to the NPC places, and modifies the
@@ -92,7 +93,7 @@ function npc.places.get_by_type(self, place_type)
 	local result = {}
 	for place_name, place_entry in pairs(self.places_map) do
 		if place_entry.type == place_type then
-      table.insert(result, place_name)
+      table.insert(result, place_entry)
     end
 	end
   return result

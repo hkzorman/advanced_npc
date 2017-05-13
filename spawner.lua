@@ -129,6 +129,36 @@ end
 --     - Else, just let the NPC know one of the benches, but not own them
 --   - Let the NPC know all doors to the house. Identify the front one as the entrance
 function spawner.assign_places(self, pos)
+  local meta = minetest.get_meta(pos)
+  local doors = minetest.deserialize(meta:get_string("node_data")).openable_type
+  minetest.log("Found "..dump(#doors).." openable nodes")
+
+  local entrance = npc.places.find_entrance_from_openable_nodes(doors, pos)
+  if entrance then
+    minetest.log("Found building entrance at: "..minetest.pos_to_string(entrance.node_pos))
+  else
+    minetest.log("Unable to find building entrance!")
+  end
+
+  -- Assign entrance door and related locations
+  if entrance ~= nil and entrance.node_pos ~= nil then
+    --minetest.log("Self: "..dump(self))
+    --minetest.log("Places map: "..dump(self.places_map))
+    npc.places.add_public(self, npc.places.PLACE_TYPE.OPENABLE.HOME_ENTRANCE_DOOR, npc.places.PLACE_TYPE.OPENABLE.HOME_ENTRANCE_DOOR, entrance.node_pos)
+    -- Find the position inside and outside the door
+    local entrance_inside = npc.places.find_node_behind_door(entrance.node_pos)
+    local entrance_outside = npc.places.find_node_in_front_of_door(entrance.node_pos)
+    -- Assign these places to NPC
+    npc.places.add_public(self, npc.places.PLACE_TYPE.OTHER.HOME_INSIDE, npc.places.PLACE_TYPE.OTHER.HOME_INSIDE, entrance_inside)
+    npc.places.add_public(self, npc.places.PLACE_TYPE.OTHER.HOME_OUTSIDE, npc.places.PLACE_TYPE.OTHER.HOME_OUTSIDE, entrance_outside)
+    -- Make NPC go into their house
+    --minetest.log("Place: "..dump(npc.places.get_by_type(self, npc.places.PLACE_TYPE.OTHER.HOME_INSIDE)))
+    npc.add_task(self, npc.actions.cmd.WALK_TO_POS, {end_pos=npc.places.get_by_type(self, npc.places.PLACE_TYPE.OTHER.HOME_INSIDE)[1].pos, walkable={}})  
+  end
+
+  local plot_info = minetest.deserialize(meta:get_string("plot_info"))
+  minetest.log("Plot info:"..dump(plot_info))
+
 
 end
 
@@ -151,7 +181,7 @@ function npc.spawner.spawn_npc(pos)
       ent:get_luaentity().initialized = false
       npc.initialize(ent, pos)
       -- Assign nodes
-      spawner.assign_places(ent, pos)
+      spawner.assign_places(ent:get_luaentity(), pos)
       -- Increase NPC spawned count
       spawned_npc_count = spawned_npc_count + 1
       -- Store count into node
@@ -351,19 +381,6 @@ if minetest.get_modpath("mg_villages") ~= nil then
     on_rightclick = function(pos, node, clicker, itemstack, pointed_thing)
       -- Get all openable-type nodes for this building
       -- NOTE: This is temporary code for testing...
-      local meta = minetest.get_meta(pos)
-      local doors = minetest.deserialize(meta:get_string("node_data")).openable_type
-      minetest.log("Found "..dump(#doors).." openable nodes")
-    
-      local entrance = npc.places.find_entrance_from_openable_nodes(doors, pos)
-      if entrance then
-        minetest.log("Found building entrance at: "..minetest.pos_to_string(entrance.node_pos))
-      else
-        minetest.log("Unable to find building entrance!")
-      end
-
-      local plot_info = minetest.deserialize(meta:get_string("plot_info"))
-      minetest.log("Plot info:"..dump(plot_info))
 
       return mg_villages.plotmarker_formspec( pos, nil, {}, clicker )
     end,

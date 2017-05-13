@@ -75,7 +75,7 @@ npc.data.DIALOGUES.female["phase1"] = {
                   item_name=npc.trade.prices.currency.tier3.string, 
                   count=3
                 }
-                npc.actions.take_item_from_external_inventory(self, {
+                npc.actions.execute(self, npc.actions.cmd.TAKE_ITEM, {
                   player=player:get_player_name(), 
                   pos=nil, 
                   inv_list="main", 

@@ -329,13 +329,13 @@ function npc.initialize(entity, pos, is_lua_entity)
   npc.create_schedule(ent, npc.schedule_types.generic, 0)
   -- Add schedule entries
   local morning_actions = { 
-    [1] = {task = npc.actions.walk_to_pos, args = {end_pos=nodes[1], walkable={}} } ,
-    [2] = {task = npc.actions.use_sittable, args = {pos=nodes[1], action=npc.actions.const.sittable.SIT} }, 
-    [3] = {action = npc.actions.freeze, args = {freeze = true}}
+    [1] = {task = npc.actions.cmd.WALK_TO_POS, args = {end_pos=nodes[1], walkable={}} } ,
+    [2] = {task = npc.actions.cmd.USE_SITTABLE, args = {pos=nodes[1], action=npc.actions.const.sittable.SIT} }, 
+    [3] = {action = npc.actions.cmd.FREEZE, args = {freeze = true}}
   }
   npc.add_schedule_entry(ent, npc.schedule_types.generic, 0, 7, nil, morning_actions)
   --local afternoon_actions = { [1] = {action = npc.actions.stand, args = {}} }
-  local afternoon_actions = {[1] = {task = npc.actions.use_sittable, args = {pos=nodes[1], action=npc.actions.const.sittable.GET_UP} } }
+  local afternoon_actions = {[1] = {task = npc.actions.cmd.USE_SITTABLE, args = {pos=nodes[1], action=npc.actions.const.sittable.GET_UP} } }
   npc.add_schedule_entry(ent, npc.schedule_types.generic, 0, 9, nil, afternoon_actions)
   -- local night_actions = {action: npc.action, args: {}}
   -- npc.add_schedule_entry(self, npc.schedule_type.generic, 0, 19, check, actions)
@@ -530,7 +530,7 @@ end
 function npc.execute_action(self)
   -- Check if an action was interrupted
   if self.actions.current_action_state == npc.action_state.interrupted then
-    minetest.log("Inserting interrupted action: ")
+    minetest.log("[advanced_npc] DEBUG Re-inserting interrupted action for NPC: '"..dump(self.nametag).."': "..dump(self.actions.state_before_lock.interrupted_action))
     -- Insert into queue the interrupted action
     table.insert(self.actions.queue, 1, self.actions.state_before_lock.interrupted_action)
     -- Clear the action
@@ -552,7 +552,7 @@ function npc.execute_action(self)
   -- If the entry is a task, then push all this new operations in
   -- stack fashion
   if action_obj.is_task == true then
-    minetest.log("Executing task: "..dump(action_obj))
+    minetest.log("[advanced_npc] DEBUG Executing task for NPC '"..dump(self.nametag).."': "..dump(action_obj))
     -- Backup current queue
     local backup_queue = self.actions.queue
     -- Remove this "task" action from queue
@@ -560,20 +560,22 @@ function npc.execute_action(self)
     -- Clear queue
     self.actions.queue = {}
     -- Now, execute the task with its arguments
-    action_obj.action(self, action_obj.args)
+    result = npc.actions.execute(self, action_obj.action, action_obj.args)
+    --result = action_obj.action(self, action_obj.args)
     -- After all new actions has been added by task, add the previously
     -- queued actions back
     for i = 1, #backup_queue do
       table.insert(self.actions.queue, backup_queue[i])
     end
   else
-    minetest.log("Executing action")
+    minetest.log("[advanced_npc] DEBUG Executing action for NPC '"..dump(self.nametag).."': "..dump(action_obj))
     -- Store the action that is being executed
     self.actions.state_before_lock.interrupted_action = action_obj
     -- Store current position
     self.actions.state_before_lock.pos = self.object:getpos()
     -- Execute action as normal
-    result = action_obj.action(self, action_obj.args)
+    result = npc.actions.execute(self, action_obj.action, action_obj.args)
+    --result = action_obj.action(self, action_obj.args)
     -- Remove task
     table.remove(self.actions.queue, 1)
     -- Set state
@@ -603,7 +605,7 @@ function npc.lock_actions(self)
     pos.y = self.object:getpos().y
   end
   -- Stop NPC
-  npc.actions.stand(self, {pos=pos})
+  npc.actions.execute(self, npc.actions.cmd.STAND, {pos=pos})
   -- Avoid all timer execution
   self.actions.action_timer_lock = true
   -- Reset timer so that it has some time after interaction is done
