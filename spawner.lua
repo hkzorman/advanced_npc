@@ -142,18 +142,23 @@ function spawner.assign_places(self, pos)
 
   -- Assign entrance door and related locations
   if entrance ~= nil and entrance.node_pos ~= nil then
+    -- For debug purposes:
+    --local meta = minetest.get_meta(entrance.node_pos)
+    --meta:set_string("infotext", "Entrance for '"..dump(self.nametag).."': "..dump(entrance.node_pos))
     --minetest.log("Self: "..dump(self))
     --minetest.log("Places map: "..dump(self.places_map))
     npc.places.add_public(self, npc.places.PLACE_TYPE.OPENABLE.HOME_ENTRANCE_DOOR, npc.places.PLACE_TYPE.OPENABLE.HOME_ENTRANCE_DOOR, entrance.node_pos)
     -- Find the position inside and outside the door
     local entrance_inside = npc.places.find_node_behind_door(entrance.node_pos)
     local entrance_outside = npc.places.find_node_in_front_of_door(entrance.node_pos)
+    --minetest.set_node(entrance_inside, {name="default:apple"})
     -- Assign these places to NPC
     npc.places.add_public(self, npc.places.PLACE_TYPE.OTHER.HOME_INSIDE, npc.places.PLACE_TYPE.OTHER.HOME_INSIDE, entrance_inside)
     npc.places.add_public(self, npc.places.PLACE_TYPE.OTHER.HOME_OUTSIDE, npc.places.PLACE_TYPE.OTHER.HOME_OUTSIDE, entrance_outside)
     -- Make NPC go into their house
     --minetest.log("Place: "..dump(npc.places.get_by_type(self, npc.places.PLACE_TYPE.OTHER.HOME_INSIDE)))
     npc.add_task(self, npc.actions.cmd.WALK_TO_POS, {end_pos=npc.places.get_by_type(self, npc.places.PLACE_TYPE.OTHER.HOME_INSIDE)[1].pos, walkable={}})  
+    npc.add_action(self, npc.actions.cmd.FREEZE, {freeze = false})
   end
 
   local plot_info = minetest.deserialize(meta:get_string("plot_info"))
@@ -268,10 +273,13 @@ end
 -- point and the building_data to get the x, y and z-coordinate size
 -- of the building schematic
 function spawner.scan_mg_villages_building(pos, building_data)
+  minetest.log("--------------------------------------------")
+  minetest.log("Building data: "..dump(building_data))
+  minetest.log("--------------------------------------------")
   -- Get area of the building
-  local x_size = building_data.sizex
+  local x_size = building_data.bsizex
   local y_size = building_data.ysize
-  local z_size = building_data.sizez
+  local z_size = building_data.bsizez
   local brotate = building_data.brotate
   local start_pos = {x=pos.x, y=pos.y, z=pos.z}
   local x_sign, z_sign = 1, 1
@@ -283,18 +291,30 @@ function spawner.scan_mg_villages_building(pos, building_data)
   -- 3 - facing South -Z
   if brotate == 0 then
     x_sign, z_sign = 1, -1
-  elseif brotate ==1 then
-    x_sign, z_sign = -1, -1
+  elseif brotate == 1 then
+    x_sign, z_sign =  -1, -1
     local temp = z_size
     z_size = x_size
     x_size = temp
-  elseif brotate ==2 then
-    x_sign, z_sign = -1, -1
-  elseif brotate ==3 then
+  elseif brotate == 2 then
+    x_sign, z_sign = -1, 1
+  elseif brotate == 3 then
     x_sign, z_sign = 1, 1
   end
 
+  ------------------------
+  -- For debug:
+  ------------------------
+  -- Red is x marker
+  --minetest.set_node({x=pos.x + (x_sign * x_size),y=pos.y,z=pos.z}, {name = "wool:red"})
+  --minetest.get_meta({x=pos.x + (x_sign * x_size),y=pos.y,z=pos.z}):set_string("infotext", minetest.get_meta(pos):get_string("infotext")..", Axis: x, Sign: "..dump(x_sign))
+  -- Blue is z marker
+  --minetest.set_node({x=pos.x,y=pos.y,z=pos.z + (z_sign * z_size)}, {name = "wool:blue"})
+  --minetest.get_meta({x=pos.x,y=pos.y,z=pos.z + (z_sign * z_size)}):set_string("infotext", minetest.get_meta(pos):get_string("infotext")..", Axis: z, Sign: "..dump(z_sign))
+  
   minetest.log("Start pos: "..minetest.pos_to_string(start_pos))
+  minetest.log("Plot: "..dump(minetest.get_meta(start_pos):get_string("infotext")))
+
   minetest.log("Brotate: "..dump(brotate))
   minetest.log("X_sign: "..dump(x_sign))
   minetest.log("X_adj: "..dump(x_sign*x_size))
@@ -302,6 +322,11 @@ function spawner.scan_mg_villages_building(pos, building_data)
   minetest.log("Z_adj: "..dump(z_sign*z_size))
 
   local end_pos = {x=pos.x + (x_sign * x_size), y=pos.y + y_size, z=pos.z + (z_sign * z_size)}
+
+  -- For debug:
+  --minetest.set_node(start_pos, {name="default:mese_block"})
+  --minetest.set_node(end_pos, {name="default:mese_block"})
+  --minetest.get_meta(end_pos):set_string("infotext", minetest.get_meta(start_pos):get_string("infotext"))
 
   minetest.log("Calculated end pos: "..minetest.pos_to_string(end_pos))
 
@@ -340,11 +365,11 @@ function spawner.replace_mg_villages_plotmarker(pos)
       meta:set_string("building_type", building_type)
       -- Store plot information
       local plot_info = mg_villages.all_villages[village_id].to_add_data.bpos[plot_nr]
+      plot_info["ysize"] = building_data.ysize
       -- minetest.log("Plot info at replacement time: "..dump(plot_info))
       meta:set_string("plot_info", minetest.serialize(plot_info))
       -- Scan building for nodes
-      building_data.brotate = mg_villages.all_villages[village_id].to_add_data.bpos[plot_nr].brotate
-      local nodedata = spawner.scan_mg_villages_building(pos, building_data)
+      local nodedata = spawner.scan_mg_villages_building(pos, plot_info)
       -- Store nodedata into the spawner's metadata
       meta:set_string("node_data", minetest.serialize(nodedata))
       -- Initialize NPCs
@@ -405,28 +430,28 @@ if minetest.get_modpath("mg_villages") ~= nil then
 
   -- LBM Registration
   -- Used to modify plotmarkers and replace them with advanced_npc:plotmarker_auto_spawner
-  minetest.register_lbm({
-    label = "Replace mg_villages:plotmarker with Advanced NPC auto spawners",
-    name = "advanced_npc:mg_villages_plotmarker_replacer",
-    nodenames = {"mg_villages:plotmarker"},
-    run_at_every_load = false,
-    action = function(pos, node)
-      -- Check if replacement is activated
-      if npc.spawner.replace_activated then
-        -- Replace mg_villages:plotmarker
-        spawner.replace_mg_villages_plotmarker(pos)
-        -- Set NPCs to spawn
-        spawner.calculate_npc_spawning(pos)
-      end
-    end
-  })
+  -- minetest.register_lbm({
+  --   label = "Replace mg_villages:plotmarker with Advanced NPC auto spawners",
+  --   name = "advanced_npc:mg_villages_plotmarker_replacer",
+  --   nodenames = {"mg_villages:plotmarker"},
+  --   run_at_every_load = false,
+  --   action = function(pos, node)
+  --     -- Check if replacement is activated
+  --     if npc.spawner.replace_activated then
+  --       -- Replace mg_villages:plotmarker
+  --       spawner.replace_mg_villages_plotmarker(pos)
+  --       -- Set NPCs to spawn
+  --       spawner.calculate_npc_spawning(pos)
+  --     end
+  --   end
+  -- })
 
   -- ABM Registration... for when LBM fails.
   minetest.register_abm({
     label = "Replace mg_villages:plotmarker with Advanced NPC auto spawners",
     nodenames = {"mg_villages:plotmarker"},
     interval = npc.spawner.replacement_interval,
-    chance = 1,
+    chance = 5,
     catch_up = true,
     action = function(pos, node, active_object_count, active_object_count_wider)
        -- Check if replacement is activated

@@ -113,7 +113,7 @@ function npc.actions.execute(self, command, args)
 		return npc.actions.use_sittable(self, args)
 	elseif command == npc.actions.cmd.WALK_TO_POS then
 		-- Call walk to position task
-		minetest.log("Self: "..dump(self)..", Command: "..dump(command)..", args: "..dump(args))
+		--minetest.log("Self: "..dump(self)..", Command: "..dump(command)..", args: "..dump(args))
 		return npc.actions.walk_to_pos(self, args)
 	end
 end
@@ -603,9 +603,9 @@ function npc.actions.use_sittable(self, args)
 		local pos_out_of_sittable = pos
 		local empty_nodes = npc.places.find_node_orthogonally(pos, {"air"}, 0)
 		if empty_nodes ~= nil and #empty_nodes > 0 then
-			minetest.log("Empty nodes: "..dump(empty_nodes))
-			minetest.log("Npc.actions.get_direction: "..dump(npc.actions.get_direction))
-			minetest.log("Pos: "..dump(pos))
+			--minetest.log("Empty nodes: "..dump(empty_nodes))
+			--minetest.log("Npc.actions.get_direction: "..dump(npc.actions.get_direction))
+			--minetest.log("Pos: "..dump(pos))
 			-- Get direction to the empty node
 			dir = npc.actions.get_direction(pos, empty_nodes[1].pos)
 			-- Calculate position to get out of sittable node

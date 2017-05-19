@@ -333,10 +333,10 @@ function npc.initialize(entity, pos, is_lua_entity)
     [2] = {task = npc.actions.cmd.USE_SITTABLE, args = {pos=nodes[1], action=npc.actions.const.sittable.SIT} }, 
     [3] = {action = npc.actions.cmd.FREEZE, args = {freeze = true}}
   }
-  npc.add_schedule_entry(ent, npc.schedule_types.generic, 0, 7, nil, morning_actions)
+  --npc.add_schedule_entry(ent, npc.schedule_types.generic, 0, 7, nil, morning_actions)
   --local afternoon_actions = { [1] = {action = npc.actions.stand, args = {}} }
   local afternoon_actions = {[1] = {task = npc.actions.cmd.USE_SITTABLE, args = {pos=nodes[1], action=npc.actions.const.sittable.GET_UP} } }
-  npc.add_schedule_entry(ent, npc.schedule_types.generic, 0, 9, nil, afternoon_actions)
+  --npc.add_schedule_entry(ent, npc.schedule_types.generic, 0, 9, nil, afternoon_actions)
   -- local night_actions = {action: npc.action, args: {}}
   -- npc.add_schedule_entry(self, npc.schedule_type.generic, 0, 19, check, actions)
 

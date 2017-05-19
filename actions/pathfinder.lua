@@ -73,6 +73,7 @@ local function is_good_node(node, exceptions)
   -- Is openable is to support doors, fence gates and other
   -- doors from other mods. Currently, default doors, gates
   -- and cottages doors are supported.
+  --minetest.log("Is good node: "..dump(node))
   local is_openable = false
   for _,node_prefix in pairs(pathfinder.nodes.openable_prefix) do
     local start_i,end_i = string.find(node.name, node_prefix)
@@ -140,9 +141,14 @@ function pathfinder.create_map(start_pos, end_pos, extra_range, walkables)
       else
         -- Check if node is walkable
         local node = minetest.get_node(current_pos)
+        -- Check node has air above it
+        local node_above = minetest.get_node({x=current_pos.x, y=current_pos.y+1, z=current_pos.z})
         if node.name == "air" then
-          -- If air do no more checks
-          table.insert(current_row, {pos=current_pos, type=pathfinder.node_types.walkable})
+          -- Check if node above is air
+          if node.name == "air" then
+            -- If air do no more checks
+            table.insert(current_row, {pos=current_pos, type=pathfinder.node_types.walkable})
+          end
         else
           -- Check if it is of a walkable or openable type
           table.insert(current_row, {pos=current_pos, type=is_good_node(node, walkables)})

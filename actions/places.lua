@@ -142,9 +142,23 @@ end
 --   The openable node with the shortest path to the plotmarker node
 -- Based on this definition, other entrances aren't going to be used
 -- by the NPC to get into the building
-function npc.places.find_entrance_from_openable_nodes(openable_nodes, marker_pos)
+function npc.places.find_entrance_from_openable_nodes(all_openable_nodes, marker_pos)
   local result = nil
+  local openable_nodes = {}
   local min = 100
+
+  -- Filter out all other openable nodes except MTG doors.
+  -- Why? For supported village types (which are: medieval, nore
+  -- and logcabin) all buildings use, as the main entrance, 
+  -- a MTG door. Some medieval building have "half_doors" (like farms)
+  -- which NPCs love to confuse with the right building entrance.
+  for i = 1, #all_openable_nodes do
+    local name = minetest.get_node(all_openable_nodes[i].node_pos).name
+    local doors_st, doors_en = string.find(name, "doors:")
+    if doors_st ~= nil then
+      table.insert(openable_nodes, all_openable_nodes[i])
+    end
+  end
 
 
   for i = 1, #openable_nodes do
@@ -314,13 +328,13 @@ function npc.places.find_node_behind_door(door_pos)
     return {x=door_pos.x, y=door_pos.y, z=door_pos.z + 1}
   elseif door.param2 == 1 then
     -- Looking east
-    return {x=door_pos.x - 1, y=door_pos.y, z=door_pos.z}
+    return {x=door_pos.x + 1, y=door_pos.y, z=door_pos.z}
   elseif door.param2 == 2 then
     -- Looking north
     return {x=door_pos.x, y=door_pos.y, z=door_pos.z - 1}
     -- Looking west
   elseif door.param2 == 3 then
-    return {x=door_pos.x + 1, y=door_pos.y, z=door_pos.z}
+    return {x=door_pos.x - 1, y=door_pos.y, z=door_pos.z}
   end
 end
 
@@ -328,17 +342,18 @@ end
 -- front of a door. Used to make NPCs exit buildings.
 function npc.places.find_node_in_front_of_door(door_pos)
   local door = minetest.get_node(door_pos)
+  minetest.log("Param2 of door: "..dump(door.param2))
   if door.param2 == 0 then
     -- Looking south
     return {x=door_pos.x, y=door_pos.y, z=door_pos.z - 1}
   elseif door.param2 == 1 then
     -- Looking east
-    return {x=door_pos.x + 1, y=door_pos.y, z=door_pos.z}
+    return {x=door_pos.x - 1, y=door_pos.y, z=door_pos.z}
   elseif door.param2 == 2 then
     -- Looking north
     return {x=door_pos.x, y=door_pos.y, z=door_pos.z + 1}
     -- Looking west
   elseif door.param2 == 3 then
-    return {x=door_pos.x - 1, y=door_pos.y, z=door_pos.z}
+    return {x=door_pos.x + 1, y=door_pos.y, z=door_pos.z}
   end
 end
