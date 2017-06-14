@@ -53,40 +53,42 @@ npc.places.nodes = {
 
 npc.places.PLACE_TYPE = {
   BED = {
-    PRIMARY = "primary"
+    PRIMARY = "bed_primary"
   },
   SITTABLE = {
-    PRIMARY = "primary"
+    PRIMARY = "sit_primary"
   },
   OPENABLE = {
     HOME_ENTRANCE_DOOR = "home_entrance_door"
   },
   OTHER = {
+    HOME_PLOTMARKER = "home_plotmarker",
     HOME_INSIDE = "home_inside",
     HOME_OUTSIDE = "home_outside"
   }
 }
 
-function npc.places.add_public(self, place_name, place_type, pos)
+function npc.places.add_public(self, place_name, place_type, pos, access_node)
   --minetest.log("Place name: "..dump(place_name)..", type: "..dump(place_type))
-	self.places_map[place_name] = {type=place_type, pos=pos, status="shared"}
+	self.places_map[place_name] = {type=place_type, pos=pos, access_node=access_node or pos, status="shared"}
 end
 
 -- Adds a specific node to the NPC places, and modifies the
 -- node metadata to identify the NPC as the owner. This allows
 -- other NPCs to avoid to take this as their own.
-function npc.places.add_owned(self, place_name, place_type, pos)
+function npc.places.add_owned(self, place_name, place_type, pos, access_node)
   -- Get node metadata
-  local meta = minetest.get_meta(pos)
+  --local meta = minetest.get_meta(pos)
   -- Check if it is owned by an NPC?
-  if meta:get_string("npc_owner") == "" then
+  --if meta:get_string("npc_owner") == "" then
     -- Set owned by NPC
-    meta:set_string("npc_owner", self.npc_id)
+    --meta:set_string("npc_owner", self.npc_id)
     -- Add place to list
-    npc.places.add_public(self, place_name, place_type, pos)
+    self.places_map[place_name] = {type=place_type, pos=pos, access_node=access_node or pos, status="owned"}
+    --npc.places.add_public(self, place_name, place_type, pos)
     return true
-  end
-  return false
+  --end
+  --return false
 end
 
 function npc.places.get_by_type(self, place_type)
@@ -178,19 +180,26 @@ function npc.places.find_entrance_from_openable_nodes(all_openable_nodes, marker
       -- Check if there's any difference in vertical position
       -- minetest.log("Openable node pos: "..minetest.pos_to_string(open_pos))
       -- minetest.log("Plotmarker node pos: "..minetest.pos_to_string(marker_pos))
-      if start_pos.y ~= end_pos.y then
+      -- NOTE: Commented out while testing MarkBu's pathfinder
+      --if start_pos.y ~= end_pos.y then
         -- Adjust to make pathfinder find nodes one node above
-        end_pos.y = start_pos.y
-      end
+      --  end_pos.y = start_pos.y
+      --end
 
       -- This adjustment allows the map to be created correctly
-      start_pos.y = start_pos.y + 1
-      end_pos.y = end_pos.y + 1 
+      --start_pos.y = start_pos.y + 1
+      --end_pos.y = end_pos.y + 1 
 
       -- Find path from the openable node to the plotmarker
-      local path = pathfinder.find_path(start_pos, end_pos, 20, {})
+      --local path = pathfinder.find_path(start_pos, end_pos, 20, {})
+      local entity = {}
+      entity.collisionbox = {-0.20,-1.0,-0.20, 0.20,0.8,0.20}
+      minetest.log("Start pos: "..minetest.pos_to_string(start_pos))
+      minetest.log("End pos: "..minetest.pos_to_string(end_pos))
+      local path = pathfinder.find_path(start_pos, end_pos, entity)
+      --minetest.log("Found path: "..dump(path))
       if path ~= nil then
-        minetest.log("Path distance: "..dump(#path))
+        --minetest.log("Path distance: "..dump(#path))
         -- Check if path length is less than the minimum found so far
         if #path < min then
           -- Set min to path length and the result to the currently found node

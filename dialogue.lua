@@ -296,7 +296,7 @@ function npc.dialogue.process_dialogue(self, dialogue, player_name)
 
 	-- Send dialogue line
 	if dialogue.text then
-		minetest.chat_send_player(player_name, self.nametag..": "..dialogue.text)
+		minetest.chat_send_player(player_name, self.name..": "..dialogue.text)
 	end
 
   -- Check if dialogue has responses. If it doesn't, unlock the actions

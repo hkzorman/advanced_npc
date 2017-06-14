@@ -10,9 +10,11 @@
 -- (https://github.com/Yonaba/Jumper).
 -- Mapping algorithm: transforms a Minetest map surface to a 2d grid.
 
-pathfinder = {}
+npc.pathfinder = {}
 
-pathfinder.node_types = {
+local pathfinder = {}
+
+npc.pathfinder.node_types = {
   start = 0,
   goal = 1,
   walkable = 2,
@@ -20,7 +22,7 @@ pathfinder.node_types = {
   non_walkable = 4
 }
 
-pathfinder.nodes = {
+npc.pathfinder.nodes = {
   openable_prefix = {
     "doors:",
     "cottages:gate",
@@ -32,7 +34,7 @@ pathfinder.nodes = {
 -- This function uses the mapping functions and the A* algorithm implementation
 -- of the Jumper library to find a path from start_pos to end_pos. The range is
 -- an extra amount of nodes to search in both the x and z coordinates.
-function pathfinder.find_path(start_pos, end_pos, range, walkable_nodes)
+function npc.pathfinder.find_path(start_pos, end_pos, range, walkable_nodes)
   -- Check that start and end position are not the same
   if start_pos.x == end_pos.x and start_pos.z == end_pos.z then
     return nil
@@ -69,13 +71,16 @@ end
 
 -- This function is used to determine if a node is walkable
 -- or openable, in which case is good to use when finding a path
-local function is_good_node(node, exceptions)
+
+function npc.pathfinder.is_good_node(node, exceptions)
+--local function is_good_node(node, exceptions)
   -- Is openable is to support doors, fence gates and other
   -- doors from other mods. Currently, default doors, gates
   -- and cottages doors are supported.
   --minetest.log("Is good node: "..dump(node))
   local is_openable = false
-  for _,node_prefix in pairs(pathfinder.nodes.openable_prefix) do
+  for _,node_prefix in pairs(npc.pathfinder.nodes.openable_prefix) do
+  --for _,node_prefix in pairs(pathfinder.nodes.openable_prefix) do
     local start_i,end_i = string.find(node.name, node_prefix)
     if start_i ~= nil then
       is_openable = true
@@ -83,16 +88,20 @@ local function is_good_node(node, exceptions)
     end
   end
   if node ~= nil and node.name ~= nil and not minetest.registered_nodes[node.name].walkable then
-    return pathfinder.node_types.walkable
+    --return pathfinder.node_types.walkable
+    return npc.pathfinder.node_types.walkable
   elseif is_openable then
-    return pathfinder.node_types.openable
+    return npc.pathfinder.node_types.openable
+    --return pathfinder.node_types.openable
   else
     for i = 1, #exceptions do
       if node.name == exceptions[i] then
-        return pathfinder.node_types.walkable
+        return npc.pathfinder.node_types.walkable
+        --return pathfinder.node_types.walkable
       end
     end
-    return pathfinder.node_types.non_walkable
+    return npc.pathfinder.node_types.non_walkable
+    --return pathfinder.node_types.non_walkable
   end
 end
 

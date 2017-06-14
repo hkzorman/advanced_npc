@@ -63,6 +63,58 @@ npc.spawner.spawn_data = {
   }
 }
 
+local function get_basic_schedule()
+	return {
+		-- Create schedule entries
+		-- Morning actions: get out of bed, walk to outside of house
+		-- This will be executed around 8 AM MTG time
+		morning_actions = {
+			-- Get out of bed
+			[1] = {task = npc.actions.cmd.USE_BED, args = {
+					pos = npc.places.PLACE_TYPE.BED.PRIMARY, 
+					action = npc.actions.const.beds.GET_UP
+				} 
+			}, 
+			-- Walk outside
+			[2] = {task = npc.actions.cmd.WALK_TO_POS, args = {
+					end_pos = npc.places.PLACE_TYPE.OTHER.HOME_OUTSIDE, 
+					walkable = {}
+				} 
+			},
+			-- Allow mobs_redo wandering
+			[3] = {action = npc.actions.cmd.FREEZE, args = {freeze = false}}
+		},
+		-- Afternoon actions: go inside the house
+		-- This will be executed around 6 PM MTG time
+		afternoon_actions = { 
+			-- Get inside home
+			[1] = {task = npc.actions.cmd.WALK_TO_POS, args = {
+					end_pos = npc.places.PLACE_TYPE.OTHER.HOME_INSIDE, 
+					walkable = {}} 
+				},
+			-- Allow mobs_redo wandering
+			[2] = {action = npc.actions.cmd.FREEZE, args = {freeze = false}}
+		},
+		-- Evening actions: walk to bed and use it.
+		-- This will be executed around 10 PM MTG time
+		evening_actions = { 
+			[1] = {task = npc.actions.cmd.WALK_TO_POS, args = {
+					end_pos = {place_type=npc.places.PLACE_TYPE.BED.PRIMARY, use_access_node=true}, 
+					walkable = {}
+				} 
+			},
+			-- Use bed
+			[2] = {task = npc.actions.cmd.USE_BED, args = {
+					pos = npc.places.PLACE_TYPE.BED.PRIMARY, 
+					action = npc.actions.const.beds.LAY
+				} 
+			}, 
+			-- Stay put on bed
+			[3] = {action = npc.actions.cmd.FREEZE, args = {freeze = true}}
+		}
+	}
+end
+
 ---------------------------------------------------------------------------------------
 -- Scanning functions
 ---------------------------------------------------------------------------------------
@@ -70,7 +122,7 @@ npc.spawner.spawn_data = {
 function spawner.filter_first_floor_nodes(nodes, ground_pos)
   local result = {}
   for _,node in pairs(nodes) do
-    if node.node_pos.y <= ground_pos.y + 3 then
+    if node.node_pos.y <= ground_pos.y + 2 then
       table.insert(result, node)
     end
   end
@@ -130,40 +182,80 @@ end
 --   - Let the NPC know all doors to the house. Identify the front one as the entrance
 function spawner.assign_places(self, pos)
   local meta = minetest.get_meta(pos)
-  local doors = minetest.deserialize(meta:get_string("node_data")).openable_type
-  minetest.log("Found "..dump(#doors).." openable nodes")
+  local entrance = minetest.deserialize(meta:get_string("entrance"))
+  local node_data = minetest.deserialize(meta:get_string("node_data"))
 
-  local entrance = npc.places.find_entrance_from_openable_nodes(doors, pos)
-  if entrance then
-    minetest.log("Found building entrance at: "..minetest.pos_to_string(entrance.node_pos))
-  else
-    minetest.log("Unable to find building entrance!")
-  end
+  -- Assign plotmarker
+  npc.places.add_public(self, npc.places.PLACE_TYPE.OTHER.HOME_PLOTMARKER,
+  	npc.places.PLACE_TYPE.OTHER.HOME_PLOTMARKER, pos)
 
   -- Assign entrance door and related locations
   if entrance ~= nil and entrance.node_pos ~= nil then
-    -- For debug purposes:
-    --local meta = minetest.get_meta(entrance.node_pos)
-    --meta:set_string("infotext", "Entrance for '"..dump(self.nametag).."': "..dump(entrance.node_pos))
-    --minetest.log("Self: "..dump(self))
-    --minetest.log("Places map: "..dump(self.places_map))
     npc.places.add_public(self, npc.places.PLACE_TYPE.OPENABLE.HOME_ENTRANCE_DOOR, npc.places.PLACE_TYPE.OPENABLE.HOME_ENTRANCE_DOOR, entrance.node_pos)
     -- Find the position inside and outside the door
     local entrance_inside = npc.places.find_node_behind_door(entrance.node_pos)
     local entrance_outside = npc.places.find_node_in_front_of_door(entrance.node_pos)
-    --minetest.set_node(entrance_inside, {name="default:apple"})
     -- Assign these places to NPC
     npc.places.add_public(self, npc.places.PLACE_TYPE.OTHER.HOME_INSIDE, npc.places.PLACE_TYPE.OTHER.HOME_INSIDE, entrance_inside)
     npc.places.add_public(self, npc.places.PLACE_TYPE.OTHER.HOME_OUTSIDE, npc.places.PLACE_TYPE.OTHER.HOME_OUTSIDE, entrance_outside)
-    -- Make NPC go into their house
-    --minetest.log("Place: "..dump(npc.places.get_by_type(self, npc.places.PLACE_TYPE.OTHER.HOME_INSIDE)))
-    npc.add_task(self, npc.actions.cmd.WALK_TO_POS, {end_pos=npc.places.get_by_type(self, npc.places.PLACE_TYPE.OTHER.HOME_INSIDE)[1].pos, walkable={}})  
-    npc.add_action(self, npc.actions.cmd.FREEZE, {freeze = false})
   end
 
-  local plot_info = minetest.deserialize(meta:get_string("plot_info"))
-  minetest.log("Plot info:"..dump(plot_info))
+  -- Assign beds
+  if #node_data.bed_type > 0 then
+  	-- Find unowned bed
+  	for i = 1, #node_data.bed_type do
+  		-- Check if bed has owner
+  		minetest.log("Node: "..dump(node_data.bed_type[i]))
+  		if node_data.bed_type[i].owner == "" then
+  			-- If bed has no owner, check if it is accessible
+  			local empty_nodes = npc.places.find_node_orthogonally(
+  				node_data.bed_type[i].node_pos, {"air"}, 0)
+  			-- Check if bed is accessible
+  			if #empty_nodes > 0 then
+  				-- Set owner to this NPC
+  				node_data.bed_type[i].owner = self.npc_id
+  				-- Assign node to NPC
+  				npc.places.add_owned(self, npc.places.PLACE_TYPE.BED.PRIMARY, 
+  					npc.places.PLACE_TYPE.BED.PRIMARY, node_data.bed_type[i].node_pos, empty_nodes[1].pos)
+  				-- Store changes to node_data
+  				meta:set_string("node_data", minetest.serialize(node_data))
+  				minetest.log("Added bed at "..minetest.pos_to_string(node_data.bed_type[i].node_pos)
+  					.." to NPC "..dump(self.name))
+  				break
+  			end
+  		end
+  	end
+  end
 
+  --local plot_info = minetest.deserialize(meta:get_string("plot_info"))
+  --minetest.log("Plot info:"..dump(plot_info))
+  minetest.log("places: "..dump(self.places_map))
+
+  	-- Make NPC go into their house
+	npc.add_task(self, 
+		npc.actions.cmd.WALK_TO_POS, 
+		{end_pos=npc.places.PLACE_TYPE.OTHER.HOME_INSIDE,
+		 walkable={}})
+	npc.add_action(self, npc.actions.cmd.FREEZE, {freeze = false})
+end
+
+
+function spawner.assign_schedules(self, pos)
+	local basic_schedule = get_basic_schedule()
+	-- Add a simple schedule for testing
+  	npc.create_schedule(self, npc.schedule_types.generic, 0)
+	-- Add schedule entry for morning actions
+	npc.add_schedule_entry(self, npc.schedule_types.generic, 0, 8, nil, basic_schedule.morning_actions)
+
+	-- Add schedule entry for afternoon actions
+	npc.add_schedule_entry(self, npc.schedule_types.generic, 0, 18, nil, basic_schedule.afternoon_actions)
+
+	-- Add schedule entry for evening actions
+	npc.add_schedule_entry(self, npc.schedule_types.generic, 0, 22, nil, basic_schedule.evening_actions)
+	
+	minetest.log("Schedules: "..dump(self.schedules))
+	--local afternoon_actions = { [1] = {action = npc.actions.stand, args = {}} }
+	--local afternoon_actions = {[1] = {task = npc.actions.cmd.USE_SITTABLE, args = {pos=nodes[1], action=npc.actions.const.sittable.GET_UP} } }
 
 end
 
@@ -187,6 +279,8 @@ function npc.spawner.spawn_npc(pos)
       npc.initialize(ent, pos)
       -- Assign nodes
       spawner.assign_places(ent:get_luaentity(), pos)
+      -- Assign schedules
+      spawner.assign_schedules(ent:get_luaentity(), pos)
       -- Increase NPC spawned count
       spawned_npc_count = spawned_npc_count + 1
       -- Store count into node
@@ -196,8 +290,10 @@ function npc.spawner.spawn_npc(pos)
       -- TODO: Add more information here at some time...
       local entry = {
         status = npc.spawner.spawn_data.status.alive,
-        name = ent:get_luaentity().nametag,
+        name = ent:get_luaentity().name,
         id = ent:get_luaentity().npc_id,
+        sex = ent:get_luaentity().sex,
+        age = ent:get_luaentity().
         born_day = minetest.get_day_count()
       }
       table.insert(npc_table, entry)
@@ -205,16 +301,17 @@ function npc.spawner.spawn_npc(pos)
       meta:set_string("npcs", minetest.serialize(npc_table))
       -- Temp
       meta:set_string("infotext", meta:get_string("infotext")..", "..spawned_npc_count)
-      minetest.log("[advanced_npc] Spawning successful!")
+      minetest.log("[advanced_npc] INFO Spawning successful!")
       -- Check if there are more NPCs to spawn
       if spawned_npc_count >= npc_count then
         -- Stop timer
-        minetest.log("[advanced_npc] No more NPCs to spawn at this location")
+        minetest.log("[advanced_npc] INFO No more NPCs to spawn at this location")
         timer:stop()
       else
         -- Start another timer to spawn more NPC
-        minetest.log("[advanced_npc] Spawning one more NPC in "..dump(npc.spawner.spawn_delay).."s")
-        timer:start(npc.spawner.spawn_delay)
+        local new_delay = math.random(npc.spawner.spawn_delay)
+        minetest.log("[advanced_npc] INFO Spawning one more NPC in "..dump(npc.spawner.spawn_delay).."s")
+        timer:start(new_delay)
       end
       return true
     else
@@ -242,7 +339,8 @@ function spawner.calculate_npc_spawning(pos)
     return
   end
   -- Check number of beds
-  local beds_count = #node_data.bed_type
+  local beds_count = #node_data.bed_type--#spawner.filter_first_floor_nodes(node_data.bed_type, pos)
+  
   minetest.log("[advanced_npc] INFO: Found "..dump(beds_count).." beds in the building at "..minetest.pos_to_string(pos))
   local npc_count = 0
   -- If number of beds is zero or beds/2 is less than one, spawn
@@ -251,17 +349,18 @@ function spawner.calculate_npc_spawning(pos)
     -- Spawn a single NPC
     npc_count = 1
   else
-    -- Spawn beds_count/2 NPCs
+    -- Spawn (beds_count/2) NPCs
     npc_count = ((beds_count / 2) - ((beds_count / 2) % 1))
   end
-  minetest.log("Will spawn "..dump(npc_count).." NPCs at "..minetest.pos_to_string(pos))
+  minetest.log("[advanced_npc] INFO: Will spawn "..dump(npc_count).." NPCs at "..minetest.pos_to_string(pos))
   -- Store amount of NPCs to spawn
   meta:set_int("npc_count", npc_count)
   -- Store amount of NPCs spawned
   meta:set_int("spawned_npc_count", 0)
   -- Start timer
   local timer = minetest.get_node_timer(pos)
-  timer:start(npc.spawner.spawn_delay)
+  local delay = math.random(npc.spawner.spawn_delay)
+  timer:start(delay)
 end
 
 ---------------------------------------------------------------------------------------
@@ -273,9 +372,9 @@ end
 -- point and the building_data to get the x, y and z-coordinate size
 -- of the building schematic
 function spawner.scan_mg_villages_building(pos, building_data)
-  minetest.log("--------------------------------------------")
-  minetest.log("Building data: "..dump(building_data))
-  minetest.log("--------------------------------------------")
+  --minetest.log("--------------------------------------------")
+  --minetest.log("Building data: "..dump(building_data))
+  --minetest.log("--------------------------------------------")
   -- Get area of the building
   local x_size = building_data.bsizex
   local y_size = building_data.ysize
@@ -285,6 +384,7 @@ function spawner.scan_mg_villages_building(pos, building_data)
   local x_sign, z_sign = 1, 1
 
   -- Check plot direction
+  -- NOTE: Below values may be wrong, very wrong!
   -- 0 - facing West, -X
   -- 1 - facing North, +Z
   -- 2 - facing East, +X
@@ -370,6 +470,17 @@ function spawner.replace_mg_villages_plotmarker(pos)
       meta:set_string("plot_info", minetest.serialize(plot_info))
       -- Scan building for nodes
       local nodedata = spawner.scan_mg_villages_building(pos, plot_info)
+      -- Find building entrance
+      local doors = nodedata.openable_type
+      --minetest.log("Found "..dump(#doors).." openable nodes")
+      local entrance = npc.places.find_entrance_from_openable_nodes(doors, pos)
+      if entrance then
+        minetest.log("Found building entrance at: "..minetest.pos_to_string(entrance.node_pos))
+      else
+        minetest.log("Unable to find building entrance!")
+      end
+      -- Store building entrance
+      meta:set_string("entrance", minetest.serialize(entrance))
       -- Store nodedata into the spawner's metadata
       meta:set_string("node_data", minetest.serialize(nodedata))
       -- Initialize NPCs
@@ -399,13 +510,26 @@ if minetest.get_modpath("mg_villages") ~= nil then
         type = "fixed",
         fixed = {
             {-0.5+2/16, -0.5, -0.5+2/16,  0.5-2/16, -0.5+2/16, 0.5-2/16},
+            --{-0.5+0/16, -0.5, -0.5+0/16,  0.5-0/16, -0.5+0/16, 0.5-0/16},
         }
     },
+    walkable = false,
     groups = {cracky=3,stone=2},
 
     on_rightclick = function(pos, node, clicker, itemstack, pointed_thing)
-      -- Get all openable-type nodes for this building
       -- NOTE: This is temporary code for testing...
+      local nodedata = minetest.deserialize(minetest.get_meta(pos):get_string("node_data"))
+      --minetest.log("Node data: "..dump(nodedata))
+      --minetest.log("Entrance: "..dump(minetest.deserialize(minetest.get_meta(pos):get_string("entrance"))))
+      --minetest.log("First-floor beds: "..dump(spawner.filter_first_floor_nodes(nodedata.bed_type, pos)))
+      --local entrance = npc.places.find_entrance_from_openable_nodes(nodedata.openable_type, pos)
+      --minetest.log("Found entrance: "..dump(entrance))
+
+      for i = 1, #nodedata.bed_type do
+      	nodedata.bed_type[i].owner = ""
+      end
+      minetest.get_meta(pos):set_string("node_data", minetest.serialize(nodedata))
+      minetest.log("Cleared bed owners")
 
       return mg_villages.plotmarker_formspec( pos, nil, {}, clicker )
     end,
@@ -450,8 +574,8 @@ if minetest.get_modpath("mg_villages") ~= nil then
   minetest.register_abm({
     label = "Replace mg_villages:plotmarker with Advanced NPC auto spawners",
     nodenames = {"mg_villages:plotmarker"},
-    interval = npc.spawner.replacement_interval,
-    chance = 5,
+    interval = 10,--npc.spawner.replacement_interval,
+    chance = 1, --5,
     catch_up = true,
     action = function(pos, node, active_object_count, active_object_count_wider)
        -- Check if replacement is activated

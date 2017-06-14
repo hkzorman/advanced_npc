@@ -194,12 +194,20 @@ function npc.actions.walk_step(self, args)
 
 	if dir == npc.direction.north then
 		vel = {x=0, y=0, z=speed}
+	elseif dir == npc.direction.north_east then
+		vel = {x=speed, y=0, z=speed}
 	elseif dir == npc.direction.east then
 		vel = {x=speed, y=0, z=0}
+	elseif dir == npc.direction.south_east then
+		vel = {x=speed, y=0, z=-speed}
 	elseif dir == npc.direction.south then
 		vel = {x=0, y=0, z=-speed}
+	elseif dir == npc.direction.south_west then
+		vel = {x=-speed, y=0, z=-speed}
 	elseif dir == npc.direction.west then
 		vel = {x=-speed, y=0, z=0}
+	elseif dir == npc.direction.north_west then
+		vel = {x=-speed, y=0, z=speed}
 	end
 	-- Rotate NPC
 	npc.actions.rotate(self, {dir=dir})
@@ -403,13 +411,67 @@ end
 -- walking from one place to another, operating a furnace, storing or taking
 -- items from a chest, are provided here.
 
+local function get_pos_argument(self, pos)
+	minetest.log("Type of pos: "..dump(type(pos)))
+	-- Check which type of position argument we received
+	if type(pos) == "table" then
+		minetest.log("Received table pos: "..dump(pos))
+		-- Check if table is position
+		if pos.x ~= nil and pos.y ~= nil and pos.z ~= nil then
+			-- Position received, return position
+			return pos
+		elseif pos.place_type ~= nil then
+			-- Received table in the following format: 
+			-- {place_type = "", index = 1, use_access_node = false}
+			local index = pos.index or 1
+			local use_access_node = pos.use_access_node or false
+			local places = npc.places.get_by_type(self, pos.place_type)
+			-- Check index is valid on the places map
+			if #places >= index then
+				-- Check if access node is desired
+				if use_access_node then
+					-- Return actual node pos
+					return places[index].access_node
+				else
+					-- Return node pos that allows access to node
+					return places[index].pos
+				end
+			end
+		end
+	elseif type(pos) == "string" then
+		-- Received name of place, so we are going to look for the actual pos
+		local places_pos = npc.places.get_by_type(self, pos)
+		-- Return nil if no position found
+		if places_pos == nil or #places_pos == 0 then
+			return nil
+		end
+		-- Check if received more than one position
+		if #places_pos > 1 then
+			-- Check all places, return owned if existent, else return the first one
+			for i = 1, #places_pos do
+				if places_pos[i].status == "owned" then
+					return places_pos[i].pos
+				end
+			end
+		end
+		-- Return the first position only if it couldn't find an owned
+		-- place, or if it there is only oneg
+		return places_pos[1].pos
+	end
+end
+
 -- This function allows a NPC to use a furnace using only items from
 -- its own inventory. Fuel is not provided. Once the furnace is finished
 -- with the fuel items the NPC will take whatever was cooked and whatever
 -- remained to cook. The function received the position of the furnace
 -- to use, and the item to cook in furnace. Item is an itemstring
 function npc.actions.use_furnace(self, args)
-	local pos = args.pos
+	local pos = get_pos_argument(self, args.pos)
+	if pos == nil then
+		minetest.log("[advanced_npc] WARNING Got nil position in 'use_furnace' using args.pos: "..dump(args.pos))
+		return
+	end
+
 	local item = args.item
 	local freeze = args.freeze
 	-- Define which items are usable as fuels. The NPC
@@ -530,7 +592,11 @@ end
 -- This function makes the NPC lay or stand up from a bed. The
 -- pos is the location of the bed, action can be lay or get up
 function npc.actions.use_bed(self, args)
-	local pos = args.pos
+	local pos = get_pos_argument(self, args.pos)
+	if pos == nil then
+		minetest.log("[advanced_npc] WARNING Got nil position in 'use_bed' using args.pos: "..dump(args.pos))
+		return
+	end
 	local action = args.action
 	local node = minetest.get_node(pos)
 	minetest.log(dump(node))
@@ -586,7 +652,11 @@ end
 -- This function makes the NPC lay or stand up from a bed. The
 -- pos is the location of the bed, action can be lay or get up
 function npc.actions.use_sittable(self, args)
-	local pos = args.pos
+	local pos = get_pos_argument(self, args.pos)
+	if pos == nil then
+		minetest.log("[advanced_npc] WARNING Got nil position in 'use_sittable' using args.pos: "..dump(args.pos))
+		return
+	end
 	local action = args.action
 	local node = minetest.get_node(pos)
 
@@ -621,13 +691,24 @@ end
 -- for the moving from v1 to v2
 function npc.actions.get_direction(v1, v2)
 	local dir = vector.subtract(v2, v1)
-	if dir.x ~= 0 then
+
+	if dir.x ~= 0 and dir.z ~= 0 then
+		if dir.x > 0 and dir.z > 0 then
+			return npc.direction.north_east
+		elseif dir.x > 0 and dir.z < 0 then
+			return npc.direction.south_east
+		elseif dir.x < 0 and dir.z > 0 then
+			return npc.direction.north_west
+		elseif dir.x < 0 and dir.z < 0 then
+			return npc.direction.south_west
+		end
+	elseif dir.x ~= 0 and dir.z == 0 then
 		if dir.x > 0 then
 			return npc.direction.east
 		else
 			return npc.direction.west
 		end
-	elseif dir.z ~= 0 then
+	elseif dir.z ~= 0 and dir.x == 0 then
 		if dir.z > 0 then
 			return npc.direction.north
 		else
@@ -636,6 +717,7 @@ function npc.actions.get_direction(v1, v2)
 	end
 end
 
+
 -- This function can be used to make the NPC walk from one
 -- position to another. If the optional parameter walkable_nodes
 -- is included, which is a table of node names, these nodes are
@@ -643,14 +725,20 @@ end
 -- path.
 function npc.actions.walk_to_pos(self, args)
 	-- Get arguments for this task 
-	local end_pos = args.end_pos
+	local end_pos = get_pos_argument(self, args.end_pos)
+	if end_pos == nil then
+		minetest.log("[advanced_npc] WARNING Got nil position in 'walk_to_pos' using args.pos: "..dump(args.end_pos))
+		return
+	end
+	local enforce_move = args.enforce_move or true
 	local walkable_nodes = args.walkable
 
 	-- Round start_pos to make sure it can find start and end
 	local start_pos = vector.round(self.object:getpos())
 	-- Use y of end_pos (this can only be done assuming flat terrain)
-	start_pos.y = self.object:getpos().y
-	minetest.log("Walk to pos: Using start position: "..dump(start_pos))
+	--start_pos.y = self.object:getpos().y
+	minetest.log("[advanced_npc] INFO walk_to_pos: Start pos: "..minetest.pos_to_string(start_pos))
+	minetest.log("[advanced_npc] INFO walk_to_pos: End pos: "..minetest.pos_to_string(end_pos))
 
 	-- Set walkable nodes to empty if the parameter hasn't been used
 	if walkable_nodes == nil then
@@ -658,10 +746,24 @@ function npc.actions.walk_to_pos(self, args)
 	end
 
 	-- Find path
-	local path = pathfinder.find_path(start_pos, end_pos, 20, walkable_nodes)
+	--local path = pathfinder.find_path(start_pos, end_pos, 20, walkable_nodes)
+	local path = pathfinder.find_path(start_pos, end_pos, self)
 
-	if path ~= nil then
-		minetest.log("[advanced_npc] Found path to node: "..minetest.pos_to_string(end_pos))
+	if path ~= nil and #path > 1 then
+		-- Get details from path nodes
+		-- This might get moved to proper place, pathfinder.lua code
+		local path_detail = {}
+		for i = 1, #path do
+			local node = minetest.get_node(path[i])
+			table.insert(path_detail, {pos=path[i], type=npc.pathfinder.is_good_node(node, {})})
+		end
+		path = path_detail
+
+		--minetest.log("Found path: "..dump(path))
+
+		--minetest.log("Path detail: "..dump(path_detail))
+		--minetest.log("New path: "..dump(path))
+		minetest.log("[advanced_npc] INFO walk_to_pos Found path to node: "..minetest.pos_to_string(end_pos))
 		-- Store path
 		self.actions.walking.path = path
 
@@ -689,11 +791,11 @@ function npc.actions.walk_to_pos(self, args)
 			-- Get direction to move from path[i] to path[i+1]
 			local dir = npc.actions.get_direction(path[i].pos, path[i+1].pos)
 			-- Check if next node is a door, if it is, open it, then walk
-			if path[i+1].type == pathfinder.node_types.openable then
+			if path[i+1].type == npc.pathfinder.node_types.openable then
 				-- Check if door is already open
 				local node = minetest.get_node(path[i+1].pos)
 				if npc.actions.get_openable_node_state(node, dir) == npc.actions.const.doors.state.CLOSED then
-					minetest.log("Opening action to open door")
+					--minetest.log("Opening action to open door")
 					-- Stop to open door, this avoids misplaced movements later on
 					npc.add_action(self, npc.actions.cmd.STAND, {dir=dir})
 					-- Open door
@@ -701,29 +803,33 @@ function npc.actions.walk_to_pos(self, args)
 
 					door_opened = true
 				end
+
 			end
 
 			-- Add walk action to action queue
 			npc.add_action(self, npc.actions.cmd.WALK_STEP, {dir = dir, speed = speed, target_pos = path[i+1].pos})
 
 			if door_opened then
-					-- Stop to close door, this avoids misplaced movements later on
-					local x_adj, z_adj = 0, 0
-					if dir == 0 then
-						z_adj = 0.1
-					elseif dir == 1 then
-						x_adj = 0.1
-					elseif dir == 2 then
-						z_adj = -0.1
-					elseif dir == 3 then
-						x_adj = -0.1
-					end
-					local pos_on_close = {x=path[i+1].pos.x + x_adj, y=path[i+1].pos.y + 1, z=path[i+1].pos.z + z_adj}
-					npc.add_action(self, npc.actions.cmd.STAND, {dir=(dir + 2)% 4, pos=pos_on_close})
-					-- Close door
-					npc.add_action(self, npc.actions.cmd.USE_OPENABLE, {pos=path[i+1].pos, action=npc.actions.const.doors.action.CLOSE})
+				-- Stop to close door, this avoids misplaced movements later on
+				-- local x_adj, z_adj = 0, 0
+				-- if dir == 0 then
+				-- 	z_adj = 0.1
+				-- elseif dir == 1 then
+				-- 	x_adj = 0.1
+				-- elseif dir == 2 then
+				-- 	z_adj = -0.1
+				-- elseif dir == 3 then
+				-- 	x_adj = -0.1
+				-- end
+				-- local pos_on_close = {x=path[i+1].pos.x + x_adj, y=path[i+1].pos.y + 1, z=path[i+1].pos.z + z_adj}
+				-- Add extra walk step to ensure that one is standing at other side of openable node
+				npc.add_action(self, npc.actions.cmd.WALK_STEP, {dir = dir, speed = speed, target_pos = path[i+2].pos})
+				-- Stop to close the door
+				npc.add_action(self, npc.actions.cmd.STAND, {dir=(dir + 2) % 4 })--, pos=pos_on_close})
+				-- Close door
+				npc.add_action(self, npc.actions.cmd.USE_OPENABLE, {pos=path[i+1].pos, action=npc.actions.const.doors.action.CLOSE})
 
-					door_opened = false
+				door_opened = false
 			end
 
 		end
@@ -733,6 +839,12 @@ function npc.actions.walk_to_pos(self, args)
 		npc.add_action(self, npc.actions.cmd.SET_INTERVAL, {interval=1, freeze=true})
 
 	else
-		minetest.log("Unable to find path.")
+		-- Unable to find path
+		minetest.log("[advanced_npc] INFO walk_to_pos Unable to find path. Teleporting to: "..minetest.pos_to_string(end_pos))
+		-- Check if movement is enforced
+		if enforce_move then
+			-- Move to end pos
+			self.object:moveto(end_pos)
+		end 
 	end
 end

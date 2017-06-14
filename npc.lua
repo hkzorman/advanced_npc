@@ -24,7 +24,11 @@ npc.direction = {
   north = 0,
   east  = 1,
   south = 2,
-  west  = 3
+  west  = 3,
+  north_east = 4,
+  north_west = 5,
+  south_east = 6,
+  south_west = 7
 }
 
 npc.action_state = {
@@ -41,7 +45,7 @@ function npc.get_entity_name(entity)
   if entity:is_player() then
     return entity:get_player_name()
   else
-    return entity:get_luaentity().nametag
+    return entity:get_luaentity().name
   end
 end
 
@@ -149,11 +153,14 @@ function npc.initialize(entity, pos, is_lua_entity)
     ent.sex = npc.MALE
   end
 
+  -- Nametag is initialized to blank
+  ent.nametag = ""
+
   -- Set name
-  ent.nametag = get_random_name(ent.sex)
+  ent.name = get_random_name(ent.sex)
 
   -- Set ID
-  ent.npc_id = tostring(math.random(1000, 9999))..":"..ent.nametag
+  ent.npc_id = tostring(math.random(1000, 9999))..":"..ent.name
   
   -- Initialize all gift data
   ent.gift_data = {
@@ -325,33 +332,6 @@ function npc.initialize(entity, pos, is_lua_entity)
   local offer2 = npc.trade.create_custom_sell_trade_offer("Do you want me to fix your mese sword?", "Fix mese sword", "Fix mese sword", "default:sword_mese", {"default:sword_mese", "default:copper_lump 10"})
   table.insert(ent.trader_data.custom_trades, offer2)
 
-  -- Add a simple schedule for testing
-  npc.create_schedule(ent, npc.schedule_types.generic, 0)
-  -- Add schedule entries
-  local morning_actions = { 
-    [1] = {task = npc.actions.cmd.WALK_TO_POS, args = {end_pos=nodes[1], walkable={}} } ,
-    [2] = {task = npc.actions.cmd.USE_SITTABLE, args = {pos=nodes[1], action=npc.actions.const.sittable.SIT} }, 
-    [3] = {action = npc.actions.cmd.FREEZE, args = {freeze = true}}
-  }
-  --npc.add_schedule_entry(ent, npc.schedule_types.generic, 0, 7, nil, morning_actions)
-  --local afternoon_actions = { [1] = {action = npc.actions.stand, args = {}} }
-  local afternoon_actions = {[1] = {task = npc.actions.cmd.USE_SITTABLE, args = {pos=nodes[1], action=npc.actions.const.sittable.GET_UP} } }
-  --npc.add_schedule_entry(ent, npc.schedule_types.generic, 0, 9, nil, afternoon_actions)
-  -- local night_actions = {action: npc.action, args: {}}
-  -- npc.add_schedule_entry(self, npc.schedule_type.generic, 0, 19, check, actions)
-
-  -- npc.add_action(ent, npc.action.stand, {self = ent})
-  -- npc.add_action(ent, npc.action.stand, {self = ent})
-  -- npc.add_action(ent, npc.action.walk_step, {self = ent, dir = npc.direction.east})
-  -- npc.add_action(ent, npc.action.walk_step, {self = ent, dir = npc.direction.east})
-  -- npc.add_action(ent, npc.action.walk_step, {self = ent, dir = npc.direction.east})
-  -- npc.add_action(ent, npc.action.walk_step, {self = ent, dir = npc.direction.east})
-  -- npc.add_action(ent, npc.action.walk_step, {self = ent, dir = npc.direction.east})
-  -- npc.add_action(ent, npc.action.walk_step, {self = ent, dir = npc.direction.east})
-  -- npc.add_action(ent, npc.action.sit, {self = ent})
-  -- npc.add_action(ent, npc.action.rotate, {self = ent, dir = npc.direction.south})
-  -- npc.add_action(ent, npc.action.lay, {self = ent})
-
   -- Temporary initialization of places
   -- local bed_nodes = npc.places.find_new_nearby(ent, npc.places.nodes.BEDS, 8)
   -- minetest.log("Number of bed nodes: "..dump(#bed_nodes))
@@ -360,7 +340,7 @@ function npc.initialize(entity, pos, is_lua_entity)
   -- end
 
   --minetest.log(dump(ent))
-  minetest.log("Successfully spawned NPC with name "..dump(ent.nametag))
+  minetest.log("[advanced_npc] INFO Successfully initialized NPC with name "..dump(ent.name))
   -- Refreshes entity
   ent.object:set_properties(ent)
 end
@@ -530,7 +510,7 @@ end
 function npc.execute_action(self)
   -- Check if an action was interrupted
   if self.actions.current_action_state == npc.action_state.interrupted then
-    minetest.log("[advanced_npc] DEBUG Re-inserting interrupted action for NPC: '"..dump(self.nametag).."': "..dump(self.actions.state_before_lock.interrupted_action))
+    minetest.log("[advanced_npc] DEBUG Re-inserting interrupted action for NPC: '"..dump(self.name).."': "..dump(self.actions.state_before_lock.interrupted_action))
     -- Insert into queue the interrupted action
     table.insert(self.actions.queue, 1, self.actions.state_before_lock.interrupted_action)
     -- Clear the action
@@ -552,7 +532,7 @@ function npc.execute_action(self)
   -- If the entry is a task, then push all this new operations in
   -- stack fashion
   if action_obj.is_task == true then
-    minetest.log("[advanced_npc] DEBUG Executing task for NPC '"..dump(self.nametag).."': "..dump(action_obj))
+    minetest.log("[advanced_npc] DEBUG Executing task for NPC '"..dump(self.name).."': "..dump(action_obj))
     -- Backup current queue
     local backup_queue = self.actions.queue
     -- Remove this "task" action from queue
@@ -568,7 +548,7 @@ function npc.execute_action(self)
       table.insert(self.actions.queue, backup_queue[i])
     end
   else
-    minetest.log("[advanced_npc] DEBUG Executing action for NPC '"..dump(self.nametag).."': "..dump(action_obj))
+    minetest.log("[advanced_npc] DEBUG Executing action for NPC '"..dump(self.name).."': "..dump(action_obj))
     -- Store the action that is being executed
     self.actions.state_before_lock.interrupted_action = action_obj
     -- Store current position
@@ -855,7 +835,7 @@ mobs:register_mob("advanced_npc:npc", {
       -- Show dialogue to confirm that player is giving item as gift
       npc.dialogue.show_yes_no_dialogue(
         self,
-        "Do you want to give "..item_name.." to "..self.nametag.."?",
+        "Do you want to give "..item_name.." to "..self.name.."?",
         npc.dialogue.POSITIVE_GIFT_ANSWER_PREFIX..item_name,
         function()
           npc.relationships.receive_gift(self, clicker)
@@ -937,7 +917,7 @@ mobs:register_mob("advanced_npc:npc", {
           -- Check if NPC is walking
           if self.actions.walking.is_walking == true then
             local pos = self.actions.walking.target_pos
-            self.object:moveto({x=pos.x, y=pos.y + 1, z=pos.z})
+            self.object:moveto({x=pos.x, y=pos.y + 0.5, z=pos.z})
           end
           -- Execute action
           self.freeze = npc.execute_action(self)
