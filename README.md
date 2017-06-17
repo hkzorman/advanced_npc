@@ -27,7 +27,7 @@ License
 
 __advanced_npc__ is Copyright (C) 2016-2017 Hector Franqui (zorman2000), licensed under the GPLv3 license. See `license.txt` for details.
 
-The `pathfinder.lua` file contains code slighlty modified from the [pathfinder mod](https://github.com/Yonaba/Jumper) by MarkBu, which is licensed as WTFPL. See `actions/pathfinder.lua` for details.
+The `pathfinder.lua` file contains code slighlty modified from the [pathfinder mod](https://github.com/MarkuBu/pathfinder) by MarkBu, which is licensed as WTFPL. See `actions/pathfinder.lua` for details.
 
 Current NPC textures are from mobs_redo mod.
 The following textures are by Zorman2000:

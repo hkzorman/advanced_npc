@@ -620,8 +620,8 @@ if minetest.get_modpath("mg_villages") ~= nil then
   minetest.register_abm({
     label = "Replace mg_villages:plotmarker with Advanced NPC auto spawners",
     nodenames = {"mg_villages:plotmarker"},
-    interval = 10,--npc.spawner.replacement_interval,
-    chance = 1, --5,
+    interval = npc.spawner.replacement_interval,
+    chance = 5,
     catch_up = true,
     action = function(pos, node, active_object_count, active_object_count_wider)
       -- Check if replacement is needed
