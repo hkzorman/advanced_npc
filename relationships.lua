@@ -57,7 +57,8 @@ npc.relationships.MARRIED_NPC_DIALOGUE = {
       response_id = 2,
       action = function(self, player)
         self.order = "stand"
-        minetest.chat_send_player(player:get_player_name(), S("Ok dear, I will wait here for you."))
+        npc.chat(self.npc_name, player:get_player_name(), 
+          S("Ok dear, I will wait here for you."))
       end
     },
     [3] = {
@@ -66,7 +67,7 @@ npc.relationships.MARRIED_NPC_DIALOGUE = {
       response_id = 3,
       action = function(self, player)
         self.order = "follow"
-        minetest.chat_send_player(player:get_player_name(), S("Ok, let's go!"))
+        npc.chat(self.npc_name, player:get_player_name(), S("Ok, let's go!"))
       end
     }
   }
@@ -114,7 +115,7 @@ function npc.relationships.get_response_for_disliked_item(item_name, sex)
   for i = 1, #items do
   	minetest.log(dump(items[i]))
     if items[i].item == item_name then
-    	minetest.log("Returning: "..dump(items[i].response))
+    	--minetest.log("Returning: "..dump(items[i].response))
       return items[i].response
     end
   end
@@ -350,16 +351,16 @@ local function show_receive_gift_reaction(self, item_name, modifier, clicker_nam
     end
     -- Send message
     -- TODO: There might be an error with getting the message...
-    minetest.log("Item_name: "..dump(item_name)..", sex: "..dump(self.sex)..", phase: "..dump(phase))
+    --minetest.log("Item_name: "..dump(item_name)..", sex: "..dump(self.sex)..", phase: "..dump(phase))
     local message_to_send =
     	npc.relationships.get_response_for_favorite_item(item_name, self.sex, phase)
-    minetest.chat_send_player(clicker_name, message_to_send)
+    npc.chat(self.npc_name, clicker_name, message_to_send)
   -- Disliked items reactions
   elseif modifier < 0 then
     effect({x = pos.x, y = pos.y + 1, z = pos.z}, 8, "default_item_smoke.png")
-    minetest.log("Item name: "..item_name..", sex: "..self.sex)
+    --minetest.log("Item name: "..item_name..", sex: "..self.sex)
     local message_to_send = npc.relationships.get_response_for_disliked_item(item_name, self.sex)
-    minetest.chat_send_player(clicker_name, message_to_send)
+    npc.name(self.npc_name, clicker_name, message_to_send)
   end
   
 end
@@ -381,7 +382,7 @@ function npc.relationships.receive_gift(self, clicker)
 
   -- If NPC received a gift from this person, then reject any more gifts for now
   if check_npc_can_receive_gift(self, clicker_name) == false then
-    minetest.chat_send_player(clicker_name, "Thanks, but I don't need anything for now")
+    npc.chat(self.npc_name, clicker_name, "Thanks, but I don't need anything for now")
     return false
   end
   
@@ -392,9 +393,9 @@ function npc.relationships.receive_gift(self, clicker)
   	npc.relationships.RELATIONSHIP_PHASE["phase5"].limit 
     and self.owner ~= clicker_name
     and item:get_name() ~= "advanced_npc:marriage_ring" then
-    minetest.chat_send_player(clicker_name, 
+    npc.chat(self.npc_name, clicker_name, 
       "Thank you my love, but I think that you have given me")
-    minetest.chat_send_player(clicker_name, 
+    npc.chat(self.npc_name, clicker_name, 
       "enough gifts for now. Maybe we should go a step further")
     -- Reset gift timer
     reset_gift_timer(self, clicker_name)
@@ -407,7 +408,7 @@ function npc.relationships.receive_gift(self, clicker)
     local receive_chance = math.random(1, 10)
     -- Receive ring and get married
     if receive_chance < 6 then
-      minetest.chat_send_player(clicker_name, 
+      npc.chat(self.npc_name, clicker_name, 
         "Oh, oh you make me so happy! Yes! I will marry you!")
       -- Get ring
       item:take_item()
@@ -422,7 +423,7 @@ function npc.relationships.receive_gift(self, clicker)
       self.owner = clicker_name
     -- Reject ring for now
     else 
-      minetest.chat_send_player(clicker_name, 
+      npc.chat(self.npc_name, clicker_name, 
         "Dear, I feel the same as you. But maybe not yet...")
     
     end
@@ -446,7 +447,7 @@ function npc.relationships.receive_gift(self, clicker)
       show_receive_gift_reaction(self, item:get_name(), modifier, clicker_name, false)
     else
       -- Neutral item reaction 
-      minetest.chat_send_player(clicker_name, "Thank you honey!")
+      npc.chat(self.npc_name, clicker_name, "Thank you honey!")
     end
     -- Take item
     item:take_item()
@@ -480,9 +481,9 @@ function npc.relationships.receive_gift(self, clicker)
     -- if 70%
       local receive_chance = math.random(1,10)
       if receive_chance < 7 then
-        minetest.chat_send_player(clicker_name, "Thanks. I will find some use for this.")
+        npc.chat(self.npc_name, clicker_name, "Thanks. I will find some use for this.")
       else
-        minetest.chat_send_player(clicker_name, "Thank you, but no, I have no use for this.")
+        npc.chat(self.npc_name, clicker_name, "Thank you, but no, I have no use for this.")
         take = false
       end
       show_reaction = false
@@ -502,7 +503,7 @@ function npc.relationships.receive_gift(self, clicker)
     clicker:set_wielded_item(item)
   end
   
-  minetest.log(dump(self))
+  npc.log("DEBUG", "NPC: "..dump(self))
   -- Reset gift timer
   reset_gift_timer(self, clicker_name)
   return true  

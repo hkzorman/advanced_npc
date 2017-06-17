@@ -898,7 +898,7 @@ mobs:register_mob("advanced_npc:npc", {
 	stepheight = 0.6,
 	walk_velocity = 1,
 	run_velocity = 3,
-	jump = true,
+	jump = false,
 	drops = {
 		{name = "default:wood", chance = 1, min = 1, max = 3},
 		{name = "default:apple", chance = 2, min = 1, max = 2},

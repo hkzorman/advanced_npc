@@ -463,6 +463,10 @@ end
 -- Also, the building is scanned for NPC-usable nodes and the amount
 -- of NPCs to spawn and the interval is calculated.
 function spawner.replace_mg_villages_plotmarker(pos)
+  -- Check if it is already replaced
+ --  if minetest.get_node(pos).name == "advanced_npc:plotmarker_auto_spawner" then
+	-- return
+ --  end
   -- Get the meta at the current position
   local meta = minetest.get_meta(pos)
   local village_id = meta:get_string("village_id")
@@ -471,7 +475,7 @@ function spawner.replace_mg_villages_plotmarker(pos)
   -- Following line from mg_villages mod, protection.lua
   local btype = mg_villages.all_villages[village_id].to_add_data.bpos[plot_nr].btype
   local building_data = mg_villages.BUILDINGS[btype]
-  local building_type = building_data.typ 
+  local building_type = building_data.typ
   -- Check if the building is of the support types
   for _,value in pairs(npc.spawner.mg_villages_supported_building_types) do
 
@@ -525,6 +529,8 @@ function spawner.replace_mg_villages_plotmarker(pos)
       	child_total = 0
   	  }
   	  meta:set_string("npc_stats", minetest.serialize(npc_stats))
+  	  -- Set replaced
+  	  meta:set_string("replaced", "true")
       -- Stop searching for building type
       break
 
@@ -618,6 +624,10 @@ if minetest.get_modpath("mg_villages") ~= nil then
     chance = 1, --5,
     catch_up = true,
     action = function(pos, node, active_object_count, active_object_count_wider)
+      -- Check if replacement is needed
+      if minetest.get_meta(pos):get_string("replaced") == "true" then
+      	return
+      end
        -- Check if replacement is activated
       if npc.spawner.replace_activated then
         -- Replace mg_villages:plotmarker
