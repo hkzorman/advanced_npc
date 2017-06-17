@@ -1,1 +1,1 @@
-Adds simple NPC and Trader.
+Adds NPCs which are smart, have homes, can talk, trade and even establish friendships and more with you!

@@ -1,4 +1,4 @@
 default
 mobs
+mg_villages?
 intllib?
-pathfinder
