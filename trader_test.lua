@@ -123,14 +123,14 @@ function mobs_trader(self, clicker, race)
 
 	if not self.id then
 		self.id = (math.random(1, 1000) * math.random(1, 10000))
-			.. self.name .. (math.random(1, 1000) ^ 2)
+			.. self.npc_name .. (math.random(1, 1000) ^ 2)
 	end
 
 	if not self.game_name then
 		self.game_name = tostring(race.names[math.random(1, #race.names)])
-		self.nametag = S("Trader @1", self.game_name)
+		self.npc_nametag = S("Trader @1", self.game_name)
 		self.object:set_properties({
-			nametag = self.nametag,
+			nametag = self.npc_nametag,
 			nametag_color = "#00FF00"
 		})
 	end

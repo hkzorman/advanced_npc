@@ -112,7 +112,7 @@ function npc.trade.show_trade_offer_formspec(self, player, offer_type)
                 default.gui_bg..
                 default.gui_bg_img..
                 default.gui_slots..
-                "label[2,0.1;"..self.name..prompt_string.."]"..
+                "label[2,0.1;"..self.npc_name..prompt_string.."]"..
                 "item_image_button[2,1.3;1.2,1.2;"..trade_offer.item..";item;]"..
                 "label[3.75,1.75;"..for_string.."]"..
                 "item_image_button[4.8,1.3;1.2,1.2;"..trade_offer.price[1]..";price;]"..
@@ -221,7 +221,7 @@ function npc.trade.show_custom_trade_offer(self, player, offer)
                 default.gui_bg..
                 default.gui_bg_img..
                 default.gui_slots..
-                "label[2,0.1;"..self.name..": "..offer.dialogue_prompt.."]"..
+                "label[2,0.1;"..self.npc_name..": "..offer.dialogue_prompt.."]"..
                 price_grid..
                 "label["..(margin_x + 3.75)..",1.75;"..for_string.."]"..
                 "item_image_button["..(margin_x + 4.8)..",1.3;1.2,1.2;"..offer.item..";item;]"..

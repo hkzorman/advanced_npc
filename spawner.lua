@@ -57,10 +57,14 @@ npc.spawner.replacement_interval = 60
 npc.spawner.spawn_delay = 10
 
 npc.spawner.spawn_data = {
- status = {
-    ["dead"] = 0,
-    ["alive"] = 1
-  }
+	status = {
+    	dead = 0,
+    	alive = 1
+  	},
+  	age = {
+  		adult = "adult",
+  		child = "child"
+	}
 }
 
 local function get_basic_schedule()
@@ -220,7 +224,7 @@ function spawner.assign_places(self, pos)
   				-- Store changes to node_data
   				meta:set_string("node_data", minetest.serialize(node_data))
   				minetest.log("Added bed at "..minetest.pos_to_string(node_data.bed_type[i].node_pos)
-  					.." to NPC "..dump(self.name))
+  					.." to NPC "..dump(self.npc_name))
   				break
   			end
   		end
@@ -241,6 +245,8 @@ end
 
 
 function spawner.assign_schedules(self, pos)
+	-- TODO: In the future, this needs to actually take into account
+	-- type of building and different schedules, e.g. farmers, traders, etc.
 	local basic_schedule = get_basic_schedule()
 	-- Add a simple schedule for testing
   	npc.create_schedule(self, npc.schedule_types.generic, 0)
@@ -252,11 +258,6 @@ function spawner.assign_schedules(self, pos)
 
 	-- Add schedule entry for evening actions
 	npc.add_schedule_entry(self, npc.schedule_types.generic, 0, 22, nil, basic_schedule.evening_actions)
-	
-	minetest.log("Schedules: "..dump(self.schedules))
-	--local afternoon_actions = { [1] = {action = npc.actions.stand, args = {}} }
-	--local afternoon_actions = {[1] = {task = npc.actions.cmd.USE_SITTABLE, args = {pos=nodes[1], action=npc.actions.const.sittable.GET_UP} } }
-
 end
 
 -- This function is called when the node timer for spawning NPC
@@ -266,17 +267,27 @@ function npc.spawner.spawn_npc(pos)
   local timer = minetest.get_node_timer(pos)
   -- Get metadata
   local meta = minetest.get_meta(pos)
+  -- Get current NPC info
+  local npc_table = minetest.deserialize(meta:get_string("npcs"))
+  -- Get NPC stats
+  local npc_stats = minetest.deserialize(meta:get_string("npc_stats"))
   -- Check amount of NPCs that should be spawned
   local npc_count = meta:get_int("npc_count")
   local spawned_npc_count = meta:get_int("spawned_npc_count")
-  minetest.log("Currently spawned "..dump(spawned_npc_count).." of "..dump(npc_count).." NPCs")
+  minetest.log("[advanced_npc] INFO Currently spawned "..dump(spawned_npc_count).." of "..dump(npc_count).." NPCs")
   if spawned_npc_count < npc_count then
-    minetest.log("[advanced_npc] Spawning NPC at "..minetest.pos_to_string(pos))
+    minetest.log("[advanced_npc] INFO Spawning NPC at "..minetest.pos_to_string(pos))
     -- Spawn a NPC
     local ent = minetest.add_entity({x=pos.x, y=pos.y+1, z=pos.z}, "advanced_npc:npc")
     if ent and ent:get_luaentity() then
       ent:get_luaentity().initialized = false
-      npc.initialize(ent, pos)
+      -- Initialize NPC
+      -- Call with stats if there are NPCs
+      if #npc_table > 0 then
+      	npc.initialize(ent, pos, false, npc_stats)
+      else
+      	npc.initialize(ent, pos)
+      end
       -- Assign nodes
       spawner.assign_places(ent:get_luaentity(), pos)
       -- Assign schedules
@@ -285,22 +296,34 @@ function npc.spawner.spawn_npc(pos)
       spawned_npc_count = spawned_npc_count + 1
       -- Store count into node
       meta:set_int("spawned_npc_count", spawned_npc_count)
-      -- Store spawned NPC data into node
-      local npc_table = minetest.deserialize(meta:get_string("npcs"))
+      -- Store spawned NPC data and stats into node
+      local age = npc.age.adult
+      if ent:get_luaentity().child then
+      	age = npc.age.child
+      end 
       -- TODO: Add more information here at some time...
       local entry = {
         status = npc.spawner.spawn_data.status.alive,
         name = ent:get_luaentity().name,
         id = ent:get_luaentity().npc_id,
         sex = ent:get_luaentity().sex,
-        age = ent:get_luaentity().
+        age = age,
         born_day = minetest.get_day_count()
       }
       table.insert(npc_table, entry)
-      -- Store into metadata
       meta:set_string("npcs", minetest.serialize(npc_table))
+      -- Update and store stats
+      -- Increase total of NPCs for specific sex
+      npc_stats[ent:get_luaentity().sex].total = 
+      	npc_stats[ent:get_luaentity().sex].total + 1
+      -- Increase total number of NPCs by age
+      npc_stats[age.."_total"] = npc_stats[age.."_total"] + 1
+      -- Increase number of NPCs by age and sex
+      npc_stats[ent:get_luaentity().sex][age] = 
+      	npc_stats[ent:get_luaentity().sex][age] + 1
+      meta:set_string("npc_stats", minetest.serialize(npc_stats))
       -- Temp
-      meta:set_string("infotext", meta:get_string("infotext")..", "..spawned_npc_count)
+      --meta:set_string("infotext", meta:get_string("infotext")..", "..spawned_npc_count)
       minetest.log("[advanced_npc] INFO Spawning successful!")
       -- Check if there are more NPCs to spawn
       if spawned_npc_count >= npc_count then
@@ -486,6 +509,22 @@ function spawner.replace_mg_villages_plotmarker(pos)
       -- Initialize NPCs
       local npcs = {}
       meta:set_string("npcs", minetest.serialize(npcs))
+      -- Initialize NPC stats
+      local npc_stats = {
+      	male = {
+      		total = 0,
+      		adult = 0,
+      		child = 0
+      	},
+      	female = {
+      		total = 0,
+      		adult = 0,
+      		child = 0
+      	},
+      	adult_total = 0,
+      	child_total = 0
+  	  }
+  	  meta:set_string("npc_stats", minetest.serialize(npc_stats))
       -- Stop searching for building type
       break
 
@@ -525,11 +564,12 @@ if minetest.get_modpath("mg_villages") ~= nil then
       --local entrance = npc.places.find_entrance_from_openable_nodes(nodedata.openable_type, pos)
       --minetest.log("Found entrance: "..dump(entrance))
 
-      for i = 1, #nodedata.bed_type do
-      	nodedata.bed_type[i].owner = ""
-      end
-      minetest.get_meta(pos):set_string("node_data", minetest.serialize(nodedata))
-      minetest.log("Cleared bed owners")
+      -- for i = 1, #nodedata.bed_type do
+      -- 	nodedata.bed_type[i].owner = ""
+      -- end
+      -- minetest.get_meta(pos):set_string("node_data", minetest.serialize(nodedata))
+      -- minetest.log("Cleared bed owners")
+      minetest.log("NPC stats: "..dump(minetest.deserialize(minetest.get_meta(pos):get_string("npc_stats"))))
 
       return mg_villages.plotmarker_formspec( pos, nil, {}, clicker )
     end,
@@ -632,6 +672,10 @@ minetest.register_chatcommand("restore_plotmarkers", {
       meta:set_string("village_id", village_id)
       meta:set_int("plot_nr", plot_nr)
       meta:set_string("infotext", infotext)
+      -- Clear NPC stats, NPC data and node data
+      meta:set_string("node_data", nil)
+      meta:set_string("npcs", nil)
+      meta:set_string("npc_stats", nil)
     end
     minetest.chat_send_player(name, "Finished replacement of "..dump(#nodes).." auto-spawners successfully")
   end

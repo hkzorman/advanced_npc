@@ -9,6 +9,11 @@ npc = {}
 npc.FEMALE = "female"
 npc.MALE = "male"
 
+npc.age = {
+  adult = "adult",
+  child = "child"
+}
+
 npc.INVENTORY_ITEM_MAX_STACK = 99
 
 npc.ANIMATION_STAND_START = 0
@@ -89,8 +94,46 @@ local function is_female_texture(textures)
   return false
 end
 
+local function get_random_texture(sex, age)
+  local textures = {}
+  local filtered_textures = {}
+    -- Find textures by sex and age
+  if age == npc.age.adult then
+    --minetest.log("Registered: "..dump(minetest.registered_entities["advanced_npc:npc"]))
+    textures = minetest.registered_entities["advanced_npc:npc"].texture_list
+  elseif age == npc.age.child then
+    textures = minetest.registered_entities["advanced_npc:npc"].child_texture
+  end
+
+  minetest.log("Textures: "..dump(textures))
+  minetest.log("Sex: "..sex)
+  minetest.log("Age: "..age)
+
+  for i = 1, #textures do
+    local current_texture = textures[i][1]
+    if (sex == npc.MALE 
+        and string.find(current_texture, sex) 
+        and not string.find(current_texture, npc.FEMALE))
+    or (sex == npc.FEMALE 
+        and string.find(current_texture, sex)) then
+      table.insert(filtered_textures, current_texture)
+    end
+  end
+
+  -- Check if filtered textures is empty
+  if filtered_textures == {} then
+    return textures[1][1]
+  end
+
+  return filtered_textures[math.random(1,#filtered_textures)]
+end
+
 -- Choose whether NPC can have relationships. Only 30% of NPCs cannot have relationships
-local function can_have_relationships()
+local function can_have_relationships(age)
+  -- Children can't have relationships
+  if not age then
+    return false
+  end
   local chance = math.random(1,10)
   return chance > 3
 end
@@ -132,7 +175,7 @@ end
 
 -- Spawn function. Initializes all variables that the
 -- NPC will have and choose random, starting values
-function npc.initialize(entity, pos, is_lua_entity)
+function npc.initialize(entity, pos, is_lua_entity, npc_stats)
   minetest.log("[advanced_npc] INFO: Initializing NPC at "..minetest.pos_to_string(pos))
 
   -- Get variables
@@ -146,21 +189,93 @@ function npc.initialize(entity, pos, is_lua_entity)
   -- Avoid NPC to be removed by mobs_redo API
   ent.remove_ok = false
   
-  -- Determine sex based on textures
-  if (is_female_texture(ent.base_texture)) then
-    ent.sex = npc.FEMALE
+  -- Determine sex and age
+  -- If there's no previous NPC data, sex and age will be randomly chosen.
+  --   - Sex: Female or male will have each 50% of spawning
+  --   - Age: 90% chance of spawning adults, 10% chance of spawning children.
+  -- If there is previous data then:
+  --   - Sex: The unbalanced sex will get a 75% chance of spawning
+  --          - Example: If there's one male, then female will have 75% spawn chance.
+  --          -          If there's male and female, then each have 50% spawn chance.
+  --   - Age: For each two adults, the chance of spawning a child next will be 50%
+  --          If there's a child for two adults, the chance of spawning a child goes to
+  --          40% and keeps decreasing unless two adults have no child.
+  if npc_stats then
+    -- Default chances
+    local male_s, male_e = 0, 50
+    local female_s, female_e = 51, 100
+    local adult_s, adult_e = 0, 90
+    local child_s, child_e = 91, 100
+    -- Determine sex probabilities
+    if npc_stats[npc.FEMALE].total > npc_stats[npc.MALE].total then
+      male_e = 75
+      female_s, female_e = 76, 100
+    elseif npc_stats[npc.FEMALE].total < npc_stats[npc.MALE].total then
+      male_e = 25
+      female_s, female_e = 26, 100
+    end
+    -- Determine age probabilities
+    if npc_stats["adult_total"] >= 2 then
+      if npc_stats["adult_total"] % 2 == 0 
+        and (npc_stats["adult_total"] / 2 > npc_stats["child_total"]) then
+        child_s,child_e = 51, 100
+        adult_e = 50
+      else
+        child_s, child_e = 61, 100
+        adult_e = 60
+      end
+    end
+    -- Get sex and age based on the probabilities
+    local sex_chance = math.random(1, 100)
+    local age_chance = math.random(1, 100)
+    local selected_sex = ""
+    local selected_age = ""
+    -- Select sex
+    if male_s <= sex_chance and sex_chance <= male_e then
+      selected_sex = npc.MALE
+    elseif female_s <= sex_chance and sex_chance <= female_e then
+      selected_sex = npc.FEMALE
+    end
+    -- Set sex for NPC
+    ent.sex = selected_sex
+    -- Select age
+    if adult_s <= age_chance and age_chance <= adult_e then
+      selected_age = npc.age.adult
+    elseif child_s <= age_chance and age_chance <= child_e then
+      selected_age = npc.age.child
+      ent.visual_size = {
+        x = 0.5,
+        y = 0.5
+      }
+      ent.collisionbox = {-0.10,-0.50,-0.10, 0.10,0.40,0.10}
+      ent.is_child = true
+    end
+    -- Set texture accordingly
+    local selected_texture = get_random_texture(selected_sex, selected_age)
+    --minetest.log("Selected texture: "..dump(selected_texture))
+    ent.textures = {selected_texture}
+    if selected_age == npc.age.child then
+      ent.base_texture = selected_texture
+    end
   else
-    ent.sex = npc.MALE
+    -- Get sex based on texture. This is a 50% chance for
+    -- each sex as there's same amount of textures for male and female.
+    -- Do not spawn child as first NPC
+    if (is_female_texture(ent.base_texture)) then
+      ent.sex = npc.FEMALE
+    else
+      ent.sex = npc.MALE
+    end
   end
 
   -- Nametag is initialized to blank
   ent.nametag = ""
 
   -- Set name
-  ent.name = get_random_name(ent.sex)
+  ent.npc_name = get_random_name(ent.sex)
 
   -- Set ID
-  ent.npc_id = tostring(math.random(1000, 9999))..":"..ent.name
+  ent.npc_id = tostring(math.random(1000, 9999))..":"..ent.npc_name
   
   -- Initialize all gift data
   ent.gift_data = {
@@ -171,7 +286,7 @@ function npc.initialize(entity, pos, is_lua_entity)
   }
   
   -- Flag that determines if NPC can have a relationship
-  ent.can_have_relationship = can_have_relationships()
+  ent.can_have_relationship = can_have_relationships(ent.is_child)
 
   -- Initialize relationships object
   ent.relationships = {}
@@ -285,28 +400,6 @@ function npc.initialize(entity, pos, is_lua_entity)
     date_based = {}
   }
 
-  -- Temporary initialization of actions for testing
-  local nodes = npc.places.find_node_nearby(ent.object:getpos(), {"cottages:bench"}, 20)
-
-  --minetest.log("Self destination: "..minetest.pos_to_string(nodes[1]))
-
-  --local path = pathfinder.find_path(ent.object:getpos(), nodes[1], 20, {})
-  --minetest.log("Path to node: "..dump(path))
-  --npc.add_action(ent, npc.actions.use_door, {self = ent, pos = nodes[1], action = npc.actions.door_action.OPEN})
-  --npc.add_action(ent, npc.actions.stand, {self = ent})
-  --npc.add_action(ent, npc.actions.stand, {self = ent})
-  -- if nodes[1] ~= nil then
-  --   npc.add_task(ent, npc.actions.walk_to_pos, {end_pos=nodes[1], walkable={}})
-  --   npc.actions.use_furnace(ent, nodes[1], "default:cobble 5", false)
-  --   --npc.add_action(ent, npc.actions.sit, {self = ent})
-  --   -- npc.add_action(ent, npc.actions.lay, {self = ent})
-  --   -- npc.add_action(ent, npc.actions.lay, {self = ent})
-  --   -- npc.add_action(ent, npc.actions.lay, {self = ent})
-  --   --npc.actions.use_sittable(ent, nodes[1], npc.actions.const.sittable.GET_UP)
-  --   --npc.add_action(ent, npc.actions.set_interval, {self=ent, interval=10, freeze=true})
-  --   npc.add_action(ent, npc.actions.freeze, {freeze = false})
-  --end
-
   -- Dedicated trade test
   ent.trader_data.trade_list.both = {
     ["default:tree"] = {},
@@ -332,15 +425,8 @@ function npc.initialize(entity, pos, is_lua_entity)
   local offer2 = npc.trade.create_custom_sell_trade_offer("Do you want me to fix your mese sword?", "Fix mese sword", "Fix mese sword", "default:sword_mese", {"default:sword_mese", "default:copper_lump 10"})
   table.insert(ent.trader_data.custom_trades, offer2)
 
-  -- Temporary initialization of places
-  -- local bed_nodes = npc.places.find_new_nearby(ent, npc.places.nodes.BEDS, 8)
-  -- minetest.log("Number of bed nodes: "..dump(#bed_nodes))
-  -- if #bed_nodes > 0 then
-  --   npc.places.add_owned(ent, "bed1", npc.places.PLACE_TYPE.OWN_BED, bed_nodes[1])
-  -- end
-
   --minetest.log(dump(ent))
-  minetest.log("[advanced_npc] INFO Successfully initialized NPC with name "..dump(ent.name))
+  minetest.log("[advanced_npc] INFO Successfully initialized NPC with name "..dump(ent.npc_name))
   -- Refreshes entity
   ent.object:set_properties(ent)
 end
@@ -510,7 +596,7 @@ end
 function npc.execute_action(self)
   -- Check if an action was interrupted
   if self.actions.current_action_state == npc.action_state.interrupted then
-    minetest.log("[advanced_npc] DEBUG Re-inserting interrupted action for NPC: '"..dump(self.name).."': "..dump(self.actions.state_before_lock.interrupted_action))
+    minetest.log("[advanced_npc] DEBUG Re-inserting interrupted action for NPC: '"..dump(self.npc_name).."': "..dump(self.actions.state_before_lock.interrupted_action))
     -- Insert into queue the interrupted action
     table.insert(self.actions.queue, 1, self.actions.state_before_lock.interrupted_action)
     -- Clear the action
@@ -532,7 +618,7 @@ function npc.execute_action(self)
   -- If the entry is a task, then push all this new operations in
   -- stack fashion
   if action_obj.is_task == true then
-    minetest.log("[advanced_npc] DEBUG Executing task for NPC '"..dump(self.name).."': "..dump(action_obj))
+    minetest.log("[advanced_npc] DEBUG Executing task for NPC '"..dump(self.npc_name).."': "..dump(action_obj))
     -- Backup current queue
     local backup_queue = self.actions.queue
     -- Remove this "task" action from queue
@@ -548,7 +634,7 @@ function npc.execute_action(self)
       table.insert(self.actions.queue, backup_queue[i])
     end
   else
-    minetest.log("[advanced_npc] DEBUG Executing action for NPC '"..dump(self.name).."': "..dump(action_obj))
+    minetest.log("[advanced_npc] DEBUG Executing action for NPC '"..dump(self.npc_name).."': "..dump(action_obj))
     -- Store the action that is being executed
     self.actions.state_before_lock.interrupted_action = action_obj
     -- Store current position
@@ -773,12 +859,13 @@ mobs:register_mob("advanced_npc:npc", {
 	mesh = "character.b3d",
 	drawtype = "front",
 	textures = {
-		{"mobs_npc_male1.png"},
-		{"mobs_npc_female1.png"}, -- female by nuttmeg20
+		{"npc_male1.png"},
+		{"npc_female1.png"}, -- female by nuttmeg20
 	},
 	child_texture = {
-		{"mobs_npc_baby_male1.png"}, -- derpy baby by AmirDerAssassine
-	},
+		{"npc_baby_male1.png"}, -- derpy baby by AmirDerAssassine
+	  {"npc_baby_female1.png"},
+  },
 	makes_footstep_sound = true,
 	sounds = {},
 	-- Added walk chance
@@ -822,8 +909,17 @@ mobs:register_mob("advanced_npc:npc", {
     -- Get information from clicker
 		local item = clicker:get_wielded_item()
 		local name = clicker:get_player_name()
-    
+
+    --self.child = true
+    --self.textures = {"mobs_npc_child_male1.png"}
+    --self.base_texture = "mobs_npc_child_male1.png"
+    --self.object:set_properties(self)
+
     minetest.log(dump(self))
+
+    minetest.log("Child: "..dump(self.is_child))
+    minetest.log("Sex: "..dump(self.sex))
+    minetest.log("Textures: "..dump(self.textures))
     
     -- Receive gift or start chat. If player has no item in hand
     -- then it is going to start chat directly
@@ -835,7 +931,7 @@ mobs:register_mob("advanced_npc:npc", {
       -- Show dialogue to confirm that player is giving item as gift
       npc.dialogue.show_yes_no_dialogue(
         self,
-        "Do you want to give "..item_name.." to "..self.name.."?",
+        "Do you want to give "..item_name.." to "..self.npc_name.."?",
         npc.dialogue.POSITIVE_GIFT_ANSWER_PREFIX..item_name,
         function()
           npc.relationships.receive_gift(self, clicker)

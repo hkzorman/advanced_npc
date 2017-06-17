@@ -844,7 +844,7 @@ function npc.actions.walk_to_pos(self, args)
 		-- Check if movement is enforced
 		if enforce_move then
 			-- Move to end pos
-			self.object:moveto(end_pos)
+			self.object:moveto({x=end_pos.x, y=end_pos.y+1, z=end_pos.z})
 		end 
 	end
 end
