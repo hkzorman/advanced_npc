@@ -42,9 +42,27 @@ npc.action_state = {
   interrupted = 2
 }
 
+npc.log_level = {
+  INFO = true,
+  WARNING = false,
+  ERROR = true,
+  DEBUG = false
+}
+
 ---------------------------------------------------------------------------------------
 -- General functions
 ---------------------------------------------------------------------------------------
+-- Logging
+function npc.log(level, message)
+  if npc.log_level[level] then
+    minetest.log("[advanced_npc] "..type..": "..message)
+  end
+end
+
+-- NPC chat
+function npc.chat(npc_name, player_name, message)
+  minetest.chat_send_player(player_name, npc_name..": "..message)
+
 -- Gets name of player or NPC
 function npc.get_entity_name(entity)
   if entity:is_player() then
@@ -176,7 +194,7 @@ end
 -- Spawn function. Initializes all variables that the
 -- NPC will have and choose random, starting values
 function npc.initialize(entity, pos, is_lua_entity, npc_stats)
-  minetest.log("[advanced_npc] INFO: Initializing NPC at "..minetest.pos_to_string(pos))
+  npc.log("INFO", "Initializing NPC at "..minetest.pos_to_string(pos))
 
   -- Get variables
   local ent = entity
@@ -426,7 +444,7 @@ function npc.initialize(entity, pos, is_lua_entity, npc_stats)
   table.insert(ent.trader_data.custom_trades, offer2)
 
   --minetest.log(dump(ent))
-  minetest.log("[advanced_npc] INFO Successfully initialized NPC with name "..dump(ent.npc_name))
+  npc.log("INFO", "Successfully initialized NPC with name "..dump(ent.npc_name))
   -- Refreshes entity
   ent.object:set_properties(ent)
 end
@@ -596,7 +614,7 @@ end
 function npc.execute_action(self)
   -- Check if an action was interrupted
   if self.actions.current_action_state == npc.action_state.interrupted then
-    minetest.log("[advanced_npc] DEBUG Re-inserting interrupted action for NPC: '"..dump(self.npc_name).."': "..dump(self.actions.state_before_lock.interrupted_action))
+    npc.log("DEBUG", "Re-inserting interrupted action for NPC: '"..dump(self.npc_name).."': "..dump(self.actions.state_before_lock.interrupted_action))
     -- Insert into queue the interrupted action
     table.insert(self.actions.queue, 1, self.actions.state_before_lock.interrupted_action)
     -- Clear the action
@@ -618,7 +636,7 @@ function npc.execute_action(self)
   -- If the entry is a task, then push all this new operations in
   -- stack fashion
   if action_obj.is_task == true then
-    minetest.log("[advanced_npc] DEBUG Executing task for NPC '"..dump(self.npc_name).."': "..dump(action_obj))
+    npc.log("DEBUG", "Executing task for NPC '"..dump(self.npc_name).."': "..dump(action_obj))
     -- Backup current queue
     local backup_queue = self.actions.queue
     -- Remove this "task" action from queue
@@ -634,7 +652,7 @@ function npc.execute_action(self)
       table.insert(self.actions.queue, backup_queue[i])
     end
   else
-    minetest.log("[advanced_npc] DEBUG Executing action for NPC '"..dump(self.npc_name).."': "..dump(action_obj))
+    npc.log("DEBUG", "Executing action for NPC '"..dump(self.npc_name).."': "..dump(action_obj))
     -- Store the action that is being executed
     self.actions.state_before_lock.interrupted_action = action_obj
     -- Store current position
@@ -689,7 +707,7 @@ function npc.lock_actions(self)
   -- Freeze mobs_redo API
   self.freeze = false
 
-  minetest.log("Locking")
+  npc.log("DEBUG", "Locking NPC "..dump(self.npc_id).." actions")
 end
 
 function npc.unlock_actions(self)
@@ -703,7 +721,7 @@ function npc.unlock_actions(self)
     self.freeze = true
   end
 
-  minetest.log("Unlocked")
+  npc.log("DEBUG", "Unlocked NPC "..dump(self.npc_id).." actions")
 end
 
 ---------------------------------------------------------------------------------------
@@ -863,7 +881,7 @@ mobs:register_mob("advanced_npc:npc", {
 		{"npc_female1.png"}, -- female by nuttmeg20
 	},
 	child_texture = {
-		{"npc_baby_male1.png"}, -- derpy baby by AmirDerAssassine
+		{"npc_baby_male1.png"},
 	  {"npc_baby_female1.png"},
   },
 	makes_footstep_sound = true,
@@ -915,12 +933,8 @@ mobs:register_mob("advanced_npc:npc", {
     --self.base_texture = "mobs_npc_child_male1.png"
     --self.object:set_properties(self)
 
-    minetest.log(dump(self))
+    npc.log("DEBUG", "Right-clicked NPC: "..dump(self))
 
-    minetest.log("Child: "..dump(self.is_child))
-    minetest.log("Sex: "..dump(self.sex))
-    minetest.log("Textures: "..dump(self.textures))
-    
     -- Receive gift or start chat. If player has no item in hand
     -- then it is going to start chat directly
     if self.can_have_relationship and item:to_table() ~= nil then
@@ -952,7 +966,7 @@ mobs:register_mob("advanced_npc:npc", {
       -- Initialize NPC if spawned using the spawn egg built in from
       -- mobs_redo. This functionality will be removed in the future in
       -- favor of a better manual spawning method with customization 
-      minetest.log("[advanced_npc] WARNING: Initializing NPC from entity step. This message should only be appearing if an NPC is being spawned from inventory with egg!")
+      npc.log("WARNING", "Initializing NPC from entity step. This message should only be appearing if an NPC is being spawned from inventory with egg!")
       npc.initialize(self, self.object:getpos(), true)
     else
       self.tamed = false
@@ -1049,7 +1063,7 @@ mobs:register_mob("advanced_npc:npc", {
                 -- to action queue. This is for jobs.
                 -- TODO: Need to implement
               else
-                minetest.log("Adding actions to action queue")
+                npc.log("DEBUG", "Adding actions to action queue")
                 -- Add to action queue all actions on schedule
                 for i = 1, #schedule[time] do
                   if schedule[time][i].action == nil then
@@ -1060,7 +1074,7 @@ mobs:register_mob("advanced_npc:npc", {
                     npc.add_action(self, schedule[time][i].action, schedule[time][i].args)
                   end
                 end
-                minetest.log("New action queue: "..dump(self.actions))
+                npc.log("DEBUG", "New action queue: "..dump(self.actions))
               end
             end
           end

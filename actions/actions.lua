@@ -141,8 +141,8 @@ end
 -- and the NPC is allowed to roam freely.
 function npc.actions.freeze(self, args)
 	local freeze_mobs_api = args.freeze
-	minetest.log("Received: "..dump(freeze_mobs_api))
-	minetest.log("Returning: "..dump(not(freeze_mobs_api)))
+	--minetest.log("Received: "..dump(freeze_mobs_api))
+	--minetest.log("Returning: "..dump(not(freeze_mobs_api)))
 	return not(freeze_mobs_api)
 end
 
@@ -333,7 +333,7 @@ function npc.actions.take_item_from_external_inventory(self, args)
 	else
 		inv = minetest.get_inventory({type="node", pos=pos})
 	end
-	-- Create ItemSTack to take from external inventory
+	-- Create ItemStack to take from external inventory
 	local item = ItemStack(item_name.." "..count)
 	-- Check if there is enough of the item to take
 	if inv:contains_item(inv_list, item) then
@@ -369,7 +369,7 @@ end
 -- TODO: Refactor this function so that it uses a table to check
 -- for doors instead of having separate logic for each door type
 function npc.actions.get_openable_node_state(node, npc_dir)
-	minetest.log("Node name: "..dump(node.name))
+	--minetest.log("Node name: "..dump(node.name))
 	local state = npc.actions.const.doors.state.CLOSED
 	-- Check for default doors and gates
 	local a_i1, a_i2 = string.find(node.name, "_a")
@@ -383,7 +383,7 @@ function npc.actions.get_openable_node_state(node, npc_dir)
 	if a_i1 == nil and open_i1 == nil and not half_door_is_closed then
 		state = npc.actions.const.doors.state.OPEN
 	end
-	minetest.log("Door state: "..dump(state))
+	--minetest.log("Door state: "..dump(state))
 	return state
 end
 
@@ -412,10 +412,10 @@ end
 -- items from a chest, are provided here.
 
 local function get_pos_argument(self, pos)
-	minetest.log("Type of pos: "..dump(type(pos)))
+	--minetest.log("Type of pos: "..dump(type(pos)))
 	-- Check which type of position argument we received
 	if type(pos) == "table" then
-		minetest.log("Received table pos: "..dump(pos))
+		--minetest.log("Received table pos: "..dump(pos))
 		-- Check if table is position
 		if pos.x ~= nil and pos.y ~= nil and pos.z ~= nil then
 			-- Position received, return position
@@ -468,7 +468,7 @@ end
 function npc.actions.use_furnace(self, args)
 	local pos = get_pos_argument(self, args.pos)
 	if pos == nil then
-		minetest.log("[advanced_npc] WARNING Got nil position in 'use_furnace' using args.pos: "..dump(args.pos))
+		npc.log("WARNING", "Got nil position in 'use_furnace' using args.pos: "..dump(args.pos))
 		return
 	end
 
@@ -478,14 +478,14 @@ function npc.actions.use_furnace(self, args)
 	-- will mainly use this as fuels to avoid getting useful
 	-- items (such as coal lumps) for burning
 	local fuels = {"default:leaves", 
-								 "default:pine_needles",
-								 "default:tree",
-								 "default:acacia_tree",
-								 "default:aspen_tree",
-								 "default:jungletree",
-								 "default:pine_tree",
-								 "default:coalblock",
-								 "farming:straw"}
+					"default:pine_needles",
+					"default:tree",
+					"default:acacia_tree",
+					"default:aspen_tree",
+					"default:jungletree",
+					"default:pine_tree",
+					"default:coalblock",
+					"farming:straw"}
 
 	-- Check if NPC has item to cook
 	local src_item = npc.inventory_contains(self, npc.get_item_name(item))
@@ -503,15 +503,15 @@ function npc.actions.use_furnace(self, args)
 			local fuel_time = 
 			minetest.get_craft_result({method="fuel", width=1, items={ItemStack(fuel_item.item_string)}}).time 
 			local total_fuel_time = fuel_time * npc.get_item_count(fuel_item.item_string)
-			minetest.log("Fuel time: "..dump(fuel_time))
+			npc.log("DEBUG", "Fuel time: "..dump(fuel_time))
 
 			-- Get item to cook's cooking time
 			local cook_result = 
 			minetest.get_craft_result({method="cooking", width=1, items={ItemStack(src_item.item_string)}})
 			local total_cook_time = cook_result.time * npc.get_item_count(item)
-			minetest.log("Cook: "..dump(cook_result))
+			npc.log("DEBUG", "Cook: "..dump(cook_result))
 
-			minetest.log("Total cook time: "..total_cook_time
+			npc.log("DEBUG", "Total cook time: "..total_cook_time
 				..", total fuel burn time: "..dump(total_fuel_time))
 
 			-- Check if there is enough fuel to cook all items
@@ -531,7 +531,7 @@ function npc.actions.use_furnace(self, args)
 				fuel_amount = 1
 			end
 
-			minetest.log("Amount of fuel needed: "..fuel_amount)
+			npc.log("DEBUG", "Amount of fuel needed: "..fuel_amount)
 
 			-- Put this item on the fuel inventory list of the furnace
 			local args = {
@@ -554,7 +554,7 @@ function npc.actions.use_furnace(self, args)
 			npc.add_action(self, npc.actions.cmd.PUT_ITEM, args)
 
 			-- Now, set NPC to wait until furnace is done.
-			minetest.log("Setting wait action for "..dump(total_cook_time))
+			npc.log("DEBUG", "Setting wait action for "..dump(total_cook_time))
 			npc.add_action(self, npc.actions.cmd.SET_INTERVAL, {interval=total_cook_time, freeze=freeze})
 
 			-- Reset timer
@@ -563,7 +563,7 @@ function npc.actions.use_furnace(self, args)
 			-- If freeze is false, then we will have to find the way back to the furnace
 			-- once cooking is done.
 			if freeze == false then
-				minetest.log("Adding walk to position to wandering: "..dump(pos))
+				npc.log("DEBUG", "Adding walk to position to wandering: "..dump(pos))
 				npc.add_task(self, npc.actions.cmd.WALK_TO_POS, {end_pos=pos, walkable={}})
 			end
 
@@ -577,10 +577,10 @@ function npc.actions.use_furnace(self, args)
 				 count = npc.get_item_count(item),
 				 is_furnace = false
 			}
-			minetest.log("Taking item back: "..minetest.pos_to_string(pos))
+			npc.log("DEBUG", "Taking item back: "..minetest.pos_to_string(pos))
 			npc.add_action(self, npc.actions.cmd.TAKE_ITEM, args)
 
-			minetest.log("Inventory: "..dump(self.inventory))
+			npc.log("DEBUG", "Inventory: "..dump(self.inventory))
 
 			return true
 		end
@@ -594,7 +594,7 @@ end
 function npc.actions.use_bed(self, args)
 	local pos = get_pos_argument(self, args.pos)
 	if pos == nil then
-		minetest.log("[advanced_npc] WARNING Got nil position in 'use_bed' using args.pos: "..dump(args.pos))
+		npc.log("WARNING", "Got nil position in 'use_bed' using args.pos: "..dump(args.pos))
 		return
 	end
 	local action = args.action
@@ -654,7 +654,7 @@ end
 function npc.actions.use_sittable(self, args)
 	local pos = get_pos_argument(self, args.pos)
 	if pos == nil then
-		minetest.log("[advanced_npc] WARNING Got nil position in 'use_sittable' using args.pos: "..dump(args.pos))
+		npc.log("WARNING", "Got nil position in 'use_sittable' using args.pos: "..dump(args.pos))
 		return
 	end
 	local action = args.action
@@ -727,7 +727,7 @@ function npc.actions.walk_to_pos(self, args)
 	-- Get arguments for this task 
 	local end_pos = get_pos_argument(self, args.end_pos)
 	if end_pos == nil then
-		minetest.log("[advanced_npc] WARNING Got nil position in 'walk_to_pos' using args.pos: "..dump(args.end_pos))
+		npc.log("WARNING", "Got nil position in 'walk_to_pos' using args.pos: "..dump(args.end_pos))
 		return
 	end
 	local enforce_move = args.enforce_move or true
@@ -737,8 +737,8 @@ function npc.actions.walk_to_pos(self, args)
 	local start_pos = vector.round(self.object:getpos())
 	-- Use y of end_pos (this can only be done assuming flat terrain)
 	--start_pos.y = self.object:getpos().y
-	minetest.log("[advanced_npc] INFO walk_to_pos: Start pos: "..minetest.pos_to_string(start_pos))
-	minetest.log("[advanced_npc] INFO walk_to_pos: End pos: "..minetest.pos_to_string(end_pos))
+	npc.log("DEBUG", "walk_to_pos: Start pos: "..minetest.pos_to_string(start_pos))
+	npc.log("DEBUG", "walk_to_pos: End pos: "..minetest.pos_to_string(end_pos))
 
 	-- Set walkable nodes to empty if the parameter hasn't been used
 	if walkable_nodes == nil then
@@ -759,11 +759,8 @@ function npc.actions.walk_to_pos(self, args)
 		end
 		path = path_detail
 
-		--minetest.log("Found path: "..dump(path))
-
-		--minetest.log("Path detail: "..dump(path_detail))
-		--minetest.log("New path: "..dump(path))
-		minetest.log("[advanced_npc] INFO walk_to_pos Found path to node: "..minetest.pos_to_string(end_pos))
+		npc.log("DEBUG", "Detailed path: "..dump(path))
+		npc.log("INFO", "walk_to_pos Found path to node: "..minetest.pos_to_string(end_pos))
 		-- Store path
 		self.actions.walking.path = path
 
@@ -784,6 +781,8 @@ function npc.actions.walk_to_pos(self, args)
 			if (i+1) == #path then
 				-- Add direction to last node
 				local dir = npc.actions.get_direction(path[i].pos, end_pos)
+				-- Add the last step
+				npc.add_action(self, npc.actions.cmd.WALK_STEP, {dir = dir, speed = speed, target_pos = path[i+1].pos})
 				-- Add stand animation at end
 				npc.add_action(self, npc.actions.cmd.STAND, {dir = dir})
 				break
@@ -823,7 +822,7 @@ function npc.actions.walk_to_pos(self, args)
 				-- end
 				-- local pos_on_close = {x=path[i+1].pos.x + x_adj, y=path[i+1].pos.y + 1, z=path[i+1].pos.z + z_adj}
 				-- Add extra walk step to ensure that one is standing at other side of openable node
-				npc.add_action(self, npc.actions.cmd.WALK_STEP, {dir = dir, speed = speed, target_pos = path[i+2].pos})
+				-- npc.add_action(self, npc.actions.cmd.WALK_STEP, {dir = dir, speed = speed, target_pos = path[i+2].pos})
 				-- Stop to close the door
 				npc.add_action(self, npc.actions.cmd.STAND, {dir=(dir + 2) % 4 })--, pos=pos_on_close})
 				-- Close door
@@ -840,7 +839,7 @@ function npc.actions.walk_to_pos(self, args)
 
 	else
 		-- Unable to find path
-		minetest.log("[advanced_npc] INFO walk_to_pos Unable to find path. Teleporting to: "..minetest.pos_to_string(end_pos))
+		npc.log("WARNING", "walk_to_pos Unable to find path. Teleporting to: "..minetest.pos_to_string(end_pos))
 		-- Check if movement is enforced
 		if enforce_move then
 			-- Move to end pos

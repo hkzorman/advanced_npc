@@ -415,8 +415,8 @@ function npc.trade.get_dedicated_trade_offers(self)
               -- If item found, create a buy offer for this item
               -- Again, offers are created for one item only. Buy offers should be removed
               -- after the NPC has bought a certain quantity, say, 5 items.
-              minetest.log("Item: "..item_name)
-              minetest.log("Trade info: "..dump(trade_info))
+              --minetest.log("Item: "..item_name)
+              --minetest.log("Trade info: "..dump(trade_info))
               --minetest.log("Logic: "..dump(trade_info.item_bought_count == nil 
               --  or (trade_info.item_bought_count ~= nil and trade_info.item_bought_count <= npc.trade.DEDICATED_MAX_BUY_AMOUNT)))
               if trade_info.item_bought_count == nil 
@@ -537,16 +537,17 @@ function npc.trade.perform_trade(self, player_name, offer)
             inv:add_item("main", price_stacks[j])
           end
           -- Send message to player
-          minetest.chat_send_player(player_name, "Thank you!")
+          npc.chat(self.npc_name, player_name, "Thank you!")
           return true
         else
-          minetest.chat_send_player(player_name, 
+          npc.chat(self.npc_name, player_name, 
             "Looks like you can't get what I'm giving you for payment!")
           return false
         end
       end
     else
-      minetest.chat_send_player(player_name, "Looks like you don't have what I want to buy...")
+      npc.chat(self.npc_name, player_name, 
+        "Looks like you don't have what I want to buy...")
       return false
     end
   else
@@ -570,14 +571,16 @@ function npc.trade.perform_trade(self, player_name, offer)
           -- Add item items to player
           inv:add_item("main", item_stack)
           -- Send message to player
-          minetest.chat_send_player(player_name, "Thank you!")
+          npc.chat(self.npc_name, player_name, "Thank you!")
           return true
         else
-          minetest.chat_send_player(player_name, "Looks like you can't carry anything else...")
+          npc.chat(self.npc_name, player_name, 
+            "Looks like you can't carry anything else...")
           return false
         end
       else
-        minetest.chat_send_player(player_name, "Looks like you don't have what I'm asking for!")
+        npc.chat(self.npc_name, player_name, 
+          "Looks like you don't have what I'm asking for!")
         return false
       end
     end
@@ -624,8 +627,8 @@ minetest.register_on_player_receive_fields(function (player, formname, fields)
             if player_response.offers_type == npc.trade.OFFER_BUY then
               -- Increase the item bought count
               local offer_item_name = npc.get_item_name(trade_offers[i].item)
-              minetest.log("Bought item name: "..dump(offer_item_name))
-              minetest.log(dump(player_response.npc.trader_data.trade_list.both[offer_item_name]))
+              --minetest.log("Bought item name: "..dump(offer_item_name))
+              --minetest.log(dump(player_response.npc.trader_data.trade_list.both[offer_item_name]))
               -- Check if this item has been bought before
               if player_response.npc.trader_data.trade_list.both[offer_item_name].item_bought_count == nil then
                 -- Set first count to 1

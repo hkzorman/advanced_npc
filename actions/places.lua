@@ -124,7 +124,7 @@ function npc.places.find_node_orthogonally(pos, nodes, y_adjustment)
   local result = {}
   for _,point in pairs(points) do
     local node = minetest.get_node(point)
-    minetest.log("Found node: "..dump(node)..", at pos: "..dump(point))
+    --minetest.log("Found node: "..dump(node)..", at pos: "..dump(point))
     for _,node_name in pairs(nodes) do
       if node.name == node_name then
         table.insert(result, {name=node.name, pos=point, param2=node.param2})
@@ -194,8 +194,8 @@ function npc.places.find_entrance_from_openable_nodes(all_openable_nodes, marker
       --local path = pathfinder.find_path(start_pos, end_pos, 20, {})
       local entity = {}
       entity.collisionbox = {-0.20,-1.0,-0.20, 0.20,0.8,0.20}
-      minetest.log("Start pos: "..minetest.pos_to_string(start_pos))
-      minetest.log("End pos: "..minetest.pos_to_string(end_pos))
+      --minetest.log("Start pos: "..minetest.pos_to_string(start_pos))
+      --minetest.log("End pos: "..minetest.pos_to_string(end_pos))
       local path = pathfinder.find_path(start_pos, end_pos, entity)
       --minetest.log("Found path: "..dump(path))
       if path ~= nil then
@@ -217,13 +217,13 @@ function npc.places.find_entrance_from_openable_nodes(all_openable_nodes, marker
           -- Check if min-distance door is a cottages door
           -- while we have a MTG door
           if min_node_name == "cottages:half_door" and doors_st ~= nil then
-            minetest.log("Assigned new door...")
+            --minetest.log("Assigned new door...")
             min = #path
             result = openable_nodes[i]
           end
         end
       else
-        minetest.log("Path not found to marker from "..minetest.pos_to_string(start_pos))
+        npc.log("ERROR", "Path not found to marker from "..minetest.pos_to_string(start_pos))
       end
     end
   end
@@ -302,7 +302,7 @@ function npc.places.is_in_staircase(pos)
     -- Get next node
     local upper_node = minetest.get_node(upper_pos)
     local lower_node = minetest.get_node(lower_pos)
-    minetest.log("Next node: "..dump(upper_pos))
+    --minetest.log("Next node: "..dump(upper_pos))
     -- Check if next node is also a stairs node
     local up_p1, up_p2 = string.find(upper_node.name, "stairs:")
     local lo_p1, lo_p2 = string.find(lower_node.name, "stairs:")
@@ -351,7 +351,7 @@ end
 -- front of a door. Used to make NPCs exit buildings.
 function npc.places.find_node_in_front_of_door(door_pos)
   local door = minetest.get_node(door_pos)
-  minetest.log("Param2 of door: "..dump(door.param2))
+  --minetest.log("Param2 of door: "..dump(door.param2))
   if door.param2 == 0 then
     -- Looking south
     return {x=door_pos.x, y=door_pos.y, z=door_pos.z - 1}

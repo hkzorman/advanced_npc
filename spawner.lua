@@ -209,7 +209,7 @@ function spawner.assign_places(self, pos)
   	-- Find unowned bed
   	for i = 1, #node_data.bed_type do
   		-- Check if bed has owner
-  		minetest.log("Node: "..dump(node_data.bed_type[i]))
+  		--minetest.log("Node: "..dump(node_data.bed_type[i]))
   		if node_data.bed_type[i].owner == "" then
   			-- If bed has no owner, check if it is accessible
   			local empty_nodes = npc.places.find_node_orthogonally(
@@ -223,7 +223,7 @@ function spawner.assign_places(self, pos)
   					npc.places.PLACE_TYPE.BED.PRIMARY, node_data.bed_type[i].node_pos, empty_nodes[1].pos)
   				-- Store changes to node_data
   				meta:set_string("node_data", minetest.serialize(node_data))
-  				minetest.log("Added bed at "..minetest.pos_to_string(node_data.bed_type[i].node_pos)
+  				npc.log("DEBUG", "Added bed at "..minetest.pos_to_string(node_data.bed_type[i].node_pos)
   					.." to NPC "..dump(self.npc_name))
   				break
   			end
@@ -233,7 +233,7 @@ function spawner.assign_places(self, pos)
 
   --local plot_info = minetest.deserialize(meta:get_string("plot_info"))
   --minetest.log("Plot info:"..dump(plot_info))
-  minetest.log("places: "..dump(self.places_map))
+  npc.log("DEBUG", "Places for NPC "..self.npc_name..": "..dump(self.places_map))
 
   	-- Make NPC go into their house
 	npc.add_task(self, 
@@ -274,9 +274,9 @@ function npc.spawner.spawn_npc(pos)
   -- Check amount of NPCs that should be spawned
   local npc_count = meta:get_int("npc_count")
   local spawned_npc_count = meta:get_int("spawned_npc_count")
-  minetest.log("[advanced_npc] INFO Currently spawned "..dump(spawned_npc_count).." of "..dump(npc_count).." NPCs")
+  npc.log("INFO", "Currently spawned "..dump(spawned_npc_count).." of "..dump(npc_count).." NPCs")
   if spawned_npc_count < npc_count then
-    minetest.log("[advanced_npc] INFO Spawning NPC at "..minetest.pos_to_string(pos))
+    npc.log("INFO", "Spawning NPC at "..minetest.pos_to_string(pos))
     -- Spawn a NPC
     local ent = minetest.add_entity({x=pos.x, y=pos.y+1, z=pos.z}, "advanced_npc:npc")
     if ent and ent:get_luaentity() then
@@ -324,21 +324,21 @@ function npc.spawner.spawn_npc(pos)
       meta:set_string("npc_stats", minetest.serialize(npc_stats))
       -- Temp
       --meta:set_string("infotext", meta:get_string("infotext")..", "..spawned_npc_count)
-      minetest.log("[advanced_npc] INFO Spawning successful!")
+      npc.log("INFO", "Spawning successful!")
       -- Check if there are more NPCs to spawn
       if spawned_npc_count >= npc_count then
         -- Stop timer
-        minetest.log("[advanced_npc] INFO No more NPCs to spawn at this location")
+        npc.log("INFO", "No more NPCs to spawn at this location")
         timer:stop()
       else
         -- Start another timer to spawn more NPC
         local new_delay = math.random(npc.spawner.spawn_delay)
-        minetest.log("[advanced_npc] INFO Spawning one more NPC in "..dump(npc.spawner.spawn_delay).."s")
+        npc.log("INFO", "Spawning one more NPC in "..dump(npc.spawner.spawn_delay).."s")
         timer:start(new_delay)
       end
       return true
     else
-        minetest.log("[advanced_npc] Spawning failed!")
+        npc.log("ERROR", "Spawning failed!")
         ent:remove()
       return false
     end
@@ -358,13 +358,13 @@ function spawner.calculate_npc_spawning(pos)
   -- Get nodes for this building
   local node_data = minetest.deserialize(meta:get_string("node_data"))
   if node_data == nil then
-    minetest.log("[advanced_npc] ERROR: Mis-configured advanced_npc:plotmarker_auto_spawner at position: "..minetest.pos_to_string(pos))
+    npc.log("ERROR", "Mis-configured advanced_npc:plotmarker_auto_spawner at position: "..minetest.pos_to_string(pos))
     return
   end
   -- Check number of beds
   local beds_count = #node_data.bed_type--#spawner.filter_first_floor_nodes(node_data.bed_type, pos)
   
-  minetest.log("[advanced_npc] INFO: Found "..dump(beds_count).." beds in the building at "..minetest.pos_to_string(pos))
+  npc.log("DEBUG", "Found "..dump(beds_count).." beds in the building at "..minetest.pos_to_string(pos))
   local npc_count = 0
   -- If number of beds is zero or beds/2 is less than one, spawn
   -- a single NPC.
@@ -375,7 +375,7 @@ function spawner.calculate_npc_spawning(pos)
     -- Spawn (beds_count/2) NPCs
     npc_count = ((beds_count / 2) - ((beds_count / 2) % 1))
   end
-  minetest.log("[advanced_npc] INFO: Will spawn "..dump(npc_count).." NPCs at "..minetest.pos_to_string(pos))
+  npc.log("INFO", "Will spawn "..dump(npc_count).." NPCs at "..minetest.pos_to_string(pos))
   -- Store amount of NPCs to spawn
   meta:set_int("npc_count", npc_count)
   -- Store amount of NPCs spawned
@@ -435,14 +435,14 @@ function spawner.scan_mg_villages_building(pos, building_data)
   --minetest.set_node({x=pos.x,y=pos.y,z=pos.z + (z_sign * z_size)}, {name = "wool:blue"})
   --minetest.get_meta({x=pos.x,y=pos.y,z=pos.z + (z_sign * z_size)}):set_string("infotext", minetest.get_meta(pos):get_string("infotext")..", Axis: z, Sign: "..dump(z_sign))
   
-  minetest.log("Start pos: "..minetest.pos_to_string(start_pos))
-  minetest.log("Plot: "..dump(minetest.get_meta(start_pos):get_string("infotext")))
+  npc.log("DEBUG", "Start pos: "..minetest.pos_to_string(start_pos))
+  npc.log("DEBUG", "Plot: "..dump(minetest.get_meta(start_pos):get_string("infotext")))
 
-  minetest.log("Brotate: "..dump(brotate))
-  minetest.log("X_sign: "..dump(x_sign))
-  minetest.log("X_adj: "..dump(x_sign*x_size))
-  minetest.log("Z_sign: "..dump(z_sign))
-  minetest.log("Z_adj: "..dump(z_sign*z_size))
+  npc.log("DEBUG", "Brotate: "..dump(brotate))
+  npc.log("DEBUG", "X_sign: "..dump(x_sign))
+  npc.log("DEBUG", "X_adj: "..dump(x_sign*x_size))
+  npc.log("DEBUG", "Z_sign: "..dump(z_sign))
+  npc.log("DEBUG", "Z_adj: "..dump(z_sign*z_size))
 
   local end_pos = {x=pos.x + (x_sign * x_size), y=pos.y + y_size, z=pos.z + (z_sign * z_size)}
 
@@ -451,7 +451,7 @@ function spawner.scan_mg_villages_building(pos, building_data)
   --minetest.set_node(end_pos, {name="default:mese_block"})
   --minetest.get_meta(end_pos):set_string("infotext", minetest.get_meta(start_pos):get_string("infotext"))
 
-  minetest.log("Calculated end pos: "..minetest.pos_to_string(end_pos))
+  npc.log("DEBUG", "Calculated end pos: "..minetest.pos_to_string(end_pos))
 
   return spawner.scan_area(start_pos, end_pos)
 end
@@ -477,7 +477,7 @@ function spawner.replace_mg_villages_plotmarker(pos)
 
     if building_type == value then
 
-      minetest.log("Replacing mg_villages:plotmarker at "..minetest.pos_to_string(pos))
+      npc.log("INFO", "Replacing mg_villages:plotmarker at "..minetest.pos_to_string(pos))
       -- Replace the plotmarker for auto-spawner
       minetest.set_node(pos, {name="advanced_npc:plotmarker_auto_spawner"})
       -- Store old plotmarker metadata again
@@ -498,9 +498,9 @@ function spawner.replace_mg_villages_plotmarker(pos)
       --minetest.log("Found "..dump(#doors).." openable nodes")
       local entrance = npc.places.find_entrance_from_openable_nodes(doors, pos)
       if entrance then
-        minetest.log("Found building entrance at: "..minetest.pos_to_string(entrance.node_pos))
+        npc.log("INFO", "Found building entrance at: "..minetest.pos_to_string(entrance.node_pos))
       else
-        minetest.log("Unable to find building entrance!")
+        npc.log("ERROR", "Unable to find building entrance!")
       end
       -- Store building entrance
       meta:set_string("entrance", minetest.serialize(entrance))
@@ -569,7 +569,7 @@ if minetest.get_modpath("mg_villages") ~= nil then
       -- end
       -- minetest.get_meta(pos):set_string("node_data", minetest.serialize(nodedata))
       -- minetest.log("Cleared bed owners")
-      minetest.log("NPC stats: "..dump(minetest.deserialize(minetest.get_meta(pos):get_string("npc_stats"))))
+      --minetest.log("NPC stats: "..dump(minetest.deserialize(minetest.get_meta(pos):get_string("npc_stats"))))
 
       return mg_villages.plotmarker_formspec( pos, nil, {}, clicker )
     end,
@@ -610,7 +610,7 @@ if minetest.get_modpath("mg_villages") ~= nil then
   --   end
   -- })
 
-  -- ABM Registration... for when LBM fails.
+  -- ABM Registration
   minetest.register_abm({
     label = "Replace mg_villages:plotmarker with Advanced NPC auto spawners",
     nodenames = {"mg_villages:plotmarker"},

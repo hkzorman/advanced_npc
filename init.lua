@@ -23,7 +23,6 @@ else
 end
 mobs.intllib = S
 
--- NPC
 dofile(path .. "/npc.lua")
 dofile(path .. "/spawner.lua")
 dofile(path .. "/relationships.lua")
