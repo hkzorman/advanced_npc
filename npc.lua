@@ -49,19 +49,25 @@ npc.log_level = {
   DEBUG = false
 }
 
+npc.texture_check = {
+  timer = 0,
+  interval = 0
+}
+
 ---------------------------------------------------------------------------------------
 -- General functions
 ---------------------------------------------------------------------------------------
 -- Logging
 function npc.log(level, message)
   if npc.log_level[level] then
-    minetest.log("[advanced_npc] "..type..": "..message)
+    minetest.log("[advanced_npc] "..level..": "..message)
   end
 end
 
 -- NPC chat
 function npc.chat(npc_name, player_name, message)
   minetest.chat_send_player(player_name, npc_name..": "..message)
+end
 
 -- Gets name of player or NPC
 function npc.get_entity_name(entity)
@@ -122,10 +128,6 @@ local function get_random_texture(sex, age)
   elseif age == npc.age.child then
     textures = minetest.registered_entities["advanced_npc:npc"].child_texture
   end
-
-  minetest.log("Textures: "..dump(textures))
-  minetest.log("Sex: "..sex)
-  minetest.log("Age: "..age)
 
   for i = 1, #textures do
     local current_texture = textures[i][1]
@@ -236,8 +238,8 @@ function npc.initialize(entity, pos, is_lua_entity, npc_stats)
     if npc_stats["adult_total"] >= 2 then
       if npc_stats["adult_total"] % 2 == 0 
         and (npc_stats["adult_total"] / 2 > npc_stats["child_total"]) then
-        child_s,child_e = 51, 100
-        adult_e = 50
+        child_s,child_e = 26, 100
+        adult_e = 25
       else
         child_s, child_e = 61, 100
         adult_e = 60
@@ -267,14 +269,16 @@ function npc.initialize(entity, pos, is_lua_entity, npc_stats)
       }
       ent.collisionbox = {-0.10,-0.50,-0.10, 0.10,0.40,0.10}
       ent.is_child = true
+      ent.child = true
     end
     -- Set texture accordingly
     local selected_texture = get_random_texture(selected_sex, selected_age)
     --minetest.log("Selected texture: "..dump(selected_texture))
+    -- Store selected texture due to the need to restore it later
+    ent.selected_texture = selected_texture
+    -- Set texture and base texture
     ent.textures = {selected_texture}
-    if selected_age == npc.age.child then
-      ent.base_texture = selected_texture
-    end
+    ent.base_texture = {selected_texture}
   else
     -- Get sex based on texture. This is a 50% chance for
     -- each sex as there's same amount of textures for male and female.
@@ -444,7 +448,9 @@ function npc.initialize(entity, pos, is_lua_entity, npc_stats)
   table.insert(ent.trader_data.custom_trades, offer2)
 
   --minetest.log(dump(ent))
-  npc.log("INFO", "Successfully initialized NPC with name "..dump(ent.npc_name))
+  npc.log("INFO", "Successfully initialized NPC with name "..dump(ent.npc_name)
+    ..", sex: "..ent.sex..", is child: "..dump(ent.is_child)
+    ..", texture: "..dump(ent.textures))
   -- Refreshes entity
   ent.object:set_properties(ent)
 end
@@ -968,10 +974,24 @@ mobs:register_mob("advanced_npc:npc", {
       -- favor of a better manual spawning method with customization 
       npc.log("WARNING", "Initializing NPC from entity step. This message should only be appearing if an NPC is being spawned from inventory with egg!")
       npc.initialize(self, self.object:getpos(), true)
-    else
       self.tamed = false
       self.owner = nil
+    else
       -- NPC is initialized, check other variables
+      -- Check child texture issues
+      if self.is_child then
+        npc.texture_check.timer = npc.texture_check.timer + dtime
+        if npc.texture_check.timer > npc.texture_check.interval then
+          -- Reset timer
+          npc.texture_check.timer = 0
+          -- Set correct textures
+          self.texture = {self.selected_texture}
+          self.base_texture = {self.selected_texture}
+          -- Set interval to large interval so this code isn't called frequently
+          npc.texture_check.interval = 60
+        end
+      end
+
       -- Timer function for casual traders to reset their trade offers  
       self.trader_data.change_offers_timer = self.trader_data.change_offers_timer + dtime
       -- Check if time has come to change offers
