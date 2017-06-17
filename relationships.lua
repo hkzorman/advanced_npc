@@ -356,7 +356,7 @@ local function show_receive_gift_reaction(self, item_name, modifier, clicker_nam
     minetest.chat_send_player(clicker_name, message_to_send)
   -- Disliked items reactions
   elseif modifier < 0 then
-    effect({x = pos.x, y = pos.y + 1, z = pos.z}, 8, "smoke.png")
+    effect({x = pos.x, y = pos.y + 1, z = pos.z}, 8, "default_item_smoke.png")
     minetest.log("Item name: "..item_name..", sex: "..self.sex)
     local message_to_send = npc.relationships.get_response_for_disliked_item(item_name, self.sex)
     minetest.chat_send_player(clicker_name, message_to_send)
