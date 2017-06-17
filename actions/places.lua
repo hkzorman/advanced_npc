@@ -196,7 +196,7 @@ function npc.places.find_entrance_from_openable_nodes(all_openable_nodes, marker
       entity.collisionbox = {-0.20,-1.0,-0.20, 0.20,0.8,0.20}
       --minetest.log("Start pos: "..minetest.pos_to_string(start_pos))
       --minetest.log("End pos: "..minetest.pos_to_string(end_pos))
-      local path = pathfinder.find_path(start_pos, end_pos, entity)
+      local path = npc.pathfinder.find_path(start_pos, end_pos, entity, false)
       --minetest.log("Found path: "..dump(path))
       if path ~= nil then
         --minetest.log("Path distance: "..dump(#path))

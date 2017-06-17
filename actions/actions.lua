@@ -599,7 +599,7 @@ function npc.actions.use_bed(self, args)
 	end
 	local action = args.action
 	local node = minetest.get_node(pos)
-	minetest.log(dump(node))
+	--minetest.log(dump(node))
 	local dir = minetest.facedir_to_dir(node.param2)
 
 	if action == npc.actions.const.beds.LAY then
@@ -746,20 +746,9 @@ function npc.actions.walk_to_pos(self, args)
 	end
 
 	-- Find path
-	--local path = pathfinder.find_path(start_pos, end_pos, 20, walkable_nodes)
-	local path = pathfinder.find_path(start_pos, end_pos, self)
+	local path = npc.pathfinder.find_path(start_pos, end_pos, self, true)
 
 	if path ~= nil and #path > 1 then
-		-- Get details from path nodes
-		-- This might get moved to proper place, pathfinder.lua code
-		local path_detail = {}
-		for i = 1, #path do
-			local node = minetest.get_node(path[i])
-			table.insert(path_detail, {pos=path[i], type=npc.pathfinder.is_good_node(node, {})})
-		end
-		path = path_detail
-
-		npc.log("DEBUG", "Detailed path: "..dump(path))
 		npc.log("INFO", "walk_to_pos Found path to node: "..minetest.pos_to_string(end_pos))
 		-- Store path
 		self.actions.walking.path = path

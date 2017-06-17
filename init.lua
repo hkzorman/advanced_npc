@@ -32,7 +32,6 @@ dofile(path .. "/trade/prices.lua")
 dofile(path .. "/actions/actions.lua")
 dofile(path .. "/actions/places.lua")
 dofile(path .. "/actions/pathfinder.lua")
-dofile(path .. "/actions/jumper.lua")
 dofile(path .. "/actions/node_registry.lua")
 dofile(path .. "/random_data.lua")
 
