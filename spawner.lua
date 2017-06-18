@@ -686,6 +686,7 @@ minetest.register_chatcommand("restore_plotmarkers", {
       meta:set_string("node_data", nil)
       meta:set_string("npcs", nil)
       meta:set_string("npc_stats", nil)
+      meta:set_string("replaced", "false")
     end
     minetest.chat_send_player(name, "Finished replacement of "..dump(#nodes).." auto-spawners successfully")
   end
