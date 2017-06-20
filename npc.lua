@@ -943,7 +943,7 @@ mobs:register_mob("advanced_npc:npc", {
     --self.textures = {"mobs_npc_child_male1.png"}
     --self.base_texture = "mobs_npc_child_male1.png"
     --self.object:set_properties(self)
-    npc.log("INFO", "NPC places: "..dump(self.places_map))
+    --npc.log("INFO", "NPC places: "..dump(self.places_map))
     npc.log("DEBUG", "Right-clicked NPC: "..dump(self))
 
     -- Receive gift or start chat. If player has no item in hand
