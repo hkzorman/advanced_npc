@@ -44,7 +44,7 @@ npc.action_state = {
 
 npc.log_level = {
   INFO = true,
-  WARNING = false,
+  WARNING = true,
   ERROR = true,
   DEBUG = false
 }
@@ -884,6 +884,11 @@ mobs:register_mob("advanced_npc:npc", {
 	drawtype = "front",
 	textures = {
 		{"npc_male1.png"},
+    {"npc_male2.png"},
+    {"npc_male3.png"},
+    {"npc_male4.png"},
+    {"npc_male5.png"},
+    {"npc_male6.png"},
 		{"npc_female1.png"}, -- female by nuttmeg20
 	},
 	child_texture = {
@@ -938,7 +943,7 @@ mobs:register_mob("advanced_npc:npc", {
     --self.textures = {"mobs_npc_child_male1.png"}
     --self.base_texture = "mobs_npc_child_male1.png"
     --self.object:set_properties(self)
-
+    npc.log("INFO", "NPC places: "..dump(self.places_map))
     npc.log("DEBUG", "Right-clicked NPC: "..dump(self))
 
     -- Receive gift or start chat. If player has no item in hand
@@ -980,10 +985,14 @@ mobs:register_mob("advanced_npc:npc", {
       -- NPC is initialized, check other variables
       -- Check child texture issues
       if self.is_child then
+        -- Check texture 
         npc.texture_check.timer = npc.texture_check.timer + dtime
         if npc.texture_check.timer > npc.texture_check.interval then
           -- Reset timer
           npc.texture_check.timer = 0
+          -- Set hornytimer to zero every 60 seconds so that children
+          -- don't grow automatically
+          self.hornytimer = 0
           -- Set correct textures
           self.texture = {self.selected_texture}
           self.base_texture = {self.selected_texture}

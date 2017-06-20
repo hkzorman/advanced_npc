@@ -22,8 +22,10 @@ npc.places.nodes = {
   },
   SITTABLE_TYPE = {
 	 "cottages:bench",
+   -- Currently commented out since some NPCs
+   -- were sitting at stairs that are actually staircases
    -- TODO: Register other stair types
-   "stairs:stair_wood"
+   --"stairs:stair_wood"
   },
   STORAGE_TYPE = {
 	 "default:chest",
@@ -56,7 +58,16 @@ npc.places.PLACE_TYPE = {
     PRIMARY = "bed_primary"
   },
   SITTABLE = {
-    PRIMARY = "sit_primary"
+    PRIMARY = "sit_primary",
+    SHARED = "sit_shared"
+  },
+  FURNACE = {
+    PRIMARY = "furnace_primary",
+    SHARED = "furnace_shared"
+  },
+  STORAGE = {
+    PRIMARY = "storage_primary",
+    SHARED = "storage_shared"
   },
   OPENABLE = {
     HOME_ENTRANCE_DOOR = "home_entrance_door"
@@ -68,27 +79,51 @@ npc.places.PLACE_TYPE = {
   }
 }
 
-function npc.places.add_public(self, place_name, place_type, pos, access_node)
-  --minetest.log("Place name: "..dump(place_name)..", type: "..dump(place_type))
+function npc.places.add_shared(self, place_name, place_type, pos, access_node)
 	self.places_map[place_name] = {type=place_type, pos=pos, access_node=access_node or pos, status="shared"}
 end
 
--- Adds a specific node to the NPC places, and modifies the
--- node metadata to identify the NPC as the owner. This allows
--- other NPCs to avoid to take this as their own.
 function npc.places.add_owned(self, place_name, place_type, pos, access_node)
-  -- Get node metadata
-  --local meta = minetest.get_meta(pos)
-  -- Check if it is owned by an NPC?
-  --if meta:get_string("npc_owner") == "" then
-    -- Set owned by NPC
-    --meta:set_string("npc_owner", self.npc_id)
-    -- Add place to list
     self.places_map[place_name] = {type=place_type, pos=pos, access_node=access_node or pos, status="owned"}
-    --npc.places.add_public(self, place_name, place_type, pos)
-    return true
-  --end
-  --return false
+end
+
+function npc.places.add_unowned_accessible_place(self, nodes, place_type)
+  for i = 1, #nodes do
+    -- Check if node has owner
+    if nodes[i].owner == "" then
+      -- If node has no owner, check if it is accessible
+      local empty_nodes = npc.places.find_node_orthogonally(
+        nodes[i].node_pos, {"air"}, 0)
+      -- Check if node is accessible
+      if #empty_nodes > 0 then
+        -- Set owner to this NPC
+        nodes[i].owner = self.npc_id
+        -- Assign node to NPC
+        npc.places.add_owned(self, place_type, place_type, 
+          nodes[i].node_pos, empty_nodes[1].pos)
+        npc.log("DEBUG", "Added node at "..minetest.pos_to_string(nodes[i].node_pos)
+          .." to NPC "..dump(self.npc_name))
+        break
+      end
+    end
+  end
+end
+
+function npc.places.add_shared_accessible_place(self, nodes, place_type)
+  for i = 1, #nodes do
+    -- Check of not adding same owned sit
+    if nodes[i].owner ~= self.npc_id then
+      -- Check if it is accessible
+      local empty_nodes = npc.places.find_node_orthogonally(
+        nodes[i].node_pos, {"air"}, 0)
+      -- Check if bed is accessible
+      if #empty_nodes > 0 then
+        -- Assign node to NPC
+        npc.places.add_shared(self, place_type..dump(i), 
+          place_type, nodes[i].node_pos, empty_nodes[1].pos)
+      end
+    end
+  end
 end
 
 function npc.places.get_by_type(self, place_type)

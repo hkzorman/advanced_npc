@@ -88,9 +88,38 @@ local function get_basic_schedule()
 			-- Allow mobs_redo wandering
 			[3] = {action = npc.actions.cmd.FREEZE, args = {freeze = false}}
 		},
+		-- Noon actions: go inside the house
+		-- This will be executed around 12 PM MTG time
+		noon_actions = {
+			-- Walk to a sittable node
+			[1] = {task = npc.actions.cmd.WALK_TO_POS, args = {
+					end_pos = {place_type=npc.places.PLACE_TYPE.SITTABLE.PRIMARY, use_access_node=true},
+					walkable = {"cottages:bench"}
+				} 
+			},
+			-- Sit on the node
+			[2] = {task = npc.actions.cmd.USE_SITTABLE, args = {
+					pos = npc.places.PLACE_TYPE.SITTABLE.PRIMARY,
+					action = npc.actions.const.sittable.SIT
+				}
+			},
+			-- Stay put into place
+			[3] = {action = npc.actions.cmd.FREEZE, args = {freeze = true}}
+		},
+		-- Afternoon actions: go inside the house
+		-- This will be executed around 1 PM MTG time
+		afternoon_actions = {
+			[1] = {task = npc.actions.cmd.USE_SITTABLE, args = {
+					pos = npc.places.PLACE_TYPE.SITTABLE.PRIMARY, 
+					action = npc.actions.const.sittable.GET_UP
+				} 
+			}, 
+			-- Allow mobs_redo wandering
+			[2] = {action = npc.actions.cmd.FREEZE, args = {freeze = false}}
+		},
 		-- Afternoon actions: go inside the house
 		-- This will be executed around 6 PM MTG time
-		afternoon_actions = { 
+		late_afternoon_actions = { 
 			-- Get inside home
 			[1] = {task = npc.actions.cmd.WALK_TO_POS, args = {
 					end_pos = npc.places.PLACE_TYPE.OTHER.HOME_INSIDE, 
@@ -164,6 +193,7 @@ function spawner.scan_area(pos1, pos2)
  
   result.bed_type = spawner.get_nodes_by_type(start_pos, end_pos, npc.places.nodes.BED_TYPE)
   result.sittable_type = spawner.get_nodes_by_type(start_pos, end_pos, npc.places.nodes.SITTABLE_TYPE)
+  -- Filter out 
   result.furnace_type = spawner.get_nodes_by_type(start_pos, end_pos, npc.places.nodes.FURNACE_TYPE)
   result.storage_type = spawner.get_nodes_by_type(start_pos, end_pos, npc.places.nodes.STORAGE_TYPE)
   result.openable_type = spawner.get_nodes_by_type(start_pos, end_pos, npc.places.nodes.OPENABLE_TYPE)
@@ -190,49 +220,77 @@ function spawner.assign_places(self, pos)
   local node_data = minetest.deserialize(meta:get_string("node_data"))
 
   -- Assign plotmarker
-  npc.places.add_public(self, npc.places.PLACE_TYPE.OTHER.HOME_PLOTMARKER,
+  npc.places.add_shared(self, npc.places.PLACE_TYPE.OTHER.HOME_PLOTMARKER,
   	npc.places.PLACE_TYPE.OTHER.HOME_PLOTMARKER, pos)
 
   -- Assign entrance door and related locations
   if entrance ~= nil and entrance.node_pos ~= nil then
-    npc.places.add_public(self, npc.places.PLACE_TYPE.OPENABLE.HOME_ENTRANCE_DOOR, npc.places.PLACE_TYPE.OPENABLE.HOME_ENTRANCE_DOOR, entrance.node_pos)
+    npc.places.add_shared(self, npc.places.PLACE_TYPE.OPENABLE.HOME_ENTRANCE_DOOR, npc.places.PLACE_TYPE.OPENABLE.HOME_ENTRANCE_DOOR, entrance.node_pos)
     -- Find the position inside and outside the door
     local entrance_inside = npc.places.find_node_behind_door(entrance.node_pos)
     local entrance_outside = npc.places.find_node_in_front_of_door(entrance.node_pos)
     -- Assign these places to NPC
-    npc.places.add_public(self, npc.places.PLACE_TYPE.OTHER.HOME_INSIDE, npc.places.PLACE_TYPE.OTHER.HOME_INSIDE, entrance_inside)
-    npc.places.add_public(self, npc.places.PLACE_TYPE.OTHER.HOME_OUTSIDE, npc.places.PLACE_TYPE.OTHER.HOME_OUTSIDE, entrance_outside)
+    npc.places.add_shared(self, npc.places.PLACE_TYPE.OTHER.HOME_INSIDE, npc.places.PLACE_TYPE.OTHER.HOME_INSIDE, entrance_inside)
+    npc.places.add_shared(self, npc.places.PLACE_TYPE.OTHER.HOME_OUTSIDE, npc.places.PLACE_TYPE.OTHER.HOME_OUTSIDE, entrance_outside)
   end
 
   -- Assign beds
   if #node_data.bed_type > 0 then
-  	-- Find unowned bed
-  	for i = 1, #node_data.bed_type do
-  		-- Check if bed has owner
-  		--minetest.log("Node: "..dump(node_data.bed_type[i]))
-  		if node_data.bed_type[i].owner == "" then
-  			-- If bed has no owner, check if it is accessible
-  			local empty_nodes = npc.places.find_node_orthogonally(
-  				node_data.bed_type[i].node_pos, {"air"}, 0)
-  			-- Check if bed is accessible
-  			if #empty_nodes > 0 then
-  				-- Set owner to this NPC
-  				node_data.bed_type[i].owner = self.npc_id
-  				-- Assign node to NPC
-  				npc.places.add_owned(self, npc.places.PLACE_TYPE.BED.PRIMARY, 
-  					npc.places.PLACE_TYPE.BED.PRIMARY, node_data.bed_type[i].node_pos, empty_nodes[1].pos)
-  				-- Store changes to node_data
-  				meta:set_string("node_data", minetest.serialize(node_data))
-  				npc.log("DEBUG", "Added bed at "..minetest.pos_to_string(node_data.bed_type[i].node_pos)
-  					.." to NPC "..dump(self.npc_name))
-  				break
-  			end
-  		end
-  	end
+  	-- Assign a specific sittable node to a NPC.
+	npc.places.add_unowned_accessible_place(self, node_data.bed_type, 
+		npc.places.PLACE_TYPE.BED.PRIMARY)
+	-- Store changes to node_data
+	meta:set_string("node_data", minetest.serialize(node_data)) 
   end
 
-  --local plot_info = minetest.deserialize(meta:get_string("plot_info"))
-  --minetest.log("Plot info:"..dump(plot_info))
+  -- Assign sits
+  if #node_data.sittable_type > 0 then
+  	-- Check if there are same or more amount of sits as beds
+  	if #node_data.sittable_type >= #node_data.bed_type then
+  		-- Assign a specific sittable node to a NPC.
+  		npc.places.add_unowned_accessible_place(self, node_data.sittable_type, 
+  			npc.places.PLACE_TYPE.SITTABLE.PRIMARY)
+  		-- Store changes to node_data
+  		meta:set_string("node_data", minetest.serialize(node_data)) 
+  	end
+  	-- Add all sits to places as shared since NPC should be able to sit
+  	-- at any accessible sit
+  	npc.places.add_shared_accessible_place(self, node_data.sittable_type, 
+  		npc.places.PLACE_TYPE.SITTABLE.SHARED)
+  end
+
+  -- Assign furnaces
+  if #node_data.furnace_type > 0 then
+  	-- Check if there are same or more amount of furnace as beds
+  	if #node_data.furnace_type >= #node_data.bed_type then
+  		-- Assign a specific furnace node to a NPC.
+  		npc.places.add_unowned_accessible_place(self, node_data.furnace_type, 
+  			npc.places.PLACE_TYPE.FURNACE.PRIMARY)
+  		-- Store changes to node_data
+  		meta:set_string("node_data", minetest.serialize(node_data)) 
+  	end
+  	-- Add all furnaces to places as shared since NPC should be able to use
+  	-- any accessible furnace
+  	npc.places.add_shared_accessible_place(self, node_data.furnace_type, 
+  		npc.places.PLACE_TYPE.FURNACE.SHARED)
+  end
+
+  -- Assign storage nodes
+  if #node_data.storage_type > 0 then
+  	-- Check if there are same or more amount of storage as beds
+  	if #node_data.storage_type >= #node_data.bed_type then
+  		-- Assign a specific storage node to a NPC.
+  		npc.places.add_unowned_accessible_place(self, node_data.storage_type, 
+  			npc.places.PLACE_TYPE.STORAGE.PRIMARY)
+  		-- Store changes to node_data
+  		meta:set_string("node_data", minetest.serialize(node_data)) 
+  	end
+  	-- Add all storage-types to places as shared since NPC should be able
+  	-- to use other storage nodes as well.
+  	npc.places.add_shared_accessible_place(self, node_data.storage_type, 
+  		npc.places.PLACE_TYPE.STORAGE.SHARED)
+  end
+
   npc.log("DEBUG", "Places for NPC "..self.npc_name..": "..dump(self.places_map))
 
   	-- Make NPC go into their house
@@ -253,8 +311,14 @@ function spawner.assign_schedules(self, pos)
 	-- Add schedule entry for morning actions
 	npc.add_schedule_entry(self, npc.schedule_types.generic, 0, 8, nil, basic_schedule.morning_actions)
 
+	-- Add schedule entry for noon actions
+	npc.add_schedule_entry(self, npc.schedule_types.generic, 0, 12, nil, basic_schedule.noon_actions)
+	
 	-- Add schedule entry for afternoon actions
-	npc.add_schedule_entry(self, npc.schedule_types.generic, 0, 18, nil, basic_schedule.afternoon_actions)
+	npc.add_schedule_entry(self, npc.schedule_types.generic, 0, 13, nil, basic_schedule.afternoon_actions)
+
+	-- Add schedule entry for late afternoon actions
+	npc.add_schedule_entry(self, npc.schedule_types.generic, 0, 18, nil, basic_schedule.late_afternoon_actions)
 
 	-- Add schedule entry for evening actions
 	npc.add_schedule_entry(self, npc.schedule_types.generic, 0, 22, nil, basic_schedule.evening_actions)
@@ -620,8 +684,8 @@ if minetest.get_modpath("mg_villages") ~= nil then
   minetest.register_abm({
     label = "Replace mg_villages:plotmarker with Advanced NPC auto spawners",
     nodenames = {"mg_villages:plotmarker"},
-    interval = npc.spawner.replacement_interval,
-    chance = 5,
+    interval = 10,--npc.spawner.replacement_interval,
+    chance = 1,--5,
     catch_up = true,
     action = function(pos, node, active_object_count, active_object_count_wider)
       -- Check if replacement is needed
