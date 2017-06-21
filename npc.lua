@@ -456,6 +456,24 @@ function npc.initialize(entity, pos, is_lua_entity, npc_stats)
 end
 
 ---------------------------------------------------------------------------------------
+-- Trading functions
+---------------------------------------------------------------------------------------
+function npc.generate_trade_list_from_inventory(self)
+  local list = {}
+  for i = 1, #self.inventory do
+    list[npc.get_item_name(self.inventory[i])] = {}
+  end
+  self.trader_data.trade_list.both = list
+end
+
+function npc.set_trading_status(self, status)
+  -- Set status
+  self.trader_data.trader_status = status
+  -- Re-generate trade offers
+  npc.trade.generate_trade_offers_by_status(self)
+end
+
+---------------------------------------------------------------------------------------
 -- Inventory functions
 ---------------------------------------------------------------------------------------
 -- NPCs inventories are restrained to 16 slots.
@@ -743,6 +761,12 @@ npc.schedule_types = {
   ["date_based"] = "date_based"
 }
 
+npc.schedule_properties = {
+  put_item = "put_item",
+  take_item = "take_item",
+  trader_status = "trader_status"
+}
+
 local function get_time_in_hours() 
   return minetest.get_timeofday() * 24
 end
@@ -858,6 +882,19 @@ function npc.delete_schedule_entry(self, schedule_type, date, time)
   else
     -- Schedule not found for date
     return nil
+  end
+end
+
+function npc.schedule_change_property(self, property, args)
+  if property == npc.schedule_properties.trader_status then
+    -- Get status from args
+    local status = args.status
+    -- Set status to NPC
+    npc.set_trading_status(self, status)
+  elseif property == npc.schedule_properties.put_item then
+
+  elseif property == npc.schedule_properties.take_item then
+
   end
 end
 
@@ -996,6 +1033,7 @@ mobs:register_mob("advanced_npc:npc", {
           -- Set correct textures
           self.texture = {self.selected_texture}
           self.base_texture = {self.selected_texture}
+          self.object:set_properties(self)
           -- Set interval to large interval so this code isn't called frequently
           npc.texture_check.interval = 60
         end
@@ -1095,12 +1133,16 @@ mobs:register_mob("advanced_npc:npc", {
                 npc.log("DEBUG", "Adding actions to action queue")
                 -- Add to action queue all actions on schedule
                 for i = 1, #schedule[time] do
-                  if schedule[time][i].action == nil then
+                  --minetest.log("schedule[time]: "..dump(schedule[time]))
+                  if schedule[time][i].task ~= nil then
                     -- Add task
                     npc.add_task(self, schedule[time][i].task, schedule[time][i].args)
-                  else
+                  elseif schedule[time][i].action ~= nil then
                     -- Add action
                     npc.add_action(self, schedule[time][i].action, schedule[time][i].args)
+                  elseif schedule[time][i].property ~= nil then
+                    -- Change NPC property
+                    npc.schedule_change_property(self, schedule[time][i].property, schedule[time][i].args)
                   end
                 end
                 npc.log("DEBUG", "New action queue: "..dump(self.actions))
