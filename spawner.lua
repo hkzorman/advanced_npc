@@ -109,18 +109,30 @@ local function get_basic_schedule()
 		-- Afternoon actions: go inside the house
 		-- This will be executed around 1 PM MTG time
 		afternoon_actions = {
+			--  Get up of the sit
 			[1] = {task = npc.actions.cmd.USE_SITTABLE, args = {
 					pos = npc.places.PLACE_TYPE.SITTABLE.PRIMARY, 
 					action = npc.actions.const.sittable.GET_UP
 				} 
-			}, 
+			},
+			-- Give NPC money to buy from player
+			[2] = {property = npc.schedule_properties.put_multiple_items, args = {
+					itemlist = {
+						{name="default:iron_lump", random=true, min=2, max=4}
+					}
+				}
+			},
 			-- Change trader status to "trader"
-			[2] = {property = npc.schedule_properties.trader_status, args = {
+			[3] = {property = npc.schedule_properties.trader_status, args = {
 					status = npc.trade.TRADER
 				}
 			},
+			[4] = {property = npc.schedule_properties.can_receive_gifts, args = {
+					value = true
+				}
+			},
 			-- Allow mobs_redo wandering
-			[3] = {action = npc.actions.cmd.FREEZE, args = {freeze = false}}
+			[5] = {action = npc.actions.cmd.FREEZE, args = {freeze = false}}
 		},
 		-- Afternoon actions: go inside the house
 		-- This will be executed around 6 PM MTG time
@@ -130,13 +142,18 @@ local function get_basic_schedule()
 					status = npc.trade.NONE
 				}
 			},
+			-- Enable gift receiving again
+			[2] = {property = npc.schedule_properties.can_receive_gifts, args = {
+					can_receive_gifts = true
+				}
+			},
 			-- Get inside home
-			[2] = {task = npc.actions.cmd.WALK_TO_POS, args = {
+			[3] = {task = npc.actions.cmd.WALK_TO_POS, args = {
 					end_pos = npc.places.PLACE_TYPE.OTHER.HOME_INSIDE, 
 					walkable = {}} 
 				},
 			-- Allow mobs_redo wandering
-			[3] = {action = npc.actions.cmd.FREEZE, args = {freeze = false}}
+			[4] = {action = npc.actions.cmd.FREEZE, args = {freeze = false}}
 		},
 		-- Evening actions: walk to bed and use it.
 		-- This will be executed around 10 PM MTG time

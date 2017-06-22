@@ -51,7 +51,7 @@ npc.log_level = {
 
 npc.texture_check = {
   timer = 0,
-  interval = 0
+  interval = 2
 }
 
 ---------------------------------------------------------------------------------------
@@ -149,9 +149,9 @@ local function get_random_texture(sex, age)
 end
 
 -- Choose whether NPC can have relationships. Only 30% of NPCs cannot have relationships
-local function can_have_relationships(age)
+local function can_have_relationships(is_child)
   -- Children can't have relationships
-  if not age then
+  if is_child then
     return false
   end
   local chance = math.random(1,10)
@@ -264,8 +264,8 @@ function npc.initialize(entity, pos, is_lua_entity, npc_stats)
     elseif child_s <= age_chance and age_chance <= child_e then
       selected_age = npc.age.child
       ent.visual_size = {
-        x = 0.5,
-        y = 0.5
+        x = 0.75,
+        y = 0.75
       }
       ent.collisionbox = {-0.10,-0.50,-0.10, 0.10,0.40,0.10}
       ent.is_child = true
@@ -309,6 +309,11 @@ function npc.initialize(entity, pos, is_lua_entity, npc_stats)
   
   -- Flag that determines if NPC can have a relationship
   ent.can_have_relationship = can_have_relationships(ent.is_child)
+
+  ent.infotext = "Interested in relationships: "..dump(ent.can_have_relationship)
+
+  -- Flag to determine if NPC can receive gifts
+  ent.can_receive_gifts = ent.can_have_relationship
 
   -- Initialize relationships object
   ent.relationships = {}
@@ -763,8 +768,10 @@ npc.schedule_types = {
 
 npc.schedule_properties = {
   put_item = "put_item",
+  put_multiple_items = "put_multiple_items",
   take_item = "take_item",
-  trader_status = "trader_status"
+  trader_status = "trader_status",
+  can_receive_gifts = "can_receive_gifts"
 }
 
 local function get_time_in_hours() 
@@ -892,9 +899,31 @@ function npc.schedule_change_property(self, property, args)
     -- Set status to NPC
     npc.set_trading_status(self, status)
   elseif property == npc.schedule_properties.put_item then
-
+    local itemstring = args.itemstring
+    -- Add item
+    npc.add_item_to_inventory_itemstring(self, itemstring)
+  elseif property == npc.schedule_properties.put_multiple_items then
+    local itemlist = args.itemlist
+    for i = 1, #itemlist do
+      local itemlist_entry = itemlist[i]
+      local current_itemstring = itemlist[i].name
+      if itemlist_entry.random == true then
+        current_itemstring = current_itemstring
+          .." "..dump(math.random(itemlist_entry.min, itemlist_entry.max))
+      else
+        current_itemstring = current_itemstring.." "..tostring(itemlist_entry.count)
+      end
+      -- Add item to inventory
+      npc.add_item_to_inventory_itemstring(self, current_itemstring)
+    end
   elseif property == npc.schedule_properties.take_item then
-
+    local itemstring = args.itemstring
+    -- Add item
+    npc.take_item_from_inventory_itemstring(self, itemstring)
+  elseif property == npc.schedule_properties.can_receive_gifts then
+    local value = args.can_receive_gifts
+    -- Set status
+    self.can_receive_gifts = value
   end
 end
 
@@ -976,16 +1005,14 @@ mobs:register_mob("advanced_npc:npc", {
 		local item = clicker:get_wielded_item()
 		local name = clicker:get_player_name()
 
-    --self.child = true
-    --self.textures = {"mobs_npc_child_male1.png"}
-    --self.base_texture = "mobs_npc_child_male1.png"
-    --self.object:set_properties(self)
-    --npc.log("INFO", "NPC places: "..dump(self.places_map))
     npc.log("DEBUG", "Right-clicked NPC: "..dump(self))
 
     -- Receive gift or start chat. If player has no item in hand
     -- then it is going to start chat directly
-    if self.can_have_relationship and item:to_table() ~= nil then
+    minetest.log("self.can_have_relationship: "..dump(self.can_have_relationship)..", self.can_receive_gifts: "..dump(self.can_receive_gifts)..", table: "..dump(item:to_table()))
+    if self.can_have_relationship 
+      and self.can_receive_gifts 
+      and item:to_table() ~= nil then
       -- Get item name
       local item = minetest.registered_items[item:get_name()]
       local item_name = item.description
@@ -1034,6 +1061,7 @@ mobs:register_mob("advanced_npc:npc", {
           self.texture = {self.selected_texture}
           self.base_texture = {self.selected_texture}
           self.object:set_properties(self)
+          npc.log("WARNING", "Corrected textures on NPC child "..dump(self.npc_name))
           -- Set interval to large interval so this code isn't called frequently
           npc.texture_check.interval = 60
         end
