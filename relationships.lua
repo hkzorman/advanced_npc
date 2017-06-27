@@ -27,8 +27,8 @@ npc.relationships = {}
 npc.relationships.ITEM_GIFT_EFFECT = 2.5
 
 -- Expected values for these are 720 each respectively
-npc.relationships.GIFT_TIMER_INTERVAL = 2
-npc.relationships.RELATIONSHIP_DECREASE_TIMER_INTERVAL = 60
+npc.relationships.GIFT_TIMER_INTERVAL = 360
+npc.relationships.RELATIONSHIP_DECREASE_TIMER_INTERVAL = 720
 
 npc.relationships.RELATIONSHIP_PHASE = {}
 -- Define phases
@@ -360,7 +360,7 @@ local function show_receive_gift_reaction(self, item_name, modifier, clicker_nam
     effect({x = pos.x, y = pos.y + 1, z = pos.z}, 8, "default_item_smoke.png")
     --minetest.log("Item name: "..item_name..", sex: "..self.sex)
     local message_to_send = npc.relationships.get_response_for_disliked_item(item_name, self.sex)
-    npc.name(self.npc_name, clicker_name, message_to_send)
+    npc.chat(self.npc_name, clicker_name, message_to_send)
   end
   
 end
