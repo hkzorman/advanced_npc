@@ -604,6 +604,10 @@ function npc.actions.use_bed(self, args)
 
 	if action == npc.actions.const.beds.LAY then
 		-- Get position
+		-- Error here due to ignore. Need to come up with better solution
+		if node.name == "ignore" then
+			return
+		end
 		local bed_pos = npc.actions.nodes.beds[node.name].get_lay_pos(pos, dir)
 		-- Sit down on bed, rotate to correct direction
 		npc.add_action(self, npc.actions.cmd.SIT, {pos=bed_pos, dir=(node.param2 + 2) % 4})
@@ -611,6 +615,10 @@ function npc.actions.use_bed(self, args)
 		npc.add_action(self, npc.actions.cmd.LAY, {})
 	else
 		-- Calculate position to get up
+		-- Error here due to ignore. Need to come up with better solution
+		if node.name == "ignore" then
+			return
+		end
 		local bed_pos_y = npc.actions.nodes.beds[node.name].get_lay_pos(pos, dir).y
 		local bed_pos = {x = pos.x, y = bed_pos_y, z = pos.z} 
 		-- Sit up
@@ -662,6 +670,10 @@ function npc.actions.use_sittable(self, args)
 
 	if action == npc.actions.const.sittable.SIT then
 		-- Calculate position depending on bench
+		-- Error here due to ignore. Need to come up with better solution
+		if node.name == "ignore" then
+			return
+		end
 		local sit_pos = npc.actions.nodes.sittable[node.name].get_sit_pos(pos, node.param2)
 		-- Sit down on bench/chair/stairs
 		npc.add_action(self, npc.actions.cmd.SIT, {pos=sit_pos, dir=(node.param2 + 2) % 4})

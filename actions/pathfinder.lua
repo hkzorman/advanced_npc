@@ -153,7 +153,11 @@ local function walkable(node, exceptions)
   if node.name == "cottages:wood_flat" then
   	is_mg_villages_ceiling = true
   end
-  if node ~= nil and node.name ~= nil and not minetest.registered_nodes[node.name].walkable then
+  if node ~= nil 
+  	and node.name ~= nil 
+  	and node.name ~= "ignore" 
+  	and minetest.registered_nodes[node.name]
+  	and not minetest.registered_nodes[node.name].walkable then
     return false
   elseif is_openable then
     return false

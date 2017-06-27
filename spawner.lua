@@ -557,6 +557,11 @@ function spawner.replace_mg_villages_plotmarker(pos)
   local village_id = meta:get_string("village_id")
   local plot_nr = meta:get_int("plot_nr")
   local infotext = meta:get_string("infotext")
+  -- Check for nil values above
+  if (not village_id or (village and village == "")) 
+  	or (not plot_nr or (plot_nr and plot_nr == 0)) then
+  	return
+  end
   -- Following line from mg_villages mod, protection.lua
   local btype = mg_villages.all_villages[village_id].to_add_data.bpos[plot_nr].btype
   local building_data = mg_villages.BUILDINGS[btype]
