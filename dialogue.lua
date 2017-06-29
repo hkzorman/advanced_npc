@@ -45,10 +45,10 @@ npc.dialogue.dialogue_results = {
 -- Creates and shows a multi-option dialogue based on the number of responses
 -- that the dialogue object contains
 function npc.dialogue.show_options_dialogue(self, 
-																						dialogue,
-																						dismiss_option_label,
-																						player_name) 
-  local responses = dialogue.responses
+											dialogue,
+											dismiss_option_label,
+											player_name) 
+  	local responses = dialogue.responses
 	local options_length = table.getn(responses) + 1	
 	local formspec_height = (options_length * 0.7) + 0.4
 	local formspec = "size[7,"..tostring(formspec_height).."]"
@@ -81,22 +81,22 @@ end
 -- This function is used for showing a yes/no dialogue formspec
 function npc.dialogue.show_yes_no_dialogue(self,
                                            prompt, 
-                    										   positive_answer_label,
-                    										   positive_callback,
-                    										   negative_answer_label,
-                    										   negative_callback,
-                    										   player_name)
+										   positive_answer_label,
+										   positive_callback,
+										   negative_answer_label,
+										   negative_callback,
+										   player_name)
 
-  npc.lock_actions(self)
+  	npc.lock_actions(self)
 
 	local formspec = "size[7,3]"..
-					 "label[0.5,0.1;"..prompt.."]"..
-						"button_exit[0.5,1.15;6,0.5;yes_option;"..positive_answer_label.."]"..
-						"button_exit[0.5,1.95;6,0.5;no_option;"..negative_answer_label.."]"	
+					"label[0.5,0.1;"..prompt.."]"..
+					"button_exit[0.5,1.15;6,0.5;yes_option;"..positive_answer_label.."]"..
+					"button_exit[0.5,1.95;6,0.5;no_option;"..negative_answer_label.."]"	
 
 	-- Create entry into responses table
 	npc.dialogue.dialogue_results.yes_no_dialogue[player_name] = {
-    npc = self,
+    	npc = self,
 		yes_callback = positive_callback,
 		no_callback = negative_callback
 	}
@@ -418,8 +418,8 @@ minetest.register_on_player_receive_fields(function (player, formname, fields)
 		if fields then
 			local player_response = npc.dialogue.dialogue_results.yes_no_dialogue[player_name]
 
-      -- Unlock queue, reset action timer and unfreeze NPC.
-      npc.unlock_actions(player_response.npc)
+      		-- Unlock queue, reset action timer and unfreeze NPC.
+     		npc.unlock_actions(player_response.npc)
 
 			if fields.yes_option then
 				player_response.yes_callback()
@@ -437,11 +437,11 @@ minetest.register_on_player_receive_fields(function (player, formname, fields)
 			-- Get player response
 			local player_response = npc.dialogue.dialogue_results.options_dialogue[player_name]
 
-      -- Check if the player hit the negative option
-      if fields["exit"] then
-        -- Unlock queue, reset action timer and unfreeze NPC.
-        npc.unlock_actions(player_response.npc)
-      end
+      		-- Check if the player hit the negative option or esc button
+      		if fields["exit"] or fields["quit"] == "true" then
+        		-- Unlock queue, reset action timer and unfreeze NPC.
+       			npc.unlock_actions(player_response.npc)
+      		end
 
 			for i = 1, #player_response.options do
 				local button_label = "opt"..tostring(i)
@@ -476,36 +476,36 @@ minetest.register_on_player_receive_fields(function (player, formname, fields)
 									.responses[player_response.options[i].response_id]
 									.action(player_response.npc, player) 
 							end
-              return
-            elseif player_response.is_dedicated_trade_dialogue == true then
-              -- Get the functions for a dedicated trader prompt
-              npc.trade.DEDICATED_TRADER_PROMPT
-                .responses[player_response.options[i].response_id]
-                .action(player_response.npc, player)
-              return
-            elseif player_response.is_custom_trade_dialogue == true then
-              -- Functions for a custom trade should be available from the same dialogue
-              -- object as it is created in memory
-              minetest.log("Player response: "..dump(player_response.options[i]))
-              player_response.options[i].action(player_response.npc, player)
-						else
-							-- Get dialogues for sex and phase
-							local dialogues = npc.data.DIALOGUES[player_response.npc.sex][phase]
+			              	return
+			            elseif player_response.is_dedicated_trade_dialogue == true then
+			              -- Get the functions for a dedicated trader prompt
+			              npc.trade.DEDICATED_TRADER_PROMPT
+			                .responses[player_response.options[i].response_id]
+			                .action(player_response.npc, player)
+			              return
+			            elseif player_response.is_custom_trade_dialogue == true then
+			              -- Functions for a custom trade should be available from the same dialogue
+			              -- object as it is created in memory
+			              minetest.log("Player response: "..dump(player_response.options[i]))
+			              player_response.options[i].action(player_response.npc, player)
+									else
+										-- Get dialogues for sex and phase
+										local dialogues = npc.data.DIALOGUES[player_response.npc.sex][phase]
 
-              minetest.log("Object: "..dump(dialogues[player_response.options[i].dialogue_id]))
-              local response = get_response_object_by_id_recursive(dialogues[player_response.options[i].dialogue_id], 0, player_response.options[i].response_id)
-              minetest.log("Found: "..dump(response))
-              
-              -- Execute function
-              response.action(player_response.npc, player)
+			              minetest.log("Object: "..dump(dialogues[player_response.options[i].dialogue_id]))
+			              local response = get_response_object_by_id_recursive(dialogues[player_response.options[i].dialogue_id], 0, player_response.options[i].response_id)
+			              minetest.log("Found: "..dump(response))
+			              
+			              -- Execute function
+			              response.action(player_response.npc, player)
 
-							-- Execute function
-							-- dialogues[player_response.options[i].dialogue_id]
-							-- 	.responses[player_response.options[i].response_id]
-							-- 	.action(player_response.npc, player)
+										-- Execute function
+										-- dialogues[player_response.options[i].dialogue_id]
+										-- 	.responses[player_response.options[i].response_id]
+										-- 	.action(player_response.npc, player)
 
-              -- Unlock queue, reset action timer and unfreeze NPC.
-              npc.unlock_actions(player_response.npc)
+			              -- Unlock queue, reset action timer and unfreeze NPC.
+			              npc.unlock_actions(player_response.npc)
 
 						end
 					end
