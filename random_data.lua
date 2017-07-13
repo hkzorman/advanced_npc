@@ -8,6 +8,37 @@ npc.data.DIALOGUES = {
 	male = {}
 }
 
+
+npc.dialogue.register_dialogue({
+	text = "Hello there!",
+	tags = {"unisex", "phase1"}
+})
+
+npc.dialogue.register_dialogue({
+	text = "How are you doing?",
+	tags = {"unisex", "phase1"}
+})
+
+npc.dialogue.register_dialogue({
+	text = "Just living another day...",
+	tags = {"unisex", "phase1"}
+})
+
+npc.dialogue.register_dialogue({
+	text = "Is there any woman in this area more beautiful than I am?",
+	tags = {"female", "phase1"}
+})
+
+npc.dialogue.register_dialogue({
+	text = "Hunting is the best pasttime!",
+	tags = {"male", "phase1"}
+})
+
+npc.dialogue.register_dialogue({
+	text = "I hope my wheat grows well this harvest.",
+	tags = {"male", "default_farmer"}
+})
+
 -- Female dialogue options defined by phase
 -- Phase 1
 npc.data.DIALOGUES.female["phase1"] = {
@@ -374,7 +405,7 @@ npc.data.FIRST_NAMES = {
 		"Arianne",
 		"Lizzy",
 		"Amy",
-		"Chole",
+		"Chloe",
 		"Alisson"
 	},
 	male = {
@@ -396,8 +427,7 @@ npc.FAVORITE_ITEMS = {
   female = {},
   male = {}
 }
--- Define items by phase
--- Female
+
 npc.FAVORITE_ITEMS.female["phase1"] = {
   {item = "default:apple",        
    response = "Hey, I really wanted an apple, thank you!",
@@ -452,7 +482,7 @@ npc.FAVORITE_ITEMS.female["phase4"] = {
    hint = "I could really do with an apple..."},
   {item = "farming:bread",
    response = "Thanks, you didn't have to, but thanks...",
-   hint = "SOme fresh bread would be good!"}
+   hint = "Some fresh bread would be good!"}
 }
 npc.FAVORITE_ITEMS.female["phase5"] = {
   {item = "default:apple",        
