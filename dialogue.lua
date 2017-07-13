@@ -1,20 +1,6 @@
+-------------------------------------------------------------------------------------
 -- NPC dialogue code by Zorman2000
--- Dialogue definitions:
--- TODO: Complete
--- {
---   text: "",
---   ^ The "spoken" dialogue line
---   flag:     
---   ^ If the flag with the specified name has the specified value
---     then this dialogue is valid 
---   {
---     name: ""   
---     ^ Name of the flag
---     value:  
---     ^ Expected value of the flag. A flag can be a function. In such a case, it is
---       expected the function will return this value.
---   }
--- }
+-------------------------------------------------------------------------------------
 
 npc.dialogue = {}
 
@@ -37,11 +23,144 @@ npc.dialogue.dialogue_results = {
 	yes_no_dialogue = {}
 }
 
----------------------------------------------------------------------------------------
+npc.dialogue.tags = {
+	UNISEX = "unisex",
+	MALE = "male",
+	FEMALE = "female",
+	-- Relationship based tags - these are one-to-one with the
+	-- phase names.
+	PHASE_1 = "phase1",
+	PHASE_2 = "phase2",
+	PHASE_3 = "phase3",
+	PHASE_4 = "phase4",
+	PHASE_5 = "phase5",
+	GIFT_ITEM_HINT = "gift_item_hint",
+	GIFT_ITEM_RESPONSE = "gift_item_response",
+	GIFT_ITEM_LIKED = "gift_item_liked",
+	GIFT_ITEM_UNLIKED = "gift_item_unliked",
+	-- Occupation-based tags - these are one-to-one with the 
+	-- default occupation names
+	BASIC = "basic", -- Dialogues related to the basic occupation should
+					 -- use this. As basic occupation is generic, any occupation
+					 -- should be able to use these dialogues.
+	DEFAULT_FARMER = "default_farmer",
+	DEFAULT_COOKER = "default_cooker"
+}
+
+-- This table will contain all the registered dialogues for NPCs
+npc.dialogue.registered_dialogues = {}
+
+--------------------------------------------------------------------------------------
+-- Dialogue registration functions
+-- All dialogues will be registered by providing a definition.
+-- A unique key will be assigned to them. The dialogue definition is the following:
+-- {
+--   text: "",
+--   ^ The "spoken" dialogue line
+--   flag:
+--   ^ If the flag with the specified name has the specified value
+--     then this dialogue is valid 
+--   {
+--     name: ""   
+--     ^ Name of the flag
+--     value:  
+--     ^ Expected value of the flag. A flag can be a function. In such a case, it is
+--       expected the function will return this value.
+--   },
+--   tags = {
+--		-- Tags are an array of string that allow to classify dialogues
+--		-- A dialogue can have as many tags as desired and can take any form.
+--      -- However, for consistency, some predefined tags can be found at
+--		-- npc.dialogue.tags.
+--		-- Example:
+--		"phase1",
+--		"any"
+--	 }
+--	 responses = {
+--		-- Array of responses the player can choose. A response can be of
+--		-- two types: as [1] or as [2] (see example below)
+--		[1] = {
+--			text = "Yes",
+--			-- Text displayed to the player
+--			action_type = "dialogue",
+--			-- Type of action that happens when the player chooses this response.
+--			--  can be "dialogue" or "function". This example shows "dialogue"
+--			action = {
+--				text = "It's so beautiful, and big, and large, and infinite, and..."
+--			},
+--		},
+--			-- A table containing a dialogue. This means you can include not only
+--			-- text but also flag and responses as well. Dialogues are recursive.
+--		[2] = {
+--			text = "No",
+--			action_type = "function",
+--			action = function(self, player)
+--				-- A function will have access to self, which is the NPC
+--				-- and the player, which is the player ObjectRef. You can
+--				-- pretty much do anything here. The example here is very simple,
+--				-- just sending a chat message. But you can add items to players
+--				-- or to NPCs and so on.
+--	          	minetest.chat_send_player(player:get_player_name(), "Oh, ok...")
+--	        end,
+--		},	
+--	 }
+-- }
+--------------------------------------------------------------------------------------
+-- The register dialogue function will just receive the definition as 
+-- explained above. The unique key will be the index it gets into the
+-- array when inserted.
+function npc.dialogue.register_dialogue(def)
+	-- If def has not tags then apply the default ones
+	if not def.tags then
+		def.tags = {npc.dialogue.tags.UNISEX, npc.dialogue.tags.PHASE_1}
+	end
+	-- Insert dialogue into table
+	table.insert(npc.dialogue.registered_dialogues, def)
+	--minetest.log("Dialogues: "..dump(npc.dialogue.registered_dialogues))
+end
+
+-- This function returns a table of dialogues that meet the given
+-- tags array. The keys in the table are the keys in 
+-- npc.dialogue.registered_dialogues, therefore you can use them to 
+--retrieve specific dialogues. However, it should be stored by the NPC.
+function npc.dialogue.search_dialogue_by_tags(tags, find_all)
+	--minetest.log("Tags being searched: "..dump(tags))
+	local result = {}
+	for key, def in pairs(npc.dialogue.registered_dialogues) do
+		-- Check if def.tags have any of the provided tags
+		local tags_found = 0
+		--minetest.log("Tags on dialogue def: "..dump(def.tags))
+		for i = 1, #tags do
+			if npc.utils.array_contains(def.tags, tags[i]) then
+				tags_found = tags_found + 1
+			end
+		end
+		--minetest.log("Tags found: "..dump(tags_found))
+		-- Check if we found all tags
+		if find_all then
+			if tags_found == #tags then
+				-- Add result
+				result[key] = def
+			end
+		elseif not find_all then
+			if tags_found == #tags or tags_found == #def.tags then
+				-- Add result
+				result[key] = def
+			end
+		end
+		-- if (find_all == true and tags_found == #tags) 
+		-- 	or (not find_all and tags_found == #def.tags) then
+			
+		-- end
+	end
+	return result
+end
+
+--------------------------------------------------------------------------------------
 -- Dialogue box definitions
 -- The dialogue boxes are used for the player to interact with the
 -- NPC in dialogues.
----------------------------------------------------------------------------------------
+--------------------------------------------------------------------------------------
 -- Creates and shows a multi-option dialogue based on the number of responses
 -- that the dialogue object contains
 function npc.dialogue.show_options_dialogue(self, 
@@ -67,10 +186,14 @@ function npc.dialogue.show_options_dialogue(self,
 	-- Create entry on options_dialogue table
 	npc.dialogue.dialogue_results.options_dialogue[player_name] = {
 		npc = self,
-		is_married_dialogue = (dialogue.dialogue_type == npc.dialogue.dialogue_type.married),
-		is_casual_trade_dialogue = (dialogue.dialogue_type == npc.dialogue.dialogue_type.casual_trade),
-    is_dedicated_trade_dialogue = (dialogue.dialogue_type == npc.dialogue.dialogue_type.dedicated_trade),
-    is_custom_trade_dialogue = (dialogue.dialogue_type == npc.dialogue.dialogue_type.custom_trade),
+		is_married_dialogue = 
+			(dialogue.dialogue_type == npc.dialogue.dialogue_type.married),
+		is_casual_trade_dialogue = 
+			(dialogue.dialogue_type == npc.dialogue.dialogue_type.casual_trade),
+    	is_dedicated_trade_dialogue = 
+    		(dialogue.dialogue_type == npc.dialogue.dialogue_type.dedicated_trade),
+    	is_custom_trade_dialogue = 
+    		(dialogue.dialogue_type == npc.dialogue.dialogue_type.custom_trade),
 		casual_trade_type = dialogue.casual_trade_type,
 		options = responses
 	}
@@ -104,9 +227,9 @@ function npc.dialogue.show_yes_no_dialogue(self,
 	minetest.show_formspec(player_name, "advanced_npc:yes_no", formspec)
 end
 
----------------------------------------------------------------------------------------
+--------------------------------------------------------------------------------------
 -- Dialogue methods
----------------------------------------------------------------------------------------
+--------------------------------------------------------------------------------------
 -- This function sets a unique response ID (made of <depth>:<response index>) to
 -- each response that features a function. This is to be able to locate the
 -- function easily later
@@ -135,43 +258,79 @@ end
 
 -- Select random dialogue objects for an NPC based on sex
 -- and the relationship phase with player
-function npc.dialogue.select_random_dialogues_for_npc(sex, phase, favorite_items, disliked_items)
+function npc.dialogue.select_random_dialogues_for_npc(self, phase)
 	local result = {
 		normal = {},
 		hints = {}
 	}
 
-	local dialogues = npc.data.DIALOGUES.female
-	if sex == npc.MALE then
-		dialogues = npc.data.DIALOGUES.male
+	local phase_tag = "phase1"
+	if phase then
+		phase_tag = phase
 	end
-	dialogues = dialogues[phase]
+
+	local search_tags = {
+		"unisex",
+		self.sex,
+		phase_tag,
+		self.occupation
+	}
+
+	local dialogues = npc.dialogue.search_dialogue_by_tags(search_tags)
+	minetest.log("dialogues found by tag search: "..dump(dialogues))
 
 	-- Determine how many dialogue lines the NPC will have
 	local number_of_dialogues = math.random(npc.dialogue.MIN_DIALOGUES, npc.dialogue.MAX_DIALOGUES)
 
 	for i = 1,number_of_dialogues do
 		local dialogue_id = math.random(1, #dialogues)
-		result.normal[i] = dialogues[dialogue_id] 
+		result.normal[i] = dialogue_id 
 
-    set_response_ids_recursively(result.normal[i], 0, dialogue_id)
+    	--set_response_ids_recursively(result.normal[i], 0, dialogue_id)
 	end
 
 	-- Add item hints.
-	-- Favorite items
 	for i = 1, 2 do
-		result.hints[i] = {}
-		result.hints[i].text = 
-			npc.relationships.get_hint_for_favorite_item(favorite_items["fav"..tostring(i)], sex, phase)
+		local hints = npc.relationships.get_dialogues_for_gift_item(
+			self.gift_data.favorite_items["fav"..tostring(i)],
+			npc.dialogue.tags.GIFT_ITEM_HINT,
+			npc.dialogue.tags.GIFT_ITEM_LIKED,
+			self.sex, 
+			phase_tag)
+		for key, value in pairs(hints) do
+			result.hints[i] = key
+		end
 	end
 
-	-- Disliked items
 	for i = 3, 4 do
-		result.hints[i] = {}
-		result.hints[i].text = 
-			npc.relationships.get_hint_for_disliked_item(disliked_items["dis"..tostring(i-2)], sex)
+		local hints = npc.relationships.get_dialogues_for_gift_item(
+			self.gift_data.disliked_items["dis"..tostring(i-2)],
+			npc.dialogue.tags.GIFT_ITEM_HINT,
+			npc.dialogue.tags.GIFT_ITEM_UNLIKED,
+			self.sex)
+		for key, value in pairs(hints) do
+			result.hints[i] = key
+		end
 	end
 
+
+	-- Favorite items
+	-- for i = 1, 2 do
+	-- 	result.hints[i] = {}
+	-- 	result.hints[i].text = 
+	-- 		npc.relationships.get_hint_for_favorite_item(
+	-- 			self.gift_data.favorite_items["fav"..tostring(i)], self.sex, phase_tag)
+	-- end
+
+	-- -- Disliked items
+	-- for i = 3, 4 do
+	-- 	result.hints[i] = {}
+	-- 	result.hints[i].text = 
+	-- 		npc.relationships.get_hint_for_disliked_item(
+	-- 			self.gift_data.disliked_items["dis"..tostring(i-2)], self.sex, phase_tag)
+	-- end
+
+	minetest.log("Dialogue results:"..dump(result))
 	return result
 end
 
@@ -181,7 +340,10 @@ function npc.dialogue.create_custom_trade_options(self, player)
   -- Create the action for each option
   local actions = {}
   for i = 1, #self.trader_data.custom_trades do
-    table.insert(actions, function() npc.trade.show_custom_trade_offer(self, player, self.trader_data.custom_trades[i]) end)   
+    table.insert(actions, 
+    	function() 
+    		npc.trade.show_custom_trade_offer(self, player, self.trader_data.custom_trades[i]) 
+    	end)   
   end
   -- Default text to be shown for dialogue prompt
   local text = npc.trade.CUSTOM_TRADES_PROMPT_TEXT
@@ -211,60 +373,61 @@ function npc.dialogue.start_dialogue(self, player, show_married_dialogue)
 	-- Construct dialogue for marriage
 	if npc.relationships.get_relationship_phase(self, player:get_player_name()) == "phase6"
 		and show_married_dialogue == true then
-		dialogue = npc.relationships.MARRIED_NPC_DIALOGUE
-		npc.dialogue.process_dialogue(self, dialogue, player:get_player_name())
+			dialogue = npc.relationships.MARRIED_NPC_DIALOGUE
+				npc.dialogue.process_dialogue(self, dialogue, player:get_player_name())
 		return
 	end 
 
-  -- Show options dialogue for dedicated trader
-  if self.trader_data.trader_status == npc.trade.TRADER then
-    dialogue = npc.trade.DEDICATED_TRADER_PROMPT
-    npc.dialogue.process_dialogue(self, dialogue, player:get_player_name())
-    return
-  end
+	-- Show options dialogue for dedicated trader
+	if self.trader_data.trader_status == npc.trade.TRADER then
+	   dialogue = npc.trade.DEDICATED_TRADER_PROMPT
+	   npc.dialogue.process_dialogue(self, dialogue, player:get_player_name())
+	   return
+	end
 
 	local chance = math.random(1, 100)
-	minetest.log("Chance: "..dump(chance))
 	if chance < 30 then
-		-- If NPC is a casual trader, show a sell or buy dialogue 30% of the time, depending
-		-- on the state of the casual trader.
-    if self.trader_data.trader_status == npc.trade.NONE then
-      -- Show custom trade options if available
-      if table.getn(self.trader_data.custom_trades) > 0 then
-        -- Show custom trade options
-        dialogue = npc.dialogue.create_custom_trade_options(self, player)
-      end
-    elseif self.trader_data.trader_status == npc.trade.CASUAL then
-      local max_trade_chance = 2
-      if table.getn(self.trader_data.custom_trades) > 0 then
-        max_trade_chance = 3
-      end
-  		-- Show buy/sell with 50% chance each
-  		local trade_chance = math.random(1, max_trade_chance)
-  		if trade_chance == 1 then
-  			-- Show casual buy dialogue
-  			dialogue = npc.trade.CASUAL_TRADE_BUY_DIALOGUE
-  		elseif trade_chance == 2 then
-  			-- Show casual sell dialogue
-  			dialogue = npc.trade.CASUAL_TRADE_SELL_DIALOGUE
-  		elseif trade_chance == 3 then
-        -- Show custom trade options
-        dialogue = npc.dialogue.create_custom_trade_options(self, player)
-      end
-  	end
+		-- Show trading options for casual traders
+		-- If NPC has custom trading options, these will be
+		-- shown as well with equal chance as the casual
+		-- buy/sell options
+	    if self.trader_data.trader_status == npc.trade.NONE then
+	      	-- Show custom trade options if available
+	      	if table.getn(self.trader_data.custom_trades) > 0 then
+	        	-- Show custom trade options
+	       		dialogue = npc.dialogue.create_custom_trade_options(self, player)
+	    	end
+	    elseif self.trader_data.trader_status == npc.trade.CASUAL then
+	      	local max_trade_chance = 2
+	      	if table.getn(self.trader_data.custom_trades) > 0 then
+	        	max_trade_chance = 3
+	      	end
+	  		-- Show buy/sell with 50% chance each
+	  		local trade_chance = math.random(1, max_trade_chance)
+	  		if trade_chance == 1 then
+	  			-- Show casual buy dialogue
+	  			dialogue = npc.trade.CASUAL_TRADE_BUY_DIALOGUE
+	  		elseif trade_chance == 2 then
+	  			-- Show casual sell dialogue
+	  			dialogue = npc.trade.CASUAL_TRADE_SELL_DIALOGUE
+	  		elseif trade_chance == 3 then
+	        	-- Show custom trade options
+	        	dialogue = npc.dialogue.create_custom_trade_options(self, player)
+	      	end
+	  	end
 	elseif chance >= 30 and chance < 90 then
-    -- Choose a random dialogue from the common ones
+    	-- Choose a random dialogue from the common ones
 		dialogue = self.dialogues.normal[math.random(1, #self.dialogues.normal)]
 	elseif chance >= 90 then
-    -- Choose a random dialogue line from the favorite/disliked item hints
+   		-- Choose a random dialogue line from the favorite/disliked item hints
 		dialogue = self.dialogues.hints[math.random(1, 4)]
 	end
 
 	local dialogue_result = npc.dialogue.process_dialogue(self, dialogue, player:get_player_name())
-  if dialogue_result == false then
-    -- Try to find another dialogue line
-    npc.dialogue.start_dialogue(self, player, show_married_dialogue)
-  end
+  	if dialogue_result == false then
+    	-- Try to find another dialogue line
+    	npc.dialogue.start_dialogue(self, player, show_married_dialogue)
+ 	end
 end
 
 -- This function processes a dialogue object and performs
@@ -273,6 +436,11 @@ function npc.dialogue.process_dialogue(self, dialogue, player_name)
 
   -- Freeze NPC actions
   npc.lock_actions(self)
+
+  if type(dialogue) ~= "table" then
+  	dialogue = npc.dialogue.registered_dialogues[dialogue]
+  	minetest.log("Found dialogue: "..dump(dialogue))
+  end
 
   -- Check if this dialogue has a flag definition
   if dialogue.flag then
