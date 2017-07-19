@@ -8,37 +8,6 @@ npc.data.DIALOGUES = {
 	male = {}
 }
 
-
-npc.dialogue.register_dialogue({
-	text = "Hello there!",
-	tags = {"unisex", "phase1"}
-})
-
-npc.dialogue.register_dialogue({
-	text = "How are you doing?",
-	tags = {"unisex", "phase1"}
-})
-
-npc.dialogue.register_dialogue({
-	text = "Just living another day...",
-	tags = {"unisex", "phase1"}
-})
-
-npc.dialogue.register_dialogue({
-	text = "Is there any woman in this area more beautiful than I am?",
-	tags = {"female", "phase1"}
-})
-
-npc.dialogue.register_dialogue({
-	text = "Hunting is the best pasttime!",
-	tags = {"male", "phase1"}
-})
-
-npc.dialogue.register_dialogue({
-	text = "I hope my wheat grows well this harvest.",
-	tags = {"male", "default_farmer"}
-})
-
 -- Female dialogue options defined by phase
 -- Phase 1
 npc.data.DIALOGUES.female["phase1"] = {

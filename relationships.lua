@@ -96,7 +96,7 @@ npc.relationships.MARRIED_NPC_DIALOGUE = {
       end
     },
     [3] = {
-      text = "Come with me, please!",
+      text = "Please, come with me!",
       action_type = "function",
       response_id = 3,
       action = function(self, player)

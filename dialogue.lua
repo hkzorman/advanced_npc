@@ -29,6 +29,7 @@ npc.dialogue.tags = {
 	FEMALE = "female",
 	-- Relationship based tags - these are one-to-one with the
 	-- phase names.
+	DEFAULT_MARRIED_DIALOGUE = "default_married_dialogue",
 	PHASE_1 = "phase1",
 	PHASE_2 = "phase2",
 	PHASE_3 = "phase3",
@@ -38,6 +39,11 @@ npc.dialogue.tags = {
 	GIFT_ITEM_RESPONSE = "gift_item_response",
 	GIFT_ITEM_LIKED = "gift_item_liked",
 	GIFT_ITEM_UNLIKED = "gift_item_unliked",
+	-- Trade-related tags
+	DEFAULT_CASUAL_TRADE = "default_casual_trade_dialogue",
+	DEFAULT_DEDICATED_TRADE = "default_dedicated_trade_dialogue",
+	DEFAULT_BUY_OFFER = "buy_offer",
+	DEFAULT_SELL_OFFER = "sell_offer",
 	-- Occupation-based tags - these are one-to-one with the 
 	-- default occupation names
 	BASIC = "basic", -- Dialogues related to the basic occupation should
@@ -49,6 +55,15 @@ npc.dialogue.tags = {
 
 -- This table will contain all the registered dialogues for NPCs
 npc.dialogue.registered_dialogues = {}
+
+npc.dialogue.cache_keys = {
+	CASUAL_BUY_DIALOGUE = {key="CASUAL_BUY_DIALOGUE", tags={npc.dialogue.tags.DEFAULT_CASUAL_TRADE, npc.dialogue.tags.DEFAULT_BUY_OFFER}},
+	CASUAL_SELL_DIALOGUE = {key="CASUAL_SELL_DIALOGUE", tags={npc.dialogue.tags.DEFAULT_CASUAL_TRADE, npc.dialogue.tags.DEFAULT_SELL_OFFER}},
+	DEDICATED_TRADER_DIALOGUE = {key="DEDICATED_TRADER_DIALOGUE", tags={npc.dialogue.tags.DEFAULT_DEDICATED_TRADE}},
+	MARRIED_DIALOGUE = {key="MARRIED_DIALOGUE", tags={npc.dialogue.tags.DEFAULT_MARRIED_DIALOGUE}},
+}
+
+npc.dialogue.cache = {}
 
 --------------------------------------------------------------------------------------
 -- Dialogue registration functions
@@ -106,6 +121,31 @@ npc.dialogue.registered_dialogues = {}
 --	 }
 -- }
 --------------------------------------------------------------------------------------
+-- This function sets a unique response ID (made of <depth>:<response index>) to
+-- each response that features a function. This is to be able to locate the
+-- function easily later
+local function set_response_ids_recursively(dialogue, depth, dialogue_id)
+  -- Base case: dialogue object with no responses and no responses below it
+  if dialogue.responses == nil 
+    and (dialogue.action_type == "dialogue" and dialogue.action.responses == nil) then
+    return
+  elseif dialogue.responses ~= nil then
+    -- Assign a response ID to each response
+    local response_id_prefix = tostring(depth)..":"
+    for key,value in ipairs(dialogue.responses) do
+      if value.action_type == "function" then
+        value.response_id = response_id_prefix..key
+        value.dialogue_id = dialogue_id
+      else
+        -- We have a dialogue action type. Need to check if dialogue has further responses
+        if value.action.responses ~= nil then
+          set_response_ids_recursively(value.action, depth + 1, dialogue_id)
+        end
+      end
+    end
+  end
+end
+
 -- The register dialogue function will just receive the definition as 
 -- explained above. The unique key will be the index it gets into the
 -- array when inserted.
@@ -114,9 +154,17 @@ function npc.dialogue.register_dialogue(def)
 	if not def.tags then
 		def.tags = {npc.dialogue.tags.UNISEX, npc.dialogue.tags.PHASE_1}
 	end
+
+	local dialogue_id = table.getn(npc.dialogue.registered_dialogues) + 1
+	-- Set the response IDs - required for dialogue objects that
+	-- form trees of dialogues
+	set_response_ids_recursively(def, 0, dialogue_id)
+
+	def.key = dialogue_id
+	
 	-- Insert dialogue into table
 	table.insert(npc.dialogue.registered_dialogues, def)
-	--minetest.log("Dialogues: "..dump(npc.dialogue.registered_dialogues))
+	return dialogue_id
 end
 
 -- This function returns a table of dialogues that meet the given
@@ -148,12 +196,31 @@ function npc.dialogue.search_dialogue_by_tags(tags, find_all)
 				result[key] = def
 			end
 		end
-		-- if (find_all == true and tags_found == #tags) 
-		-- 	or (not find_all and tags_found == #def.tags) then
-			
-		-- end
 	end
 	return result
+end
+
+function npc.dialogue.get_cached_dialogue_key(_cache_key, tags)
+	local cache_key = _cache_key
+	if type(_cache_key) == "table" then
+		cache_key = _cache_key.key
+		tags = _cache_key.tags
+	end
+
+	local key = npc.dialogue.cache[cache_key]
+	-- Check if key isn't cached
+	if not key then
+		-- Search for the dialogue
+		local dialogues = npc.dialogue.search_dialogue_by_tags(tags, true)
+	  	key = npc.utils.get_map_keys(dialogues)[1]
+	  	-- Populate cache
+	  	npc.dialogue.cache[cache_key] = key
+		-- Return key
+		return key
+	else
+		-- Return the cached key
+		return key
+	end
 end
 
 --------------------------------------------------------------------------------------
@@ -164,6 +231,7 @@ end
 -- Creates and shows a multi-option dialogue based on the number of responses
 -- that the dialogue object contains
 function npc.dialogue.show_options_dialogue(self, 
+											dialogue_key,
 											dialogue,
 											dismiss_option_label,
 											player_name) 
@@ -186,12 +254,10 @@ function npc.dialogue.show_options_dialogue(self,
 	-- Create entry on options_dialogue table
 	npc.dialogue.dialogue_results.options_dialogue[player_name] = {
 		npc = self,
+		dialogue = dialogue,
+		dialogue_key = dialogue_key,
 		is_married_dialogue = 
 			(dialogue.dialogue_type == npc.dialogue.dialogue_type.married),
-		is_casual_trade_dialogue = 
-			(dialogue.dialogue_type == npc.dialogue.dialogue_type.casual_trade),
-    	is_dedicated_trade_dialogue = 
-    		(dialogue.dialogue_type == npc.dialogue.dialogue_type.dedicated_trade),
     	is_custom_trade_dialogue = 
     		(dialogue.dialogue_type == npc.dialogue.dialogue_type.custom_trade),
 		casual_trade_type = dialogue.casual_trade_type,
@@ -230,32 +296,6 @@ end
 --------------------------------------------------------------------------------------
 -- Dialogue methods
 --------------------------------------------------------------------------------------
--- This function sets a unique response ID (made of <depth>:<response index>) to
--- each response that features a function. This is to be able to locate the
--- function easily later
-local function set_response_ids_recursively(dialogue, depth, dialogue_id)
-  -- Base case: dialogue object with no responses and no r,esponses below it
-  if dialogue.responses == nil 
-    and (dialogue.action_type == "dialogue" and dialogue.action.responses == nil) then
-    return
-  elseif dialogue.responses ~= nil then
-    -- Assign a response ID to each response
-    local response_id_prefix = tostring(depth)..":"
-    for key,value in ipairs(dialogue.responses) do
-      if value.action_type == "function" then
-        value.response_id = response_id_prefix..key
-        value.dialogue_id = dialogue_id
-      else
-        -- We have a dialogue action type. Need to check if dialogue has further responses
-        if value.action.responses ~= nil then
-          set_response_ids_recursively(value.action, depth + 1, dialogue_id)
-        end
-      end
-    end
-  end
-end
-
-
 -- Select random dialogue objects for an NPC based on sex
 -- and the relationship phase with player
 function npc.dialogue.select_random_dialogues_for_npc(self, phase)
@@ -277,16 +317,15 @@ function npc.dialogue.select_random_dialogues_for_npc(self, phase)
 	}
 
 	local dialogues = npc.dialogue.search_dialogue_by_tags(search_tags)
-	minetest.log("dialogues found by tag search: "..dump(dialogues))
+	local keys = npc.utils.get_map_keys(dialogues)
 
 	-- Determine how many dialogue lines the NPC will have
 	local number_of_dialogues = math.random(npc.dialogue.MIN_DIALOGUES, npc.dialogue.MAX_DIALOGUES)
 
-	for i = 1,number_of_dialogues do
-		local dialogue_id = math.random(1, #dialogues)
-		result.normal[i] = dialogue_id 
-
-    	--set_response_ids_recursively(result.normal[i], 0, dialogue_id)
+	for i = 1, number_of_dialogues do
+		local key_id = math.random(1, #keys)
+		result.normal[i] = keys[key_id]
+		minetest.log("Adding dialogue: "..dump(dialogues[keys[key_id]]))
 	end
 
 	-- Add item hints.
@@ -313,24 +352,7 @@ function npc.dialogue.select_random_dialogues_for_npc(self, phase)
 		end
 	end
 
-
-	-- Favorite items
-	-- for i = 1, 2 do
-	-- 	result.hints[i] = {}
-	-- 	result.hints[i].text = 
-	-- 		npc.relationships.get_hint_for_favorite_item(
-	-- 			self.gift_data.favorite_items["fav"..tostring(i)], self.sex, phase_tag)
-	-- end
-
-	-- -- Disliked items
-	-- for i = 3, 4 do
-	-- 	result.hints[i] = {}
-	-- 	result.hints[i].text = 
-	-- 		npc.relationships.get_hint_for_disliked_item(
-	-- 			self.gift_data.disliked_items["dis"..tostring(i-2)], self.sex, phase_tag)
-	-- end
-
-	minetest.log("Dialogue results:"..dump(result))
+	npc.log("DEBUG", "Dialogue results:"..dump(result))
 	return result
 end
 
@@ -380,12 +402,13 @@ function npc.dialogue.start_dialogue(self, player, show_married_dialogue)
 
 	-- Show options dialogue for dedicated trader
 	if self.trader_data.trader_status == npc.trade.TRADER then
-	   dialogue = npc.trade.DEDICATED_TRADER_PROMPT
+	   dialogue = npc.dialogue.get_cached_dialogue_key(npc.dialogue.cache_keys.DEDICATED_TRADER_DIALOGUE)
 	   npc.dialogue.process_dialogue(self, dialogue, player:get_player_name())
 	   return
 	end
 
 	local chance = math.random(1, 100)
+	--minetest.log("Chance: "..dump(chance))
 	if chance < 30 then
 		-- Show trading options for casual traders
 		-- If NPC has custom trading options, these will be
@@ -406,10 +429,10 @@ function npc.dialogue.start_dialogue(self, player, show_married_dialogue)
 	  		local trade_chance = math.random(1, max_trade_chance)
 	  		if trade_chance == 1 then
 	  			-- Show casual buy dialogue
-	  			dialogue = npc.trade.CASUAL_TRADE_BUY_DIALOGUE
+	  			dialogue = npc.dialogue.get_cached_dialogue_key(npc.dialogue.cache_keys.CASUAL_BUY_DIALOGUE)
 	  		elseif trade_chance == 2 then
 	  			-- Show casual sell dialogue
-	  			dialogue = npc.trade.CASUAL_TRADE_SELL_DIALOGUE
+	  			dialogue = npc.dialogue.get_cached_dialogue_key(npc.dialogue.cache_keys.CASUAL_SELL_DIALOGUE)
 	  		elseif trade_chance == 3 then
 	        	-- Show custom trade options
 	        	dialogue = npc.dialogue.create_custom_trade_options(self, player)
@@ -433,58 +456,61 @@ end
 -- This function processes a dialogue object and performs
 -- actions depending on what is defined in the object 
 function npc.dialogue.process_dialogue(self, dialogue, player_name)
+  	-- Freeze NPC actions
+  	npc.lock_actions(self)
 
-  -- Freeze NPC actions
-  npc.lock_actions(self)
+  	local dialogue_key = -1
 
-  if type(dialogue) ~= "table" then
-  	dialogue = npc.dialogue.registered_dialogues[dialogue]
-  	minetest.log("Found dialogue: "..dump(dialogue))
-  end
+  	if type(dialogue) ~= "table" then
+  		dialogue_key = dialogue
+  		dialogue = npc.dialogue.registered_dialogues[dialogue]
+  		--minetest.log("Found dialogue: "..dump(dialogue))
+  	end
 
-  -- Check if this dialogue has a flag definition
-  if dialogue.flag then
-    -- Check if the NPC has this flag
-    local flag_value = npc.get_flag(self, dialogue.flag.name)
-    if flag_value ~= nil then
-      -- Check if value of the flag is equal to the expected value
-      if flag_value ~= dialogue.flag.value then
-        -- Do not process this dialogue
-        return false
-      end
-    else
+	-- Check if this dialogue has a flag definition
+	if dialogue.flag then
+    	-- Check if the NPC has this flag
+    	local flag_value = npc.get_flag(self, dialogue.flag.name)
+    	if flag_value ~= nil then
+      		-- Check if value of the flag is equal to the expected value
+      		if flag_value ~= dialogue.flag.value then
+        		-- Do not process this dialogue
+        		return false
+      		end
+    	else
       
-      if (type(dialogue.flag.value) == "boolean" and dialogue.flag.value ~= false)
-        or (type(dialogue.flag.value) == "number" and dialogue.flag.value > 0) then
-        -- Do not process this dialogue
-        return false
-      end
-    end
-  end
+      		if (type(dialogue.flag.value) == "boolean" and dialogue.flag.value ~= false)
+        		or (type(dialogue.flag.value) == "number" and dialogue.flag.value > 0) then
+        		-- Do not process this dialogue
+        		return false
+      		end
+    	end
+  	end
 
 	-- Send dialogue line
 	if dialogue.text then
 		npc.chat(self.npc_name, player_name, dialogue.text)
 	end
 
-  -- Check if dialogue has responses. If it doesn't, unlock the actions
-  -- queue and reset actions timer.'
-  if not dialogue.responses then
-    npc.unlock_actions(self)
-  end
+  	-- Check if dialogue has responses. If it doesn't, unlock the actions
+  	-- queue and reset actions timer.'
+  	if not dialogue.responses then
+   		npc.unlock_actions(self)
+  	end
 
 	-- Check if there are responses, then show multi-option dialogue if there are
 	if dialogue.responses then
 		npc.dialogue.show_options_dialogue(
 			self,
+			dialogue_key,
 			dialogue,
 			npc.dialogue.NEGATIVE_ANSWER_LABEL,
 			player_name
 		)
 	end
 
-  -- Dialogue object processed successfully
-  return true
+  	-- Dialogue object processed successfully
+  	return true
 end
 
 function npc.dialogue.create_option_dialogue(prompt, options, actions)
@@ -630,51 +656,21 @@ minetest.register_on_player_receive_fields(function (player, formname, fields)
 							npc.relationships.MARRIED_NPC_DIALOGUE
 								.responses[player_response.options[i].response_id]
 								.action(player_response.npc, player)
-                
-						elseif player_response.is_casual_trade_dialogue == true then
-							-- Check if trade is casual buy or sell
-							if player_response.casual_trade_type == npc.trade.OFFER_BUY then
-								-- Get functions from casual buy dialogue
-								npc.trade.CASUAL_TRADE_BUY_DIALOGUE
-									.responses[player_response.options[i].response_id]
-									.action(player_response.npc, player)
-							elseif player_response.casual_trade_type == npc.trade.OFFER_SELL == true then
-								-- Get functions from casual sell dialogue
-								npc.trade.CASUAL_TRADE_SELL_DIALOGUE
-									.responses[player_response.options[i].response_id]
-									.action(player_response.npc, player) 
-							end
-			              	return
-			            elseif player_response.is_dedicated_trade_dialogue == true then
-			              -- Get the functions for a dedicated trader prompt
-			              npc.trade.DEDICATED_TRADER_PROMPT
-			                .responses[player_response.options[i].response_id]
-			                .action(player_response.npc, player)
-			              return
 			            elseif player_response.is_custom_trade_dialogue == true then
-			              -- Functions for a custom trade should be available from the same dialogue
-			              -- object as it is created in memory
-			              minetest.log("Player response: "..dump(player_response.options[i]))
-			              player_response.options[i].action(player_response.npc, player)
-									else
-										-- Get dialogues for sex and phase
-										local dialogues = npc.data.DIALOGUES[player_response.npc.sex][phase]
-
-			              minetest.log("Object: "..dump(dialogues[player_response.options[i].dialogue_id]))
-			              local response = get_response_object_by_id_recursive(dialogues[player_response.options[i].dialogue_id], 0, player_response.options[i].response_id)
-			              minetest.log("Found: "..dump(response))
+			              	-- Functions for a custom trade should be available from the same dialogue
+			              	-- object as they are created on demand
+			              	minetest.log("Player response: "..dump(player_response.options[i]))
+			              	player_response.options[i].action(player_response.npc, player)
+						else
+							-- Get dialogue from registered dialogues
+							local dialogue = npc.dialogue.registered_dialogues[player_response.options[i].dialogue_id]
+			              	local response = get_response_object_by_id_recursive(dialogue, 0, player_response.options[i].response_id)
 			              
-			              -- Execute function
-			              response.action(player_response.npc, player)
+			              	-- Execute function
+			              	response.action(player_response.npc, player)
 
-										-- Execute function
-										-- dialogues[player_response.options[i].dialogue_id]
-										-- 	.responses[player_response.options[i].response_id]
-										-- 	.action(player_response.npc, player)
-
-			              -- Unlock queue, reset action timer and unfreeze NPC.
-			              npc.unlock_actions(player_response.npc)
-
+			              	-- Unlock queue, reset action timer and unfreeze NPC.
+			              	npc.unlock_actions(player_response.npc)
 						end
 					end
 					return

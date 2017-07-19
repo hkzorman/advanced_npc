@@ -26,10 +26,11 @@ npc.trade.CUSTOM_TRADES_PROMPT_TEXT = "Hi there, how can I help you today?"
 
 -- Casual trader NPC dialogues definition
 -- Casual buyer
-npc.trade.CASUAL_TRADE_BUY_DIALOGUE = {
+npc.dialogue.register_dialogue({
   text = "I'm looking to buy some items, are  you interested?",
-  casual_trade_type = npc.trade.OFFER_BUY,
-  dialogue_type = npc.dialogue.dialogue_type.casual_trade,
+  --casual_trade_type = npc.trade.OFFER_BUY,
+  tags = {"default_casual_trade_dialogue", "buy_offer"},
+  --dialogue_type = npc.dialogue.dialogue_type.casual_trade,
   responses = {
     [1] = {
       text = "Sell",
@@ -40,13 +41,30 @@ npc.trade.CASUAL_TRADE_BUY_DIALOGUE = {
       end
     }
   }
-}
+})
+
+-- npc.trade.CASUAL_TRADE_BUY_DIALOGUE = {
+--   text = "I'm looking to buy some items, are  you interested?",
+--   casual_trade_type = npc.trade.OFFER_BUY,
+--   dialogue_type = npc.dialogue.dialogue_type.casual_trade,
+--   responses = {
+--     [1] = {
+--       text = "Sell",
+--       action_type = "function",
+--       response_id = 1,
+--       action = function(self, player)
+--         npc.trade.show_trade_offer_formspec(self, player, npc.trade.OFFER_BUY)
+--       end
+--     }
+--   }
+-- }
 
 -- Casual seller
-npc.trade.CASUAL_TRADE_SELL_DIALOGUE = {
+npc.dialogue.register_dialogue({
   text = "I have some items to sell, are you interested?",
-  dialogue_type = npc.dialogue.dialogue_type.casual_trade,
-  casual_trade_type = npc.trade.OFFER_SELL,
+  --dialogue_type = npc.dialogue.dialogue_type.casual_trade,
+  tags = {"default_casual_trade_dialogue", "sell_offer"},
+  --casual_trade_type = npc.trade.OFFER_SELL,
   responses = {
     [1] = {
       text = "Buy",
@@ -57,11 +75,28 @@ npc.trade.CASUAL_TRADE_SELL_DIALOGUE = {
       end
     }
   }
-}
+})
+
+-- npc.trade.CASUAL_TRADE_SELL_DIALOGUE = {
+--   text = "I have some items to sell, are you interested?",
+--   dialogue_type = npc.dialogue.dialogue_type.casual_trade,
+--   casual_trade_type = npc.trade.OFFER_SELL,
+--   responses = {
+--     [1] = {
+--       text = "Buy",
+--       action_type = "function",
+--       response_id = 1,
+--       action = function(self, player)
+--         npc.trade.show_trade_offer_formspec(self, player, npc.trade.OFFER_SELL)
+--       end
+--     }
+--   }
+-- }
 
 -- Dedicated trade dialogue prompt
-npc.trade.DEDICATED_TRADER_PROMPT = {
+npc.dialogue.register_dialogue({
   text = "Hello there, would you like to trade?",
+  tags = {npc.dialogue.tags.DEFAULT_DEDICATED_TRADE},
   dialogue_type = npc.dialogue.dialogue_type.dedicated_trade,
   responses = {
     [1] = {
@@ -90,7 +125,38 @@ npc.trade.DEDICATED_TRADER_PROMPT = {
       end
     }
   }
-}
+})
+-- npc.trade.DEDICATED_TRADER_PROMPT = {
+--   text = "Hello there, would you like to trade?",
+--   dialogue_type = npc.dialogue.dialogue_type.dedicated_trade,
+--   responses = {
+--     [1] = {
+--       text = "Buy",
+--       action_type = "function",
+--       response_id = 1,
+--       action = function(self, player)
+--         npc.trade.show_dedicated_trade_formspec(self, player, npc.trade.OFFER_SELL)
+--       end
+--     },
+--     [2] = {
+--       text = "Sell",
+--       action_type = "function",
+--       response_id = 2,
+--       action = function(self, player)
+--         npc.trade.show_dedicated_trade_formspec(self, player, npc.trade.OFFER_BUY)
+--       end
+--     },
+--     [3] = {
+--       text = "Other",
+--       action_type = "function",
+--       response_id = 3,
+--       action = function(self, player)
+--         local dialogue = npc.dialogue.create_custom_trade_options(self, player)
+--         npc.dialogue.process_dialogue(self, dialogue, player:get_player_name())
+--       end
+--     }
+--   }
+-- }
 
 function npc.trade.show_trade_offer_formspec(self, player, offer_type)
   
@@ -348,12 +414,15 @@ function npc.trade.get_casual_trade_offer(self, offer_type)
         end
       end
     end
-    -- Choose a random item from the sellable items
-    local item = sellable_items[math.random(#sellable_items)]
-    -- Choose how many of this item will be sold to player
-    local count = math.random(npc.get_item_count(item))
-    -- Create trade offer
-    result = npc.trade.create_offer(npc.trade.OFFER_SELL, npc.get_item_name(item), nil, nil, count)
+    -- Check if there are no sellable items to avoid crash
+    if #sellable_items > 0 then
+      -- Choose a random item from the sellable items
+      local item = sellable_items[math.random(#sellable_items)]
+      -- Choose how many of this item will be sold to player
+      local count = math.random(npc.get_item_count(item))
+      -- Create trade offer
+      result = npc.trade.create_offer(npc.trade.OFFER_SELL, npc.get_item_name(item), nil, nil, count)
+    end
   end
 
   return result
