@@ -8,21 +8,6 @@ npc.occupations.register_occupation("test_farmer", {
 		dialogues = {},
 		textures = {},
 		initial_inventory = {},
-		workplace = {
-			search_nodes = {"cottages:gate_open","cottages:gate_closed"},
-			search_type = "orthogonal",
-			surrounding_nodes = 
-			{
-				bottom = {
-					nodes = {"farming:soil", "farming:wet_soil", "default:dirt", "default:dirt_with_grass"}, 
-					criteria = "any"
-				}
-				sides = {
-					nodes = {"doors:wooden_fence"}
-					criteria = "exact"
-				}
-			}
-		}
 		schedule_entries = {
 			[7] = {
 				[1] = 
@@ -37,7 +22,7 @@ npc.occupations.register_occupation("test_farmer", {
 				{
 					check = true,
 					range = 2,
-					random_execution_times = true
+					random_execution_times = true,
 					min_count = 10,
 					max_count = 12,
 					nodes = {"farming:cotton_3"},

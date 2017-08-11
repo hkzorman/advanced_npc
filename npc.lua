@@ -1434,7 +1434,6 @@ mobs:register_mob("advanced_npc:npc", {
 		end
 		  
 		return self.freeze
-		end
 	end
 })
 
