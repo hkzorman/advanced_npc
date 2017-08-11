@@ -984,17 +984,17 @@ mobs:register_mob("advanced_npc:npc", {
 	drawtype = "front",
 	textures = {
 		{"npc_male1.png"},
-	{"npc_male2.png"},
-	{"npc_male3.png"},
-	{"npc_male4.png"},
-	{"npc_male5.png"},
-	{"npc_male6.png"},
+		{"npc_male2.png"},
+		{"npc_male3.png"},
+		{"npc_male4.png"},
+		{"npc_male5.png"},
+		{"npc_male6.png"},
 		{"npc_female1.png"}, -- female by nuttmeg20
 	},
 	child_texture = {
 		{"npc_child_male1.png"},
-	  {"npc_child_female1.png"},
-  },
+	  	{"npc_child_female1.png"},
+  	},
 	makes_footstep_sound = true,
 	sounds = {},
 	-- Added walk chance
