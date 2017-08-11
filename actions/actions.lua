@@ -13,6 +13,8 @@
 
 npc.actions = {}
 
+npc.actions.default_interval = 1
+
 -- Describes actions with doors or openable nodes
 npc.actions.const = {
 	doors = {
@@ -50,7 +52,9 @@ npc.actions.cmd = {
 	USE_FURNACE = 11,
 	USE_BED = 12,
 	USE_SITTABLE = 13,
-	WALK_TO_POS = 14
+	WALK_TO_POS = 14,
+	DIG = 15,
+	PLACE = 16
 }
 
 --npc.actions.one_nps_speed = 0.98
@@ -59,6 +63,10 @@ npc.actions.cmd = {
 npc.actions.one_nps_speed = 1
 npc.actions.one_half_nps_speed = 1.5
 npc.actions.two_nps_speed = 2
+
+npc.actions.take_from_inventory = "take_from_inventory"
+npc.actions.take_from_inventory_forced = "take_from_inventory_forced"
+npc.actions.force_place = "force_place"
 
 -- Executor --
 --------------
@@ -115,6 +123,12 @@ function npc.actions.execute(self, command, args)
 		-- Call walk to position task
 		--minetest.log("Self: "..dump(self)..", Command: "..dump(command)..", args: "..dump(args))
 		return npc.actions.walk_to_pos(self, args)
+	elseif command == npc.actions.cmd.DIG then
+		-- Call dig node action
+		return npc.actions.dig(self, args)
+	elseif command == npc.actions.cmd.PLACE then
+		-- Call place node action
+		return npc.actions.place(self, args)
 	end
 end
 
@@ -144,6 +158,85 @@ function npc.actions.freeze(self, args)
 	--minetest.log("Received: "..dump(freeze_mobs_api))
 	--minetest.log("Returning: "..dump(not(freeze_mobs_api)))
 	return not(freeze_mobs_api)
+end
+
+-- This action digs the node at the given position
+-- If 'add_to_inventory' is true, it will put the digged node in the NPC
+-- inventory.
+-- Returns true if dig is successful, otherwise false
+function npc.actions.dig(self, args) 
+	local pos = args.pos
+	local add_to_inventory = args.add_to_inventory
+	local bypass_protection = args.bypass_protection
+	local node = minetest.get_node_or_nil(pos)
+	if node then
+		-- Check if protection not enforced
+		if not force_dig then
+			-- Try to dig node
+			if minetest.dig_node(pos) then
+				-- Add to inventory the node drops
+				if add_to_inventory then
+					-- Get node drop
+					local drop = minetest.registered_nodes[node.name].drop
+					-- Add to NPC inventory
+					npc.npc.add_item_to_inventory(self, drop, 1)
+				end
+				return true
+			end
+		else
+			-- Add to inventory
+			if add_to_inventory then
+				-- Get node drop
+				local drop = minetest.registered_nodes[node.name].drop
+				-- Add to NPC inventory
+				npc.npc.add_item_to_inventory(self, drop, 1)
+			end
+			-- Dig node
+			minetest.set_node(pos, {name="air"})
+		end
+	end
+	return false
+end
+
+
+-- This action places a given node at the given position
+-- There are three ways to source the node:
+--   1. take_from_inventory: takes node from inventory. If not in inventory,
+--		node isn't placed.
+--	 2. take_from_inventory_forced: takes node from inventory. If not in
+--		inventory, node will be placed anyways.
+--   3. force_place: places node regardless of inventory - will not touch
+--		the NPCs inventory
+function npc.actions.place(self, args)
+	local pos = args.pos
+	local node = args.node
+	local source = args.source
+	local bypass_protection = args.bypass_protection
+	local node_at_pos = minetest.get_node_or_nil(pos)
+	-- Check if position is empty or has a node that can be built to
+	if node_at_pos and 
+		(node_at_pos.name == "air" or minetest.registered_nodes(node_at_pos.name).buildable_to == true) then
+		-- Check protection
+		if (not bypass_protection and not minetest.is_protected(pos, self.npc_name))
+			or bypass_protection == true then
+			-- Take from inventory if necessary
+			local place_item = false
+			if source == npc.actions.take_from_inventory then
+				if npc.take_item_from_inventory(self, node.name, 1) then
+					place_item = true
+				end
+			elseif source == npc.actions.take_from_inventory_forced then
+				npc.take_item_from_inventory(self, node.name, 1)
+				place_item = true
+			elseif source == npc.actions.force_place then
+				place_item = true
+			end
+			-- Place node
+			if place_item then
+				minetest.set_node(pos, node)
+			end
+		end
+	end
 end
 
 -- This action is to rotate to mob to a specifc direction. Currently, the code

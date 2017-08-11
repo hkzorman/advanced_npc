@@ -264,7 +264,7 @@ function spawner.assign_places(self, pos)
   -- Assign beds
   if #node_data.bed_type > 0 then
   	-- Assign a specific sittable node to a NPC.
-	npc.places.add_unowned_accessible_place(self, node_data.bed_type, 
+	npc.places.add_owned_accessible_place(self, node_data.bed_type, 
 		npc.places.PLACE_TYPE.BED.PRIMARY)
 	-- Store changes to node_data
 	meta:set_string("node_data", minetest.serialize(node_data)) 
@@ -275,7 +275,7 @@ function spawner.assign_places(self, pos)
   	-- Check if there are same or more amount of sits as beds
   	if #node_data.sittable_type >= #node_data.bed_type then
   		-- Assign a specific sittable node to a NPC.
-  		npc.places.add_unowned_accessible_place(self, node_data.sittable_type, 
+  		npc.places.add_owned_accessible_place(self, node_data.sittable_type, 
   			npc.places.PLACE_TYPE.SITTABLE.PRIMARY)
   		-- Store changes to node_data
   		meta:set_string("node_data", minetest.serialize(node_data)) 
@@ -291,7 +291,7 @@ function spawner.assign_places(self, pos)
   	-- Check if there are same or more amount of furnace as beds
   	if #node_data.furnace_type >= #node_data.bed_type then
   		-- Assign a specific furnace node to a NPC.
-  		npc.places.add_unowned_accessible_place(self, node_data.furnace_type, 
+  		npc.places.add_owned_accessible_place(self, node_data.furnace_type, 
   			npc.places.PLACE_TYPE.FURNACE.PRIMARY)
   		-- Store changes to node_data
   		meta:set_string("node_data", minetest.serialize(node_data)) 
@@ -307,7 +307,7 @@ function spawner.assign_places(self, pos)
   	-- Check if there are same or more amount of storage as beds
   	if #node_data.storage_type >= #node_data.bed_type then
   		-- Assign a specific storage node to a NPC.
-  		npc.places.add_unowned_accessible_place(self, node_data.storage_type, 
+  		npc.places.add_owned_accessible_place(self, node_data.storage_type, 
   			npc.places.PLACE_TYPE.STORAGE.PRIMARY)
   		-- Store changes to node_data
   		meta:set_string("node_data", minetest.serialize(node_data)) 
@@ -372,17 +372,19 @@ function npc.spawner.spawn_npc(pos)
     local ent = minetest.add_entity({x=pos.x, y=pos.y+1, z=pos.z}, "advanced_npc:npc")
     if ent and ent:get_luaentity() then
       ent:get_luaentity().initialized = false
+      -- Determine NPC occupation
+      local occupation_name = "default_basic"
       -- Initialize NPC
       -- Call with stats if there are NPCs
-      if #npc_table > 0 then
-      	npc.initialize(ent, pos, false, npc_stats)
+      if npc_table and #npc_table > 0 then
+      	npc.initialize(ent, pos, false, npc_stats, occupation_name)
       else
-      	npc.initialize(ent, pos)
+      	npc.initialize(ent, pos, nil, nil, occupation_name)
       end
       -- Assign nodes
       spawner.assign_places(ent:get_luaentity(), pos)
       -- Assign schedules
-      spawner.assign_schedules(ent:get_luaentity(), pos)
+      --spawner.assign_schedules(ent:get_luaentity(), pos)
       -- Increase NPC spawned count
       spawned_npc_count = spawned_npc_count + 1
       -- Store count into node
@@ -750,8 +752,8 @@ minetest.register_chatcommand("restore_plotmarkers", {
     end
     -- Search for nodes
     local radius = tonumber(param)
-    local start_pos = {x=pos.x - radius, y=pos.y - radius, z=pos.z - radius}
-    local end_pos = {x=pos.x + radius, y=pos.y + radius, z=pos.z + radius}
+    local start_pos = {x=pos.x - radius, y=pos.y - 5, z=pos.z - radius}
+    local end_pos = {x=pos.x + radius, y=pos.y + 5, z=pos.z + radius}
     local nodes = minetest.find_nodes_in_area_under_air(start_pos, end_pos, 
       {"mg_villages:plotmarker"})
     -- Check if we have nodes to replace

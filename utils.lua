@@ -1,4 +1,4 @@
--- Basic utilities to work with array operations in Lua
+-- Basic utilities to work with table operations in Lua, and specific querying
 -- By Zorman2000
 
 npc.utils = {}
@@ -34,4 +34,43 @@ function npc.utils.get_map_keys(map)
 		table.insert(result, key)
 	end
 	return result
+end
+
+-- This function searches for a node given the conditions specified in the
+-- query object, starting from the given start_pos and up to a certain, specified
+-- range. 
+-- Query object:
+-- search_type: determines the direction to search nodes.
+-- Valid values are: orthogonal, cross, cube
+--   - orthogonal search means only nodes which are parallel to the search node's faces
+--     will be considered. This limits the search to only 6 nodes.
+--   - cross search will look at the same nodes as orthogonal, plus will also 
+--     check nodes diagonal to the node four horizontal nodes. This search looks at 14 nodes
+--   - cube search means to look every node surrounding the node, including all diagonals.
+--     This search looks at 26 nodes. 
+-- search_nodes: array of nodes to search for
+-- surrounding_nodes: object specifying which neighbor nodes are to be expected and
+-- at which locations. Valid keys are:
+--   - North (+Z dir)
+--   - East (+x dir)
+--   - South (-Z dir)
+--   - West (-X dir)
+--   - Top (+Y dir)
+--   - Bottom (-Y dir)
+-- Example: ["bottom"] = {nodes={"default:dirt"}, criteria="all"}
+-- Each object will contain nodes, and criteria for acceptance. 
+-- Criteria values are:
+--   - any: true as long as one of the nodes on this side is one of the specified 
+--          in "nodes"
+--   - all: true when the set of neighboring nodes on this side contain one or many of
+--          the specified "nodes"
+--   - all-exact: true when the set of neighboring nodes on this side contain all nodes
+--		 		  specified in "nodes"
+--   - shape: true when the set of neighboring nodes on this side contains nodes in
+--            the exact given shape. If so, nodes will not be an array, but a 2d array
+--            of three rows and three columns, with the specific shape. Notice that
+--            the nodes on the side can vary depending on the search type (orthogonal,
+--            cross, cube)
+function npc.utils.search_node(query, start_pos, range)
+	
 end
