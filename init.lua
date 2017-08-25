@@ -37,9 +37,9 @@ dofile(path .. "/actions/node_registry.lua")
 dofile(path .. "/occupations/occupations.lua")
 -- Load random data definitions
 dofile(path .. "/random_data.lua")
-dofile(path .. "/random_data/dialogues_data.lua")
-dofile(path .. "/random_data/gift_items_data.lua")
-dofile(path .. "/random_data/names_data.lua")
-dofile(path .. "/random_data/occupations_data.lua")
+dofile(path .. "/data/dialogues_data.lua")
+dofile(path .. "/data/gift_items_data.lua")
+dofile(path .. "/data/names_data.lua")
+dofile(path .. "/data/occupations_data.lua")
 
 print (S("[Mod] Advanced NPC loaded"))

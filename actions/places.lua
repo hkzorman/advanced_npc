@@ -102,7 +102,7 @@ function npc.places.add_owned_accessible_place(self, nodes, place_type)
 				-- Set owner to this NPC
 				nodes[i].owner = self.npc_id
 				-- Assign node to NPC
-				npc.places.add_owned(self, place_type, place_type, 
+				npc.places.add_owned(self, place_type, place_type,
 					nodes[i].node_pos, empty_nodes[1].pos)
 				npc.log("DEBUG", "Added node at "..minetest.pos_to_string(nodes[i].node_pos)
 					.." to NPC "..dump(self.npc_name))
@@ -126,7 +126,7 @@ function npc.places.add_shared_accessible_place(self, nodes, place_type, overrid
 				-- Check if node is accessible
 				if #empty_nodes > 0 then
 					-- Assign node to NPC
-					npc.places.add_shared(self, place_type..dump(i), 
+					npc.places.add_shared(self, place_type..dump(i),
 						place_type, nodes[i].node_pos, empty_nodes[1].pos)
 				end
 			end
@@ -139,7 +139,7 @@ function npc.places.add_shared_accessible_place(self, nodes, place_type, overrid
 		-- Check if node is accessible
 		if #empty_nodes > 0 then
 			-- Nodes is only one node
-			npc.places.add_shared(self, place_type, place_type, 
+			npc.places.add_shared(self, place_type, place_type,
 				nodes.node_pos, empty_nodes[1].pos)
 		end
 	end
@@ -155,6 +155,12 @@ function npc.places.get_by_type(self, place_type)
 	return result
 end
 
+---------------------------------------------------------------------------------------
+-- Utility functions
+---------------------------------------------------------------------------------------
+-- The following are utility functions that are used to operate on nodes for
+-- specific conditions
+
 -- This function searches on a squared are of the given radius
 -- for nodes of the given type. The type should be npc.places.nodes
 function npc.places.find_node_nearby(pos, type, radius)
@@ -169,7 +175,7 @@ end
 
 -- TODO: This function can be improved to support a radius greater than 1.
 function npc.places.find_node_orthogonally(pos, nodes, y_adjustment)
-	-- Calculate orthogonal points 
+	-- Calculate orthogonal points
 	local points = {}
 	table.insert(points, {x=pos.x+1,y=pos.y+y_adjustment,z=pos.z})
 	table.insert(points, {x=pos.x-1,y=pos.y+y_adjustment,z=pos.z})
@@ -188,9 +194,62 @@ function npc.places.find_node_orthogonally(pos, nodes, y_adjustment)
 	return result
 end
 
+-- Wrapper around minetest.find_nodes_in_area()
+-- TODO: Verify if this wrapper is actually needed
 function npc.places.find_node_in_area(start_pos, end_pos, type)
 	local nodes = minetest.find_nodes_in_area(start_pos, end_pos, type)
 	return nodes
+end
+
+-- Function used to filter all nodes in the first floor of a building
+-- If floor height isn't given, it will assume 2
+-- Notice that nodes is an array of entries {node_pos={}, type={}}
+function npc.places.filter_first_floor_nodes(nodes, ground_pos, floor_height)
+	local height = floor_height or 2
+ 	local result = {}
+  	for _,node in pairs(nodes) do
+    	if node.node_pos.y <= ground_pos.y + height then
+      		table.insert(result, node)
+    	end
+  	end
+  	return result
+end
+
+-- Creates an array of {pos=<node_pos>, owner=''} for managing
+-- which NPC owns what
+function npc.places.get_nodes_by_type(start_pos, end_pos, type)
+  local result = {}
+  local nodes = npc.places.find_node_in_area(start_pos, end_pos, type)
+  --minetest.log("Found "..dump(#nodes).." nodes of type: "..dump(type))
+  for _,node_pos in pairs(nodes) do
+    local entry = {}
+    entry["node_pos"] = node_pos
+    entry["owner"] = ''
+    table.insert(result, entry)
+  end
+  return result
+end
+
+-- Scans an area for the supported nodes: beds, benches,
+-- furnaces, storage (e.g. chests) and openable (e.g. doors).
+-- Returns a table with these classifications
+function npc.places.scan_area_for_usable_nodes(pos1, pos2)
+  local result = {
+    bed_type = {},
+    sittable_type = {},
+    furnace_type = {},
+    storage_type = {},
+    openable_type = {}
+  }
+  local start_pos, end_pos = vector.sort(pos1, pos2)
+
+  result.bed_type = npc.places.get_nodes_by_type(start_pos, end_pos, npc.places.nodes.BED_TYPE)
+  result.sittable_type = npc.places.get_nodes_by_type(start_pos, end_pos, npc.places.nodes.SITTABLE_TYPE)
+  result.furnace_type = npc.places.get_nodes_by_type(start_pos, end_pos, npc.places.nodes.FURNACE_TYPE)
+  result.storage_type = npc.places.get_nodes_by_type(start_pos, end_pos, npc.places.nodes.STORAGE_TYPE)
+  result.openable_type = npc.places.get_nodes_by_type(start_pos, end_pos, npc.places.nodes.OPENABLE_TYPE)
+
+  return result
 end
 
 -- Specialized function to find doors that are an entrance to a building.
@@ -205,7 +264,7 @@ function npc.places.find_entrance_from_openable_nodes(all_openable_nodes, marker
 
 	-- Filter out all other openable nodes except MTG doors.
 	-- Why? For supported village types (which are: medieval, nore
-	-- and logcabin) all buildings use, as the main entrance, 
+	-- and logcabin) all buildings use, as the main entrance,
 	-- a MTG door. Some medieval building have "half_doors" (like farms)
 	-- which NPCs love to confuse with the right building entrance.
 	for i = 1, #all_openable_nodes do
@@ -231,18 +290,8 @@ function npc.places.find_entrance_from_openable_nodes(all_openable_nodes, marker
 			local start_pos = {x=open_pos.x, y=open_pos.y, z=open_pos.z}
 			local end_pos = {x=marker_pos.x, y=marker_pos.y, z=marker_pos.z}
 
-			-- Check if there's any difference in vertical position
 			-- minetest.log("Openable node pos: "..minetest.pos_to_string(open_pos))
 			-- minetest.log("Plotmarker node pos: "..minetest.pos_to_string(marker_pos))
-			-- NOTE: Commented out while testing MarkBu's pathfinder
-			--if start_pos.y ~= end_pos.y then
-			-- Adjust to make pathfinder find nodes one node above
-			--  end_pos.y = start_pos.y
-			--end
-
-			-- This adjustment allows the map to be created correctly
-			--start_pos.y = start_pos.y + 1
-			--end_pos.y = end_pos.y + 1 
 
 			-- Find path from the openable node to the plotmarker
 			--local path = pathfinder.find_path(start_pos, end_pos, 20, {})
@@ -258,7 +307,7 @@ function npc.places.find_entrance_from_openable_nodes(all_openable_nodes, marker
 				if #path < min then
 				-- Set min to path length and the result to the currently found node
 				min = #path
-				result = openable_nodes[i]	
+				result = openable_nodes[i]
 				else
 					-- Specific check to prefer mtg's doors to cottages' doors.
 					-- The reason? Sometimes a cottages' door could be closer to the

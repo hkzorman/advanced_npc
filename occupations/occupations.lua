@@ -6,7 +6,7 @@
 -- Occupations are essentially specific schedules, that can have slight
 -- random variations to provide diversity and make specific occupations
 -- less predictable. Occupations are associated with textures, dialogues,
--- specific initial items, type of building (and surroundings) where NPC 
+-- specific initial items, type of building (and surroundings) where NPC
 -- lives, etc.
 -- Example of an occupation: farmer
 -- The farmer will have to live in a farm, or just beside a field.
@@ -38,10 +38,10 @@
 --			tags = {},
 --				-- Array of tags to search for. This will have tags
 --				-- if the type is either "mix" or "tags"
---				
+--
 --		},
 --		textures = {},
---			-- Textures are an array of textures, as usually given on 
+--			-- Textures are an array of textures, as usually given on
 -- 			-- an entity definition. If given, the NPC will be guaranteed
 --			-- to have one of the given textures. Also, ensure they have sex
 --			-- as well in the filename so they can be chosen appropriately.
@@ -76,10 +76,10 @@
 --				[23] = {[1] = action=npc.action.cmd.freeze, args={freeze=false}}
 --			-- }
 -- 			-- The numbers, [1], [13] and [23] are the times when the entries
---			-- corresponding to each are supposed to happen. The tables with 
+--			-- corresponding to each are supposed to happen. The tables with
 --			-- [1], [1],[2] and [1] actions respectively are the entries that
 --			-- will happen at time 1, 13 and 23.
--- } 
+-- }
 
 -- Public API
 npc.occupations = {}
@@ -91,14 +91,11 @@ local occupations = {}
 -- The key is the name of the occupation.
 npc.occupations.registered_occupations = {}
 
--- This is the basic occupation definition, this is for all NPCs that 
+-- This is the basic occupation definition, this is for all NPCs that
 -- don't have a specific occupation. It serves as an example.
 npc.occupations.basic_def = {
 	-- Use random textures
-	textures = {
-		{"npc_male1.png"},
-		{"npc_child_male1.png"}
-	},
+	textures = {},
 	-- Use random dialogues
 	dialogues = {},
 	-- Initialize inventory with random items
@@ -109,13 +106,13 @@ npc.occupations.basic_def = {
 		[7] = {
 			-- Get out of bed
 			[1] = {task = npc.actions.cmd.USE_BED, args = {
-					pos = npc.places.PLACE_TYPE.BED.PRIMARY, 
+					pos = npc.places.PLACE_TYPE.BED.PRIMARY,
 					action = npc.actions.const.beds.GET_UP
-				} 
-			}, 
+				}
+			},
 			-- Walk to home inside
 			[2] = {task = npc.actions.cmd.WALK_TO_POS, args = {
-					end_pos = npc.places.PLACE_TYPE.OTHER.HOME_INSIDE, 
+					end_pos = npc.places.PLACE_TYPE.OTHER.HOME_INSIDE,
 					walkable = {}
 				},
 				chance = 75
@@ -127,7 +124,7 @@ npc.occupations.basic_def = {
 		[8] = {
 			-- Walk to outside of home
 			[1] = {task = npc.actions.cmd.WALK_TO_POS, args = {
-					end_pos = npc.places.PLACE_TYPE.OTHER.HOME_OUTSIDE, 
+					end_pos = npc.places.PLACE_TYPE.OTHER.HOME_OUTSIDE,
 					walkable = {}
 				},
 				chance = 75
@@ -142,7 +139,7 @@ npc.occupations.basic_def = {
 					end_pos = {place_type=npc.places.PLACE_TYPE.SITTABLE.PRIMARY, use_access_node=true},
 					walkable = {"cottages:bench"}
 				},
-				chance = 75 
+				chance = 75
 			},
 			-- Sit on the node
 			[2] = {task = npc.actions.cmd.USE_SITTABLE, args = {
@@ -155,13 +152,13 @@ npc.occupations.basic_def = {
 			[3] = {action = npc.actions.cmd.SET_INTERVAL, args = {
 					freeze = true,
 					interval = 35
-				}, 
+				},
 				depends = {2}
 			},
 			[4] = {action = npc.actions.cmd.SET_INTERVAL, args = {
 					freeze = true,
 					interval = npc.actions.default_interval
-				}, 
+				},
 				depends = {3}
 			},
 			-- Get up from sit
@@ -210,9 +207,9 @@ npc.occupations.basic_def = {
 			},
 			-- Get inside home
 			[3] = {task = npc.actions.cmd.WALK_TO_POS, args = {
-					end_pos = npc.places.PLACE_TYPE.OTHER.HOME_INSIDE, 
+					end_pos = npc.places.PLACE_TYPE.OTHER.HOME_INSIDE,
 					walkable = {}
-				} 
+				}
 			},
 			-- Allow mobs_redo wandering
 			[4] = {action = npc.actions.cmd.FREEZE, args = {freeze = false}}
@@ -220,16 +217,16 @@ npc.occupations.basic_def = {
 		-- Schedule entry for 10 in the evening
 		[22] = {
 			[1] = {task = npc.actions.cmd.WALK_TO_POS, args = {
-					end_pos = {place_type=npc.places.PLACE_TYPE.BED.PRIMARY, use_access_node=true}, 
+					end_pos = {place_type=npc.places.PLACE_TYPE.BED.PRIMARY, use_access_node=true},
 					walkable = {}
-				} 
+				}
 			},
 			-- Use bed
 			[2] = {task = npc.actions.cmd.USE_BED, args = {
-					pos = npc.places.PLACE_TYPE.BED.PRIMARY, 
+					pos = npc.places.PLACE_TYPE.BED.PRIMARY,
 					action = npc.actions.const.beds.LAY
-				} 
-			}, 
+				}
+			},
 			-- Stay put on bed
 			[3] = {action = npc.actions.cmd.FREEZE, args = {freeze = true}}
 		}
@@ -239,7 +236,8 @@ npc.occupations.basic_def = {
 
 -- This function registers an occupation
 function npc.occupations.register_occupation(name, def)
-	npc.occupations.registered_occupations[name] = def	
+	npc.occupations.registered_occupations[name] = def
+	npc.log("INFO", "Successfully registered occupation with name: "..dump(name))
 end
 
 -- This function scans all registered occupations and filter them by
@@ -256,13 +254,13 @@ function npc.occupations.get_for_building(building_type, surrounding_building_ty
 			-- Check if building type is contained in the def's building types
 			if npc.utils.array_contains(def.building_types, building_type) then
 				-- Check for empty or nil surrounding building types
-				if def.surrounding_building_types == nil 
+				if def.surrounding_building_types == nil
 					or def.surrounding_building_types == {} then
 					-- Add this occupation
 					table.insert(result, name)
 				else
 					-- Check if surround type is included in the def
-					if npc.utils.array_is_subset_of_array(def.surrounding_building_types, 
+					if npc.utils.array_is_subset_of_array(def.surrounding_building_types,
 						surrounding_building_types) then
 						-- Add this occupation
 						table.insert(result, name)
@@ -291,7 +289,7 @@ function npc.occupations.initialize_occupation_values(self, occupation_name)
 	-- Initialize textures, else it will leave the current textures
 	minetest.log("Texture entries: "..dump(table.getn(def.textures)))
 	if def.textures and table.getn(def.textures) > 0 then
-		self.selected_texture = 
+		self.selected_texture =
 			npc.get_random_texture_from_array(self.sex, self.age, def.textures)
 		-- Set texture if it found for sex and age
 		minetest.log("No textures found for sex "..dump(self.sex).." and age "..dump(self.age))
@@ -351,7 +349,7 @@ function npc.occupations.initialize_occupation_values(self, occupation_name)
 			-- Add keys to set of dialogue keys
 			for _, key in npc.utils.get_map_keys(dialogues) do
 				table.insert(dialogue_keys, key)
-			end 
+			end
 		elseif def.dialogues.type == "tags" then
 			-- We need to find the dialogues from tags. def.dialogues.tags contains
 			-- an array of tags that we will use to search.
@@ -361,7 +359,7 @@ function npc.occupations.initialize_occupation_values(self, occupation_name)
 		end
 		-- Add dialogues to NPC
 		-- Check if there is a max of dialogues to be added
-		local max_dialogue_count = npc.dialogue.MAX_DIALOGUES 
+		local max_dialogue_count = npc.dialogue.MAX_DIALOGUES
 		if def.dialogues.max_count and def.max_dialogue_count > 0 then
 			max_dialogue_count = def.dialogues.max_count
 		end
