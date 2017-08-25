@@ -49,6 +49,14 @@ npc.places.nodes = {
 		"cottages:gate_open",
 		"cottages:gate_closed",
 		"cottages:half_door"
+	},
+	PLOTMARKER_TYPE = {
+		"mg_villages:plotmarker",
+		"advanced_npc:plotmarker"
+	},
+	WORKPLACE_TYPE = {
+		-- TODO: Do we have an advanced_npc workplace?
+		"mg_villages:mob_workplace_marker"
 	}
 }
 
@@ -74,6 +82,10 @@ npc.places.PLACE_TYPE = {
 	},
 	SCHEDULE = {
 		TARGET = "schedule_target_pos"
+	},
+	WORKPLACE = {
+		WORKPLACE_PRIMARY = "workplace_primary",
+		WORKPLACE_TOOL = "workplace_tool"
 	},
 	OTHER = {
 		HOME_PLOTMARKER = "home_plotmarker",
@@ -228,6 +240,27 @@ function npc.places.get_nodes_by_type(start_pos, end_pos, type)
     table.insert(result, entry)
   end
   return result
+end
+
+-- This function will search for nodes of type plotmarker and,
+-- in case of being an mg_villages plotmarker, it will fetch building
+-- information and include in result.
+function npc.places.find_plotmarkers(pos, radius)
+	local result = {}
+	local start_pos = {x=pos.x - radius, y=pos.y - 1, z=pos.z - radius}
+	local end_pos = {x=pos.x + radius, y=pos.y + 1, z=pos.z + radius}
+	local nodes = minetest.find_nodes_in_area_under_air(start_pos, end_pos,
+		npc.places.nodes.PLOTMARKER_TYPE)
+	-- Scan nodes
+	for i = 1, #nodes do
+		local node = minetest.get_node(nodes[i])
+		local def = {}
+		if node.name == "mg_villages:plotmarker" then
+			def["pos"] = nodes[i]
+			def["name"] = node.name
+			
+		end
+	end
 end
 
 -- Scans an area for the supported nodes: beds, benches,
