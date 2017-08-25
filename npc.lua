@@ -1226,7 +1226,7 @@ mobs:register_mob("advanced_npc:npc", {
 		local item = clicker:get_wielded_item()
 		local name = clicker:get_player_name()
 
-	npc.log("INFO", "Right-clicked NPC: "..dump(self))
+	npc.log("DEBUG", "Right-clicked NPC: "..dump(self))
 
 	-- Receive gift or start chat. If player has no item in hand
 	-- then it is going to start chat directly
@@ -1373,14 +1373,13 @@ mobs:register_mob("advanced_npc:npc", {
         		if schedule ~= nil then
         			-- Check if schedule for this time exists
         			if schedule[time] ~= nil then
-        				npc.log("WARNING", "Found schedule for time "..dump(time)..": "..dump(schedule[time]))
         				npc.log("DEBUG", "Adding actions to action queue")
         				-- Add to action queue all actions on schedule
         				for i = 1, #schedule[time] do
         					-- Check if schedule has a check function
         					if schedule[time][i].check then
         						-- Add parameters for check function and run for first time
-    							npc.log("INFO", "NPC "..dump(self.npc_name).." is starting check on "..minetest.pos_to_string(self.object:getpos()))
+    							npc.log("DEBUG", "NPC "..dump(self.npc_name).." is starting check on "..minetest.pos_to_string(self.object:getpos()))
     							local check_params = schedule[time][i]
     							-- Calculates how many times check will be executed
     							local execution_times = check_params.count
@@ -1399,7 +1398,7 @@ mobs:register_mob("advanced_npc:npc", {
     							-- Execute check for the first time
     							npc.schedule_check(self)
     						else
-    							npc.log("INFO", "Executing schedule entry: "..dump(schedule[time][i]))
+    							npc.log("DEBUG", "Executing schedule entry: "..dump(schedule[time][i]))
     							-- Run usual schedule entry
     							-- Check chance
     							local execution_chance = math.random(1, 100)
@@ -1434,13 +1433,13 @@ mobs:register_mob("advanced_npc:npc", {
 									end
     							else
     								-- TODO: Change to debug
-    								npc.log("WARNING", "Skipping schedule entry for time "..dump(time)..": "..dump(schedule[time][i]))
+    								npc.log("DEBUG", "Skipping schedule entry for time "..dump(time)..": "..dump(schedule[time][i]))
     							end
     						end
         				end
 						-- Clear execution queue
 						self.schedules.temp_executed_queue = {}
-						npc.log("WARNING", "New action queue: "..dump(self.actions))
+						npc.log("DEBUG", "New action queue: "..dump(self.actions))
     				end
         		end
             else
