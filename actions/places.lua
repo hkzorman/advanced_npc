@@ -256,9 +256,16 @@ function npc.places.find_plotmarkers(pos, radius)
 		local node = minetest.get_node(nodes[i])
 		local def = {}
 		if node.name == "mg_villages:plotmarker" then
+			local meta = minetest.get_meta(nodes[i])
 			def["pos"] = nodes[i]
 			def["name"] = node.name
-			
+			def["plot_nr"] = meta:get_int("plot_nr")
+			def["village_id"] = meta:get_string("village_id")
+
+			local plot_nr = meta:get_int("plot_nr")
+			--   local village_id = meta:get_string("village_id")
+			--   minetest.log("Plot nr: "..dump(plot_nr)..", village ID: "..dump(village_id))
+			--   minetest.log(dump(mg_villages.get_plot_and_building_data( village_id, plot_nr )))
 		end
 	end
 end
