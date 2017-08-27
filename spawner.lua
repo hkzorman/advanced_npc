@@ -331,12 +331,7 @@ end
 -- Both function set the required metadata for this function
 -- For mg_villages, this will be the position of the plotmarker node.
 function npc.spawner.assign_places(self, entrance, node_data, pos)
-    minetest.log("Received node_data: "..dump(node_data))
-    --local meta = minetest.get_meta(pos)
-    --local entrance = minetest.deserialize(meta:get_string("entrance"))
-    --local node_data = minetest.deserialize(meta:get_string("node_data"))
-
-    -- Assign plotmarker
+    -- Assign plotmarker if position given
     if pos then
         npc.places.add_shared(self, npc.places.PLACE_TYPE.OTHER.HOME_PLOTMARKER,
       	    npc.places.PLACE_TYPE.OTHER.HOME_PLOTMARKER, pos)
@@ -473,9 +468,9 @@ end
 --  - Auto-spawner: Basically a custom mg_villages:plotmarker that can be used
 --    for custom buildings
 --  - Manual spawner: This custom spawn item (egg) will show a formspec when used.
---    The formspec will allow the player the name of the NPC, the occupation and
---    the plot, entrance and workplace of the NPC. All of these are optional and
---    default values will be chosen whenever no input is provided.
+--    The formspec will allow the player to set the name of the NPC, the occupation
+--    and the plot, entrance and workplace of the NPC. All of these are optional
+--    and default values will be chosen whenever no input is provided.
 
 
 ---------------------------------------------------------------------------------------
@@ -565,11 +560,21 @@ if minetest.get_modpath("mg_villages") ~= nil then
             or (not plot_nr or (plot_nr and plot_nr == 0)) then
             return
         end
-        -- TODO: This should be replaced with new mg_villages API call
-        -- Following line from mg_villages mod, protection.lua
-        local btype = mg_villages.all_villages[village_id].to_add_data.bpos[plot_nr].btype
-        local building_data = mg_villages.BUILDINGS[btype]
-        local building_type = building_data.typ
+        -- Get building data
+        local building_data = {}
+        local building_type = ""
+        if mg_villages.get_plot_and_building_data then
+            building_data = mg_villages.get_plot_and_building_data(village_id, plot_nr)
+            building_type = building_data.building_data.typ
+        else
+            -- Following line from mg_villages mod, protection.lua
+            local btype = mg_villages.all_villages[village_id].to_add_data.bpos[plot_nr].btype
+            building_data = mg_villages.BUILDINGS[btype]
+            building_type = building_data.typ
+        end
+        minetest.log("Found building data: "..dump(building_data))
+
+
         -- Check if the building is of the support types
         for _,value in pairs(npc.spawner.mg_villages_supported_building_types) do
 
@@ -603,6 +608,9 @@ if minetest.get_modpath("mg_villages") ~= nil then
                 meta:set_string("entrance", minetest.serialize(entrance))
                 -- Store nodedata into the spawner's metadata
                 meta:set_string("node_data", minetest.serialize(nodedata))
+                -- Find nearby plotmarkers
+                local nearby_plotmarkers = npc.places.find_plotmarkers(pos, 20)
+                minetest.log("Found nearby plotmarkers: "..dump(nearby_plotmarkers))
                 -- Initialize NPCs
                 local npcs = {}
                 meta:set_string("npcs", minetest.serialize(npcs))
