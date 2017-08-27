@@ -159,7 +159,7 @@ end
 
 function npc.places.get_by_type(self, place_type)
 	local result = {}
-	for place_name, place_entry in pairs(self.places_map) do
+	for _, place_entry in pairs(self.places_map) do
 		if place_entry.type == place_type then
 			table.insert(result, place_entry)
 		end
@@ -255,19 +255,20 @@ function npc.places.find_plotmarkers(pos, radius)
 	for i = 1, #nodes do
 		local node = minetest.get_node(nodes[i])
 		local def = {}
+		def["pos"] = nodes[i]
+		def["name"] = node.name
 		if node.name == "mg_villages:plotmarker" then
 			local meta = minetest.get_meta(nodes[i])
-			def["pos"] = nodes[i]
-			def["name"] = node.name
 			def["plot_nr"] = meta:get_int("plot_nr")
 			def["village_id"] = meta:get_string("village_id")
 
-			local plot_nr = meta:get_int("plot_nr")
-			--   local village_id = meta:get_string("village_id")
-			--   minetest.log("Plot nr: "..dump(plot_nr)..", village ID: "..dump(village_id))
-			--   minetest.log(dump(mg_villages.get_plot_and_building_data( village_id, plot_nr )))
+			if def.plot_nr and def.village_id and mg_villages.get_plot_and_building_data then
+				def["building_data"] = mg_villages.get_plot_and_building_data( def.village_id, def.plot_nr )
+			end
 		end
+		table.insert(result, def)
 	end
+	return result
 end
 
 -- Scans an area for the supported nodes: beds, benches,
@@ -298,7 +299,7 @@ end
 -- Based on this definition, other entrances aren't going to be used
 -- by the NPC to get into the building
 function npc.places.find_entrance_from_openable_nodes(all_openable_nodes, marker_pos)
-	local result = nil
+	local result
 	local openable_nodes = {}
 	local min = 100
 
@@ -309,7 +310,7 @@ function npc.places.find_entrance_from_openable_nodes(all_openable_nodes, marker
 	-- which NPCs love to confuse with the right building entrance.
 	for i = 1, #all_openable_nodes do
 		local name = minetest.get_node(all_openable_nodes[i].node_pos).name
-		local doors_st, doors_en = string.find(name, "doors:")
+		local doors_st, _ = string.find(name, "doors:")
 		if doors_st ~= nil then
 			table.insert(openable_nodes, all_openable_nodes[i])
 		end
@@ -323,7 +324,7 @@ function npc.places.find_entrance_from_openable_nodes(all_openable_nodes, marker
 		-- Get node name - check if this node is a 'door'. The way to check
 		-- is by explicitly checking for 'door' string
 		local name = minetest.get_node(open_pos).name
-		local start_i, end_i = string.find(name, "door")
+		local start_i, _ = string.find(name, "door")
 
 		if start_i ~= nil then
 			-- Define start and end pos
@@ -354,9 +355,9 @@ function npc.places.find_entrance_from_openable_nodes(all_openable_nodes, marker
 					-- plotmarker, but not being the building entrance. MTG doors
 					-- are usually the entrance... so yes, hackity hack.
 					-- Get the name of the currently mininum-distance door
-					min_node_name = minetest.get_node(result.node_pos).name
+					local min_node_name = minetest.get_node(result.node_pos).name
 					-- Check if this is a door from MTG's doors.
-					local doors_st, doors_en = string.find(name, "doors:")
+					local doors_st, _ = string.find(name, "doors:")
 					-- Check if min-distance door is a cottages door
 					-- while we have a MTG door
 					if min_node_name == "cottages:half_door" and doors_st ~= nil then
@@ -387,7 +388,7 @@ function npc.places.find_sittable_nodes_nearby(pos, radius)
 		for i = 1, #nodes do
 			-- Get node name, try to avoid using the staircase check if not a stair node
 			local node = minetest.get_node(nodes[i])
-			local i1, i2 = string.find(node.name, "stairs:")
+			local i1, _ = string.find(node.name, "stairs:")
 			if i1 ~= nil then
 				if npc.places.is_in_staircase(nodes[i]) < 1 then
 					table.insert(result, nodes[i])
@@ -417,7 +418,7 @@ npc.places.staircase = {
 function npc.places.is_in_staircase(pos)
 	local node = minetest.get_node(pos)
 	-- Verify node is actually from default stairs mod
-	local p1, p2 = string.find(node.name, "stairs:")
+	local p1, _ = string.find(node.name, "stairs:")
 	if p1 ~= nil then
 		-- Calculate the logical position to the lower and upper stairs node location
 		local up_x_adj, up_z_adj = 0, 0
@@ -447,8 +448,8 @@ function npc.places.is_in_staircase(pos)
 		local lower_node = minetest.get_node(lower_pos)
 		--minetest.log("Next node: "..dump(upper_pos))
 		-- Check if next node is also a stairs node
-		local up_p1, up_p2 = string.find(upper_node.name, "stairs:")
-		local lo_p1, lo_p2 = string.find(lower_node.name, "stairs:")
+		local up_p1, _ = string.find(upper_node.name, "stairs:")
+		local lo_p1, _ = string.find(lower_node.name, "stairs:")
 
 		if up_p1 ~= nil then
 			-- By default, think this is bottom of staircase.
