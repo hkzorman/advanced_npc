@@ -117,7 +117,7 @@ function npc.places.add_owned_accessible_place(self, nodes, place_type)
 				npc.places.add_owned(self, place_type, place_type,
 					nodes[i].node_pos, empty_nodes[1].pos)
 				npc.log("DEBUG", "Added node at "..minetest.pos_to_string(nodes[i].node_pos)
-					.." to NPC "..dump(self.npc_name))
+						.." to NPC "..dump(self.npc_name))
 				break
 			end
 		end
@@ -218,34 +218,63 @@ end
 -- Notice that nodes is an array of entries {node_pos={}, type={}}
 function npc.places.filter_first_floor_nodes(nodes, ground_pos, floor_height)
 	local height = floor_height or 2
- 	local result = {}
-  	for _,node in pairs(nodes) do
-    	if node.node_pos.y <= ground_pos.y + height then
-      		table.insert(result, node)
-    	end
-  	end
-  	return result
+	local result = {}
+	for _,node in pairs(nodes) do
+		if node.node_pos.y <= ground_pos.y + height then
+			table.insert(result, node)
+		end
+	end
+	return result
 end
 
 -- Creates an array of {pos=<node_pos>, owner=''} for managing
 -- which NPC owns what
 function npc.places.get_nodes_by_type(start_pos, end_pos, type)
-  local result = {}
-  local nodes = npc.places.find_node_in_area(start_pos, end_pos, type)
-  --minetest.log("Found "..dump(#nodes).." nodes of type: "..dump(type))
-  for _,node_pos in pairs(nodes) do
-    local entry = {}
-    entry["node_pos"] = node_pos
-    entry["owner"] = ''
-    table.insert(result, entry)
-  end
-  return result
+	local result = {}
+	local nodes = npc.places.find_node_in_area(start_pos, end_pos, type)
+	--minetest.log("Found "..dump(#nodes).." nodes of type: "..dump(type))
+	for _,node_pos in pairs(nodes) do
+		local entry = {}
+		entry["node_pos"] = node_pos
+		entry["owner"] = ''
+		table.insert(result, entry)
+	end
+	return result
+end
+
+-- Function to get mg_villages building data
+if minetest.get_modpath("mg_villages") ~= nil then
+	function npc.places.get_mg_villages_building_data(pos)
+		local result = {
+			village_id = "",
+			plot_nr = -1,
+			building_data = {},
+			building_type = "",
+		}
+		local meta = minetest.get_meta(pos)
+		result.plot_nr = meta:get_int("plot_nr")
+		result.village_id = meta:get_string("village_id")
+
+		-- Get building data
+		if mg_villages.get_plot_and_building_data then
+			local all_data = mg_villages.get_plot_and_building_data(result.village_id, result.plot_nr)
+			result.building_data = all_data.building_data
+			result.building_type = result.building_data.typ
+			result["building_pos_data"] = all_data.bpos
+		else
+			-- Following line from mg_villages mod, protection.lua
+			local btype = mg_villages.all_villages[result.village_id].to_add_data.bpos[result.plot_nr].btype
+			result.building_data = mg_villages.BUILDINGS[btype]
+			result.building_type = result.building_data.typ
+		end
+		return result
+	end
 end
 
 -- This function will search for nodes of type plotmarker and,
 -- in case of being an mg_villages plotmarker, it will fetch building
 -- information and include in result.
-function npc.places.find_plotmarkers(pos, radius)
+function npc.places.find_plotmarkers(pos, radius, exclude_current_pos)
 	local result = {}
 	local start_pos = {x=pos.x - radius, y=pos.y - 1, z=pos.z - radius}
 	local end_pos = {x=pos.x + radius, y=pos.y + 1, z=pos.z + radius}
@@ -253,20 +282,31 @@ function npc.places.find_plotmarkers(pos, radius)
 		npc.places.nodes.PLOTMARKER_TYPE)
 	-- Scan nodes
 	for i = 1, #nodes do
-		local node = minetest.get_node(nodes[i])
-		local def = {}
-		def["pos"] = nodes[i]
-		def["name"] = node.name
-		if node.name == "mg_villages:plotmarker" then
-			local meta = minetest.get_meta(nodes[i])
-			def["plot_nr"] = meta:get_int("plot_nr")
-			def["village_id"] = meta:get_string("village_id")
-
-			if def.plot_nr and def.village_id and mg_villages.get_plot_and_building_data then
-				def["building_data"] = mg_villages.get_plot_and_building_data( def.village_id, def.plot_nr )
+		-- Check if current plotmarker is to be excluded from the list
+		local exclude = false
+		if exclude_current_pos then
+			if pos.x == nodes[i].x and pos.y == nodes[i].y and pos.z == nodes[i].z then
+				exclude = true
 			end
 		end
-		table.insert(result, def)
+		-- Analyze and include node if not excluded
+		if not exclude then
+			local node = minetest.get_node(nodes[i])
+			local def = {}
+			def["pos"] = nodes[i]
+			def["name"] = node.name
+			if node.name == "mg_villages:plotmarker" and npc.places.get_mg_villages_building_data then
+				local data = npc.places.get_mg_villages_building_data(nodes[i])
+				def["plot_nr"] = data.plot_nr
+				def["village_id"] = data.village_id
+				def["building_data"] = data.building_data
+				def["building_type"] = data.building_type
+				if data.building_pos_data then
+					def["building_pos_data"] = data.building_pos_data
+				end
+			end
+			table.insert(result, def)
+		end
 	end
 	return result
 end
@@ -275,22 +315,22 @@ end
 -- furnaces, storage (e.g. chests) and openable (e.g. doors).
 -- Returns a table with these classifications
 function npc.places.scan_area_for_usable_nodes(pos1, pos2)
-  local result = {
-    bed_type = {},
-    sittable_type = {},
-    furnace_type = {},
-    storage_type = {},
-    openable_type = {}
-  }
-  local start_pos, end_pos = vector.sort(pos1, pos2)
+	local result = {
+		bed_type = {},
+		sittable_type = {},
+		furnace_type = {},
+		storage_type = {},
+		openable_type = {}
+	}
+	local start_pos, end_pos = vector.sort(pos1, pos2)
 
-  result.bed_type = npc.places.get_nodes_by_type(start_pos, end_pos, npc.places.nodes.BED_TYPE)
-  result.sittable_type = npc.places.get_nodes_by_type(start_pos, end_pos, npc.places.nodes.SITTABLE_TYPE)
-  result.furnace_type = npc.places.get_nodes_by_type(start_pos, end_pos, npc.places.nodes.FURNACE_TYPE)
-  result.storage_type = npc.places.get_nodes_by_type(start_pos, end_pos, npc.places.nodes.STORAGE_TYPE)
-  result.openable_type = npc.places.get_nodes_by_type(start_pos, end_pos, npc.places.nodes.OPENABLE_TYPE)
+	result.bed_type = npc.places.get_nodes_by_type(start_pos, end_pos, npc.places.nodes.BED_TYPE)
+	result.sittable_type = npc.places.get_nodes_by_type(start_pos, end_pos, npc.places.nodes.SITTABLE_TYPE)
+	result.furnace_type = npc.places.get_nodes_by_type(start_pos, end_pos, npc.places.nodes.FURNACE_TYPE)
+	result.storage_type = npc.places.get_nodes_by_type(start_pos, end_pos, npc.places.nodes.STORAGE_TYPE)
+	result.openable_type = npc.places.get_nodes_by_type(start_pos, end_pos, npc.places.nodes.OPENABLE_TYPE)
 
-  return result
+	return result
 end
 
 -- Specialized function to find doors that are an entrance to a building.
@@ -346,9 +386,9 @@ function npc.places.find_entrance_from_openable_nodes(all_openable_nodes, marker
 				--minetest.log("Path distance: "..dump(#path))
 				-- Check if path length is less than the minimum found so far
 				if #path < min then
-				-- Set min to path length and the result to the currently found node
-				min = #path
-				result = openable_nodes[i]
+					-- Set min to path length and the result to the currently found node
+					min = #path
+					result = openable_nodes[i]
 				else
 					-- Specific check to prefer mtg's doors to cottages' doors.
 					-- The reason? Sometimes a cottages' door could be closer to the
@@ -394,8 +434,8 @@ function npc.places.find_sittable_nodes_nearby(pos, radius)
 					table.insert(result, nodes[i])
 				end
 			else
-			-- Add node as it is sittable
-			table.insert(result, nodes[i])
+				-- Add node as it is sittable
+				table.insert(result, nodes[i])
 			end
 		end
 	end

@@ -560,20 +560,12 @@ if minetest.get_modpath("mg_villages") ~= nil then
             or (not plot_nr or (plot_nr and plot_nr == 0)) then
             return
         end
-        -- Get building data
-        local building_data = {}
-        local building_type = ""
-        if mg_villages.get_plot_and_building_data then
-            building_data = mg_villages.get_plot_and_building_data(village_id, plot_nr)
-            building_type = building_data.building_data.typ
-        else
-            -- Following line from mg_villages mod, protection.lua
-            local btype = mg_villages.all_villages[village_id].to_add_data.bpos[plot_nr].btype
-            building_data = mg_villages.BUILDINGS[btype]
-            building_type = building_data.typ
-        end
-        minetest.log("Found building data: "..dump(building_data))
 
+        local all_data = npc.places.get_mg_villages_building_data(pos)
+        local building_data = all_data.building_data
+        local building_type = all_data.building_type
+        local building_pos_data = all_data.building_pos_data
+        --minetest.log("Found building data: "..dump(building_data))
 
         -- Check if the building is of the support types
         for _,value in pairs(npc.spawner.mg_villages_supported_building_types) do
@@ -608,9 +600,14 @@ if minetest.get_modpath("mg_villages") ~= nil then
                 meta:set_string("entrance", minetest.serialize(entrance))
                 -- Store nodedata into the spawner's metadata
                 meta:set_string("node_data", minetest.serialize(nodedata))
-                -- Find nearby plotmarkers
-                local nearby_plotmarkers = npc.places.find_plotmarkers(pos, 20)
+                -- Find nearby plotmarkers, excluding current plotmarker
+                local nearby_plotmarkers = npc.places.find_plotmarkers(pos, 20, true)
                 minetest.log("Found nearby plotmarkers: "..dump(nearby_plotmarkers))
+                meta:set_string("nearby_plotmarkers", minetest.serialize(nearby_plotmarkers))
+                -- Check if building position data is also available (recent mg_villages)
+                if building_pos_data then
+                    meta:set_string("building_pos_data", minetest.serialize(building_pos_data))
+                end
                 -- Initialize NPCs
                 local npcs = {}
                 meta:set_string("npcs", minetest.serialize(npcs))
