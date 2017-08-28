@@ -268,7 +268,57 @@ if minetest.get_modpath("mg_villages") ~= nil then
 			result.building_type = result.building_data.typ
 		end
 		return result
-	end
+    end
+
+    -- Pre-requisite: only run this function on mg_villages:plotmarker that has been adapted
+    -- by using spawner.adapt_mg_villages_plotmarker
+    function npc.places.get_all_workplaces_from_plotmarker(pos)
+        local result = {}
+        local meta = minetest.get_meta(pos)
+        local pos_data = minetest.deserialize(meta:get_string("building_pos_data"))
+        if pos_data then
+        	local workplaces = pos_data.workplaces
+	        if workplaces then
+	            -- Insert all workplaces in this plotmarker
+	            for i = 1, #workplaces do
+	                table.insert(result,
+	                    {
+	                        workplace=workplaces[i],
+	                        building_type=meta:get_string("building_type"),
+							surrounding_workplace = false,
+	                        node_pos= {
+	                            x=workplaces[i].x,
+	                            y=workplaces[i].y,
+	                            z=workplaces[i].z
+	                        }
+	                    })
+	            end
+	        end
+	    end
+        -- Check the other plotmarkers as well
+        local nearby_plotmarkers = minetest.deserialize(meta:get_string("nearby_plotmarkers"))
+        if nearby_plotmarkers then
+	        for i = 1, #nearby_plotmarkers do
+	            if nearby_plotmarkers[i].workplaces then
+	                -- Insert all workplaces in this plotmarker
+	                for j = 1, #nearby_plotmarkers[i].workplaces do
+	                    minetest.log("Nearby plotmarker workplace #"..dump(j)..": "..dump(nearby_plotmarkers[i].workplaces[j]))
+	                    table.insert(result, {
+	                        workplace=nearby_plotmarkers[i].workplaces[j],
+							building_type = nearby_plotmarkers[i].building_type,
+							surrounding_workplace = true,
+							node_pos = {
+	                            x=nearby_plotmarkers[i].workplaces[j].x,
+	                            y=nearby_plotmarkers[i].workplaces[j].y,
+	                            z=nearby_plotmarkers[i].workplaces[j].z
+	                        }
+						})
+	                end
+	            end
+	        end
+	    end
+        return result
+    end
 end
 
 -- This function will search for nodes of type plotmarker and,
@@ -303,8 +353,11 @@ function npc.places.find_plotmarkers(pos, radius, exclude_current_pos)
 				def["building_type"] = data.building_type
 				if data.building_pos_data then
 					def["building_pos_data"] = data.building_pos_data
+                    def["workplaces"] = data.building_pos_data.workplaces
 				end
-			end
+            end
+            -- Add building
+            minetest.log("Adding building: "..dump(def))
 			table.insert(result, def)
 		end
 	end
@@ -320,7 +373,8 @@ function npc.places.scan_area_for_usable_nodes(pos1, pos2)
 		sittable_type = {},
 		furnace_type = {},
 		storage_type = {},
-		openable_type = {}
+		openable_type = {},
+        workplace_type = {}
 	}
 	local start_pos, end_pos = vector.sort(pos1, pos2)
 
@@ -329,6 +383,18 @@ function npc.places.scan_area_for_usable_nodes(pos1, pos2)
 	result.furnace_type = npc.places.get_nodes_by_type(start_pos, end_pos, npc.places.nodes.FURNACE_TYPE)
 	result.storage_type = npc.places.get_nodes_by_type(start_pos, end_pos, npc.places.nodes.STORAGE_TYPE)
 	result.openable_type = npc.places.get_nodes_by_type(start_pos, end_pos, npc.places.nodes.OPENABLE_TYPE)
+
+    -- Find workplace nodes: if mg_villages:plotmarker is given a start pos, take it from there.
+    -- If not, search for them.
+    local node = minetest.get_node(pos1)
+    if node.name == "mg_villages:plotmarker" then
+        if npc.places.get_all_workplaces_from_plotmarker then
+            result.workplace_type = npc.places.get_all_workplaces_from_plotmarker(pos1)
+        end
+    else
+        -- Just search for workplace nodes
+        result.workplace_type = npc.places.get_nodes_by_type(start_pos, end_pos, npc.places.nodes.WORKPLACE_TYPE)
+    end
 
 	return result
 end

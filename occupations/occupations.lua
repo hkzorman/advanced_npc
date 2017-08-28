@@ -58,6 +58,10 @@
 --			-- spawns on house, then it has to be because there is a field
 --			-- nearby. If left empty or nil, surrounding buildings doesn't
 --			-- matter
+--		workplace_nodes = {},
+--			-- An array of string where each string is a node the NPC
+--			-- works with. These are useful for assigning workplaces and work
+--			-- work nodes.
 --		initial_inventory = {},
 --			-- An array of entries like the following:
 --			-- {name="", count=1} -- or

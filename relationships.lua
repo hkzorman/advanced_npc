@@ -482,7 +482,7 @@ local function show_receive_gift_reaction(self, item_name, modifier, clicker_nam
     		npc.relationships.GIFT_ITEM_LIKED, 
     		self.sex, 
     		phase)
-    npc.chat(self.npc_name, clicker_name, message_to_send)
+    npc.chat(self.npc_name, clicker_name, message_to_send.responses[1])
   -- Disliked items reactions
   elseif modifier < 0 then
     effect({x = pos.x, y = pos.y + 1, z = pos.z}, 8, "default_item_smoke.png")
@@ -492,7 +492,7 @@ local function show_receive_gift_reaction(self, item_name, modifier, clicker_nam
     		npc.relationships.GIFT_ITEM_RESPONSE, 
     		npc.relationships.GIFT_ITEM_DISLIKED, 
     		self.sex)
-    npc.chat(self.npc_name, clicker_name, message_to_send)
+    npc.chat(self.npc_name, clicker_name, message_to_send.responses[1])
   end
   
 end

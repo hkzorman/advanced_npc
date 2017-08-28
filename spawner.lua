@@ -204,18 +204,21 @@ function npc.spawner.spawn_npc_on_plotmarker(pos)
     area_info["npc_count"] = meta:get_int("npc_count")
     area_info["spawned_npc_count"] = meta:get_int("spawned_npc_count")
 
-    -- TODO: Get occupation name
+    area_info["building_type"] = minetest.deserialize(meta:get_string("building_type"))
+    local nearby_plotmarkers = minetest.deserialize(meta:get_string("nearby_plotmarkers"))
+
+
     local metadata = npc.spawner.spawn_npc(pos, area_info)
 
     -- Set all metadata back into the node
     -- Increase NPC spawned count
-    area_info.spawned_npc_count = area_info.spawned_npc_count + 1
+    area_info.spawned_npc_count = metadata.spawned_npc_count + 1
     -- Store count into node
     meta:set_int("spawned_npc_count", area_info.spawned_npc_count)
     -- Store spawned NPC info
-    meta:set_string("npcs", minetest.serialize(area_info.npcs))
+    meta:set_string("npcs", minetest.serialize(metadata.npcs))
     -- Store NPC stats
-    meta:set_string("npc_stats", minetest.serialize(area_info.npc_stats))
+    meta:set_string("npc_stats", minetest.serialize(metadata.npc_stats))
 
     -- Check if there are more NPCs to spawn
     if area_info.spawned_npc_count >= area_info.npc_count then
@@ -304,7 +307,7 @@ function npc.spawner.spawn_npc(pos, area_info, occupation_name)
             area_info.npc_stats = npc_stats
             -- Return
             npc.log("INFO", "Spawning successful!")
-            return true
+            return area_info
         else
             npc.log("ERROR", "Spawning failed!")
             ent:remove()
@@ -400,9 +403,16 @@ function npc.spawner.assign_places(self, entrance, node_data, pos)
             --meta:set_string("node_data", minetest.serialize(node_data))
         end
         -- Add all storage-types to places as shared since NPC should be able
-        -- to use other storage nodes as well.
+        -- to use other storaage nodes as well.
         npc.places.add_shared_accessible_place(self, node_data.storage_type,
             npc.places.PLACE_TYPE.STORAGE.SHARED)
+    end
+
+    -- Assign workplace nodes
+    if #node_data.workplace_type > 0 then
+        local occupation = npc.occupations.registered_occupations[self.occupation_name]
+
+
     end
 
     npc.log("DEBUG", "Places for NPC "..self.npc_name..": "..dump(self.places_map))
@@ -564,7 +574,8 @@ if minetest.get_modpath("mg_villages") ~= nil then
         local all_data = npc.places.get_mg_villages_building_data(pos)
         local building_data = all_data.building_data
         local building_type = all_data.building_type
-        local building_pos_data = all_data.building_pos_data
+        local building_pos_data = all_data.building_pos_dataS
+
         --minetest.log("Found building data: "..dump(building_data))
 
         -- Check if the building is of the support types
@@ -601,7 +612,7 @@ if minetest.get_modpath("mg_villages") ~= nil then
                 -- Store nodedata into the spawner's metadata
                 meta:set_string("node_data", minetest.serialize(nodedata))
                 -- Find nearby plotmarkers, excluding current plotmarker
-                local nearby_plotmarkers = npc.places.find_plotmarkers(pos, 20, true)
+                local nearby_plotmarkers = npc.places.find_plotmarkers(pos, 40, true)
                 minetest.log("Found nearby plotmarkers: "..dump(nearby_plotmarkers))
                 meta:set_string("nearby_plotmarkers", minetest.serialize(nearby_plotmarkers))
                 -- Check if building position data is also available (recent mg_villages)

@@ -3,6 +3,29 @@
 -- Register default occupation
 npc.occupations.register_occupation("default_basic", npc.occupations.basic_def)
 
+-- Test priest
+npc.occupations.register_occupation("test_priest", {
+	dialogues = {
+		{
+			text = "How are you today my child?",
+			tags = "male"
+		}
+	},
+	textures = {
+		"npc_male_priest.png"
+	},
+	initial_inventory = {
+		"farming:bread 1"
+	},
+	building_types = {
+		"home"
+	},
+	surrounding_building_types = {
+		"church"
+	},
+	schedule_entries = {}
+})
+
 -- Test farmer
 npc.occupations.register_occupation("test_farmer", {
 		dialogues = {},
