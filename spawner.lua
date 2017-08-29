@@ -61,14 +61,14 @@ npc.spawner.replacement_interval = 60
 npc.spawner.spawn_delay = 10
 
 npc.spawner.spawn_data = {
-	status = {
-    	dead = 0,
-    	alive = 1
-  	},
-  	age = {
-  		adult = "adult",
-  		child = "child"
-	}
+    status = {
+        dead = 0,
+        alive = 1
+    },
+    age = {
+        adult = "adult",
+        child = "child"
+    }
 }
 
 -- Array of nodes that serve as plotmarker of a plot, and therefore
@@ -158,18 +158,18 @@ function npc.spawner.scan_area_for_spawn(start_pos, end_pos, player_name)
     -- Initialize NPC stats
     -- Initialize NPC stats
     local npc_stats = {
-      male = {
-          total = 0,
-          adult = 0,
-          child = 0
-      },
-      female = {
-          total = 0,
-          adult = 0,
-          child = 0
-      },
-      adult_total = 0,
-      child_total = 0
+        male = {
+            total = 0,
+            adult = 0,
+            child = 0
+        },
+        female = {
+            total = 0,
+            adult = 0,
+            child = 0
+        },
+        adult_total = 0,
+        child_total = 0
     }
     result.building_npc_stats = npc_stats
 
@@ -179,6 +179,78 @@ end
 ---------------------------------------------------------------------------------------
 -- Spawning functions
 ---------------------------------------------------------------------------------------
+
+function npc.spawner.determine_npc_occupation(building_type, workplace_nodes, npcs)
+    local surrounding_buildings_map = {}
+    local current_building_map = {}
+    local current_building_npc_occupations = {}
+    -- Get all occupation names in the current building
+    for i = 1, #npcs do
+        if not npc.utils.array_contains(current_building_npc_occupations, npcs[i].occupation) then
+            table.insert(current_building_npc_occupations, npcs[i].occupations)
+        end
+    end
+    minetest.log("Occupation names in current building: "..dump(current_building_npc_occupations))
+    -- Classify workplaces
+    for i = 1, #workplace_nodes do
+        local workplace = workplace_nodes[i]
+        if workplace.surrounding_workplace == true then
+            surrounding_buildings_map[workplace.building_type] = workplace
+        else
+            current_building_map[workplace.building_type] = workplace
+        end
+    end
+
+    minetest.log("Surrounding workplaces map: "..dump(surrounding_buildings_map))
+    minetest.log("Current building type: "..dump(building_type))
+    -- Get occupation names for the buildings
+    local occupation_names = npc.occupations.get_for_building(
+        building_type,
+        npc.utils.get_map_keys(surrounding_buildings_map)
+    )
+    -----------------------
+    -- Determine occupation
+    -----------------------
+    -- First of all, iterate through all names, discard the default basic occupation.
+    -- Next, check if no-one in this builiding has this occupation name.
+    -- Next, check if the workplace node has no data assigned to it.
+    -- Finally, if not, return an table with the occupation name, and the selected
+    -- workplace node.
+    -- Note: Much more can be done here. This is a simplistic implementation,
+    -- given this is already complicated enough. For example, existing NPCs' occupation
+    -- can play a much more important role, not only taken in consideration for discarding.
+    for i = 1, #occupation_names do
+        -- Check if this occupation name is the default occupation, and if it is, continue
+        if occupation_names[i] ~= npc.occupations.basic_name then
+            -- Check if someone already works on this
+            if not npc.utils.array_contains(current_building_npc_occupations, occupation_names[i]) then
+                -- Check if someone else already has this occupation at the same workplace
+                for j = 1, #workplace_nodes do
+                    -- Get building types from occupation
+                    local local_building_types =
+                        npc.occupations.registered_occupations[occupation_names[i]].building_type or {}
+                    local surrounding_building_types =
+                        npc.occupations.registered_occupations[occupation_names[i]].surrounding_building_types or {}
+                    minetest.log("Occupation btype: "..dump(local_building_types))
+                    minetest.log("Surrounding btypes: "..dump(surrounding_building_types))
+                    -- Check the workplace_node is of any of those building_types
+                    if npc.utils.array_contains(local_building_types, workplace_nodes[j].building_type) or
+                            npc.utils.array_contains(surrounding_building_types, workplace_nodes[j].building_type) then
+                        minetest.log("Found corresponding node: "..dump(workplace_nodes[j]))
+                        local meta = minetest.get_meta(workplace_nodes[j].node_pos)
+                        local worker_data = minetest.deserialize(meta:get_string("worker_data") or "")
+                        -- If no worker data is found, then create it
+                        if not worker_data then
+                            return {name=occupation_names[i], node=workplace_nodes[j]}
+                        end
+                    end
+                end
+
+            end
+        end
+    end
+    return nil
+end
 
 -- This function is called when the node timer for spawning NPC
 -- is expired. Can be called manually by supplying either:
@@ -204,11 +276,15 @@ function npc.spawner.spawn_npc_on_plotmarker(pos)
     area_info["npc_count"] = meta:get_int("npc_count")
     area_info["spawned_npc_count"] = meta:get_int("spawned_npc_count")
 
-    area_info["building_type"] = minetest.deserialize(meta:get_string("building_type"))
+    -- Determine occupation
+    area_info["building_type"] = meta:get_string("building_type")
     local nearby_plotmarkers = minetest.deserialize(meta:get_string("nearby_plotmarkers"))
+    local occupation_data = npc.spawner.determine_npc_occupation(
+        area_info.building_type,
+        area_info.node_data.workplace_type,
+        area_info.npcs)
 
-
-    local metadata = npc.spawner.spawn_npc(pos, area_info)
+    local metadata = npc.spawner.spawn_npc(pos, area_info, occupation_data.name)
 
     -- Set all metadata back into the node
     -- Increase NPC spawned count
@@ -273,7 +349,7 @@ function npc.spawner.spawn_npc(pos, area_info, occupation_name)
             if npc_table and #npc_table > 0 then
                 npc.initialize(ent, pos, false, npc_stats, occupation)
             else
-      	        npc.initialize(ent, pos, nil, nil, occupation)
+                npc.initialize(ent, pos, nil, nil, occupation)
             end
             -- If entrance and node_data are present, assign nodes
             if entrance and node_data then
@@ -284,13 +360,13 @@ function npc.spawner.spawn_npc(pos, area_info, occupation_name)
             if ent:get_luaentity().child then
                 age = npc.age.child
             end
-            -- TODO: Add more information here at some time...
             local entry = {
                 status = npc.spawner.spawn_data.status.alive,
                 name = ent:get_luaentity().name,
                 id = ent:get_luaentity().npc_id,
                 sex = ent:get_luaentity().sex,
                 age = age,
+                occupation = occupation,
                 born_day = minetest.get_day_count()
             }
             minetest.log("Area info: "..dump(area_info))
@@ -298,12 +374,12 @@ function npc.spawner.spawn_npc(pos, area_info, occupation_name)
             -- Update and store stats
             -- Increase total of NPCs for specific sex
             npc_stats[ent:get_luaentity().sex].total =
-      	        npc_stats[ent:get_luaentity().sex].total + 1
+            npc_stats[ent:get_luaentity().sex].total + 1
             -- Increase total number of NPCs by age
             npc_stats[age.."_total"] = npc_stats[age.."_total"] + 1
             -- Increase number of NPCs by age and sex
             npc_stats[ent:get_luaentity().sex][age] =
-      	        npc_stats[ent:get_luaentity().sex][age] + 1
+            npc_stats[ent:get_luaentity().sex][age] + 1
             area_info.npc_stats = npc_stats
             -- Return
             npc.log("INFO", "Spawning successful!")
@@ -337,7 +413,7 @@ function npc.spawner.assign_places(self, entrance, node_data, pos)
     -- Assign plotmarker if position given
     if pos then
         npc.places.add_shared(self, npc.places.PLACE_TYPE.OTHER.HOME_PLOTMARKER,
-      	    npc.places.PLACE_TYPE.OTHER.HOME_PLOTMARKER, pos)
+            npc.places.PLACE_TYPE.OTHER.HOME_PLOTMARKER, pos)
     end
 
     -- Assign entrance door and related locations
@@ -353,11 +429,11 @@ function npc.spawner.assign_places(self, entrance, node_data, pos)
 
     -- Assign beds
     if #node_data.bed_type > 0 then
-  	    -- Assign a specific sittable node to a NPC.
-	    npc.places.add_owned_accessible_place(self, node_data.bed_type,
-		    npc.places.PLACE_TYPE.BED.PRIMARY)
-	    -- Store changes to node_data
-	    --meta:set_string("node_data", minetest.serialize(node_data))
+        -- Assign a specific sittable node to a NPC.
+        npc.places.add_owned_accessible_place(self, node_data.bed_type,
+            npc.places.PLACE_TYPE.BED.PRIMARY)
+        -- Store changes to node_data
+        --meta:set_string("node_data", minetest.serialize(node_data))
     end
 
     -- Assign sits
@@ -389,7 +465,7 @@ function npc.spawner.assign_places(self, entrance, node_data, pos)
         -- Add all furnaces to places as shared since NPC should be able to use
         -- any accessible furnace
         npc.places.add_shared_accessible_place(self, node_data.furnace_type,
-        npc.places.PLACE_TYPE.FURNACE.SHARED)
+            npc.places.PLACE_TYPE.FURNACE.SHARED)
     end
 
     -- Assign storage nodes
@@ -417,14 +493,14 @@ function npc.spawner.assign_places(self, entrance, node_data, pos)
 
     npc.log("DEBUG", "Places for NPC "..self.npc_name..": "..dump(self.places_map))
 
-  	-- Make NPC go into their house
+    -- Make NPC go into their house
     -- If entrance is available let NPC
     if entrance then
-    	npc.add_task(self,
-    		npc.actions.cmd.WALK_TO_POS,
-    		{end_pos=npc.places.PLACE_TYPE.OTHER.HOME_INSIDE,
-    		 walkable={}})
-    	npc.add_action(self, npc.actions.cmd.FREEZE, {freeze = false})
+        npc.add_task(self,
+            npc.actions.cmd.WALK_TO_POS,
+            {end_pos=npc.places.PLACE_TYPE.OTHER.HOME_INSIDE,
+                walkable={}})
+        npc.add_action(self, npc.actions.cmd.FREEZE, {freeze = false})
     end
 
     return node_data
@@ -438,7 +514,7 @@ function npc.spawner.calculate_npc_spawning_on_plotmarker(pos)
     -- Check node metadata
     local meta = minetest.get_meta(pos)
     if meta:get_string("replaced") ~= "true" then
-    	return
+        return
     end
     -- Get nodes for this building
     local node_data = minetest.deserialize(meta:get_string("node_data"))
@@ -497,61 +573,61 @@ if minetest.get_modpath("mg_villages") ~= nil then
         --minetest.log("Building data: "..dump(building_data))
         --minetest.log("--------------------------------------------")
         -- Get area of the building
-      local x_size = building_data.bsizex
-      local y_size = building_data.ysize
-      local z_size = building_data.bsizez
-      local brotate = building_data.brotate
-      local start_pos = {x=pos.x, y=pos.y, z=pos.z}
-      local x_sign, z_sign = 1, 1
+        local x_size = building_data.bsizex
+        local y_size = building_data.ysize
+        local z_size = building_data.bsizez
+        local brotate = building_data.brotate
+        local start_pos = {x=pos.x, y=pos.y, z=pos.z}
+        local x_sign, z_sign = 1, 1
 
-      -- Check plot direction
-      -- NOTE: Below values may be wrong, very wrong!
-      -- 0 - facing West, -X
-      -- 1 - facing North, +Z
-      -- 2 - facing East, +X
-      -- 3 - facing South -Z
-      if brotate == 0 then
-        x_sign, z_sign = 1, -1
-      elseif brotate == 1 then
-        x_sign, z_sign =  -1, -1
-        local temp = z_size
-        z_size = x_size
-        x_size = temp
-      elseif brotate == 2 then
-        x_sign, z_sign = -1, 1
-      elseif brotate == 3 then
-        x_sign, z_sign = 1, 1
-      end
+        -- Check plot direction
+        -- NOTE: Below values may be wrong, very wrong!
+        -- 0 - facing West, -X
+        -- 1 - facing North, +Z
+        -- 2 - facing East, +X
+        -- 3 - facing South -Z
+        if brotate == 0 then
+            x_sign, z_sign = 1, -1
+        elseif brotate == 1 then
+            x_sign, z_sign =  -1, -1
+            local temp = z_size
+            z_size = x_size
+            x_size = temp
+        elseif brotate == 2 then
+            x_sign, z_sign = -1, 1
+        elseif brotate == 3 then
+            x_sign, z_sign = 1, 1
+        end
 
-      ------------------------
-      -- For debug:
-      ------------------------
-      -- Red is x marker
-      --minetest.set_node({x=pos.x + (x_sign * x_size),y=pos.y,z=pos.z}, {name = "wool:red"})
-      --minetest.get_meta({x=pos.x + (x_sign * x_size),y=pos.y,z=pos.z}):set_string("infotext", minetest.get_meta(pos):get_string("infotext")..", Axis: x, Sign: "..dump(x_sign))
-      -- Blue is z marker
-      --minetest.set_node({x=pos.x,y=pos.y,z=pos.z + (z_sign * z_size)}, {name = "wool:blue"})
-      --minetest.get_meta({x=pos.x,y=pos.y,z=pos.z + (z_sign * z_size)}):set_string("infotext", minetest.get_meta(pos):get_string("infotext")..", Axis: z, Sign: "..dump(z_sign))
+        ------------------------
+        -- For debug:
+        ------------------------
+        -- Red is x marker
+        --minetest.set_node({x=pos.x + (x_sign * x_size),y=pos.y,z=pos.z}, {name = "wool:red"})
+        --minetest.get_meta({x=pos.x + (x_sign * x_size),y=pos.y,z=pos.z}):set_string("infotext", minetest.get_meta(pos):get_string("infotext")..", Axis: x, Sign: "..dump(x_sign))
+        -- Blue is z marker
+        --minetest.set_node({x=pos.x,y=pos.y,z=pos.z + (z_sign * z_size)}, {name = "wool:blue"})
+        --minetest.get_meta({x=pos.x,y=pos.y,z=pos.z + (z_sign * z_size)}):set_string("infotext", minetest.get_meta(pos):get_string("infotext")..", Axis: z, Sign: "..dump(z_sign))
 
-      npc.log("DEBUG", "Start pos: "..minetest.pos_to_string(start_pos))
-      npc.log("DEBUG", "Plot: "..dump(minetest.get_meta(start_pos):get_string("infotext")))
+        npc.log("DEBUG", "Start pos: "..minetest.pos_to_string(start_pos))
+        npc.log("DEBUG", "Plot: "..dump(minetest.get_meta(start_pos):get_string("infotext")))
 
-      npc.log("DEBUG", "Brotate: "..dump(brotate))
-      npc.log("DEBUG", "X_sign: "..dump(x_sign))
-      npc.log("DEBUG", "X_adj: "..dump(x_sign*x_size))
-      npc.log("DEBUG", "Z_sign: "..dump(z_sign))
-      npc.log("DEBUG", "Z_adj: "..dump(z_sign*z_size))
+        npc.log("DEBUG", "Brotate: "..dump(brotate))
+        npc.log("DEBUG", "X_sign: "..dump(x_sign))
+        npc.log("DEBUG", "X_adj: "..dump(x_sign*x_size))
+        npc.log("DEBUG", "Z_sign: "..dump(z_sign))
+        npc.log("DEBUG", "Z_adj: "..dump(z_sign*z_size))
 
-      local end_pos = {x=pos.x + (x_sign * x_size), y=pos.y + y_size, z=pos.z + (z_sign * z_size)}
+        local end_pos = {x=pos.x + (x_sign * x_size), y=pos.y + y_size, z=pos.z + (z_sign * z_size)}
 
-      -- For debug:
-      --minetest.set_node(start_pos, {name="default:mese_block"})
-      --minetest.set_node(end_pos, {name="default:mese_block"})
-      --minetest.get_meta(end_pos):set_string("infotext", minetest.get_meta(start_pos):get_string("infotext"))
+        -- For debug:
+        --minetest.set_node(start_pos, {name="default:mese_block"})
+        --minetest.set_node(end_pos, {name="default:mese_block"})
+        --minetest.get_meta(end_pos):set_string("infotext", minetest.get_meta(start_pos):get_string("infotext"))
 
-      npc.log("DEBUG", "Calculated end pos: "..minetest.pos_to_string(end_pos))
+        npc.log("DEBUG", "Calculated end pos: "..minetest.pos_to_string(end_pos))
 
-      return npc.places.scan_area_for_usable_nodes(start_pos, end_pos)
+        return npc.places.scan_area_for_usable_nodes(start_pos, end_pos)
     end
 
     -- This function "adapts" an existent mg_villages:plotmarker for NPC spawning.
@@ -567,7 +643,7 @@ if minetest.get_modpath("mg_villages") ~= nil then
         local infotext = meta:get_string("infotext")
         -- Check for nil values above
         if (not village_id or (village_id and village_id == ""))
-            or (not plot_nr or (plot_nr and plot_nr == 0)) then
+                or (not plot_nr or (plot_nr and plot_nr == 0)) then
             return
         end
 
@@ -612,8 +688,8 @@ if minetest.get_modpath("mg_villages") ~= nil then
                 -- Store nodedata into the spawner's metadata
                 meta:set_string("node_data", minetest.serialize(nodedata))
                 -- Find nearby plotmarkers, excluding current plotmarker
-                local nearby_plotmarkers = npc.places.find_plotmarkers(pos, 40, true)
-                minetest.log("Found nearby plotmarkers: "..dump(nearby_plotmarkers))
+                local nearby_plotmarkers = npc.places.find_plotmarkers(pos, 35, true)
+                --minetest.log("Found nearby plotmarkers: "..dump(nearby_plotmarkers))
                 meta:set_string("nearby_plotmarkers", minetest.serialize(nearby_plotmarkers))
                 -- Check if building position data is also available (recent mg_villages)
                 if building_pos_data then
@@ -624,22 +700,22 @@ if minetest.get_modpath("mg_villages") ~= nil then
                 meta:set_string("npcs", minetest.serialize(npcs))
                 -- Initialize NPC stats
                 local npc_stats = {
-          	        male = {
-          		        total = 0,
+                    male = {
+                        total = 0,
                         adult = 0,
-          	            child = 0
-          	        },
-          	        female = {
-          		        total = 0,
+                        child = 0
+                    },
+                    female = {
+                        total = 0,
                         adult = 0,
                         child = 0
                     },
                     adult_total = 0,
                     child_total = 0
-      	        }
-      	        meta:set_string("npc_stats", minetest.serialize(npc_stats))
-      	        -- Set replaced
-      	        meta:set_string("replaced", "true")
+                }
+                meta:set_string("npc_stats", minetest.serialize(npc_stats))
+                -- Set replaced
+                meta:set_string("replaced", "true")
                 -- Calculate how many NPCs will spawn
                 npc.spawner.calculate_npc_spawning_on_plotmarker(pos)
                 -- Stop searching for building type
@@ -648,107 +724,107 @@ if minetest.get_modpath("mg_villages") ~= nil then
         end
     end
 
-  -- Node registration
-  -- This node is currently a slightly modified mg_villages:plotmarker
-  -- TODO: Change formspec to a more detailed one.
-  minetest.override_item("mg_villages:plotmarker", {
-    -- description = "Automatic NPC Spawner",
-    -- drawtype = "nodebox",
-    -- tiles = {"default_stone.png"},
-    -- paramtype = "light",
-    -- paramtype2 = "facedir",
-    -- node_box = {
-    --     type = "fixed",
-    --     fixed = {
-    --         {-0.5+2/16, -0.5, -0.5+2/16,  0.5-2/16, -0.5+2/16, 0.5-2/16},
-    --         --{-0.5+0/16, -0.5, -0.5+0/16,  0.5-0/16, -0.5+0/16, 0.5-0/16},
-    --     }
-    -- },
-    walkable = false,
-    groups = {cracky=3,stone=2},
+    -- Node registration
+    -- This node is currently a slightly modified mg_villages:plotmarker
+    -- TODO: Change formspec to a more detailed one.
+    minetest.override_item("mg_villages:plotmarker", {
+        -- description = "Automatic NPC Spawner",
+        -- drawtype = "nodebox",
+        -- tiles = {"default_stone.png"},
+        -- paramtype = "light",
+        -- paramtype2 = "facedir",
+        -- node_box = {
+        --     type = "fixed",
+        --     fixed = {
+        --         {-0.5+2/16, -0.5, -0.5+2/16,  0.5-2/16, -0.5+2/16, 0.5-2/16},
+        --         --{-0.5+0/16, -0.5, -0.5+0/16,  0.5-0/16, -0.5+0/16, 0.5-0/16},
+        --     }
+        -- },
+        walkable = false,
+        groups = {cracky=3,stone=2},
 
-    on_rightclick = function(pos, node, clicker, itemstack, pointed_thing)
-      -- NOTE: This is temporary code for testing...
-      local nodedata = minetest.deserialize(minetest.get_meta(pos):get_string("node_data"))
-      --minetest.log("Node data: "..dump(nodedata))
-      --minetest.log("Entrance: "..dump(minetest.deserialize(minetest.get_meta(pos):get_string("entrance"))))
-      --minetest.log("First-floor beds: "..dump(spawner.filter_first_floor_nodes(nodedata.bed_type, pos)))
-      --local entrance = npc.places.find_entrance_from_openable_nodes(nodedata.openable_type, pos)
-      --minetest.log("Found entrance: "..dump(entrance))
-      minetest.log("Replaced: "..dump(minetest.get_meta(pos):get_string("replaced")))
-      -- for i = 1, #nodedata.bed_type do
-      -- 	nodedata.bed_type[i].owner = ""
-      -- end
-      -- minetest.get_meta(pos):set_string("node_data", minetest.serialize(nodedata))
-      -- minetest.log("Cleared bed owners")
-      --minetest.log("NPC stats: "..dump(minetest.deserialize(minetest.get_meta(pos):get_string("npc_stats"))))
+        on_rightclick = function(pos, node, clicker, itemstack, pointed_thing)
+            -- NOTE: This is temporary code for testing...
+            local nodedata = minetest.deserialize(minetest.get_meta(pos):get_string("node_data"))
+            --minetest.log("Node data: "..dump(nodedata))
+            --minetest.log("Entrance: "..dump(minetest.deserialize(minetest.get_meta(pos):get_string("entrance"))))
+            --minetest.log("First-floor beds: "..dump(spawner.filter_first_floor_nodes(nodedata.bed_type, pos)))
+            --local entrance = npc.places.find_entrance_from_openable_nodes(nodedata.openable_type, pos)
+            --minetest.log("Found entrance: "..dump(entrance))
+            minetest.log("Replaced: "..dump(minetest.get_meta(pos):get_string("replaced")))
+            -- for i = 1, #nodedata.bed_type do
+            -- 	nodedata.bed_type[i].owner = ""
+            -- end
+            -- minetest.get_meta(pos):set_string("node_data", minetest.serialize(nodedata))
+            -- minetest.log("Cleared bed owners")
+            --minetest.log("NPC stats: "..dump(minetest.deserialize(minetest.get_meta(pos):get_string("npc_stats"))))
 
-      return mg_villages.plotmarker_formspec( pos, nil, {}, clicker )
-    end,
+            return mg_villages.plotmarker_formspec( pos, nil, {}, clicker )
+        end,
 
-    -- on_receive_fields = function(pos, formname, fields, sender)
-    --   return mg_villages.plotmarker_formspec( pos, formname, fields, sender );
-    -- end,
+        -- on_receive_fields = function(pos, formname, fields, sender)
+        --   return mg_villages.plotmarker_formspec( pos, formname, fields, sender );
+        -- end,
 
-    on_timer = function(pos, elapsed)
-      npc.spawner.spawn_npc_on_plotmarker(pos)
-    end,
+        on_timer = function(pos, elapsed)
+            npc.spawner.spawn_npc_on_plotmarker(pos)
+        end,
 
-    -- protect against digging
-    -- can_dig = function(pos, player)
-    --   local meta = minetest.get_meta(pos);
-    --   if (meta and meta:get_string("village_id") ~= "" and meta:get_int("plot_nr") and meta:get_int("plot_nr") > 0 ) then
-    --       return false;
+        -- protect against digging
+        -- can_dig = function(pos, player)
+        --   local meta = minetest.get_meta(pos);
+        --   if (meta and meta:get_string("village_id") ~= "" and meta:get_int("plot_nr") and meta:get_int("plot_nr") > 0 ) then
+        --       return false;
+        --   end
+        --   return true;
+        -- end
+    })
+
+    -- LBM Registration
+    -- Used to modify plotmarkers and replace them with advanced_npc:plotmarker_auto_spawner
+    -- minetest.register_lbm({
+    --   label = "Replace mg_villages:plotmarker with Advanced NPC auto spawners",
+    --   name = "advanced_npc:mg_villages_plotmarker_replacer",
+    --   nodenames = {"mg_villages:plotmarker"},
+    --   run_at_every_load = false,
+    --   action = function(pos, node)
+    --     -- Check if replacement is activated
+    --     if npc.spawner.replace_activated then
+    --       -- Replace mg_villages:plotmarker
+    --       spawner.replace_mg_villages_plotmarker(pos)
+    --       -- Set NPCs to spawn
+    --       spawner.calculate_npc_spawning(pos)
+    --     end
     --   end
-    --   return true;
-    -- end
-  })
+    -- })
 
-  -- LBM Registration
-  -- Used to modify plotmarkers and replace them with advanced_npc:plotmarker_auto_spawner
-  -- minetest.register_lbm({
-  --   label = "Replace mg_villages:plotmarker with Advanced NPC auto spawners",
-  --   name = "advanced_npc:mg_villages_plotmarker_replacer",
-  --   nodenames = {"mg_villages:plotmarker"},
-  --   run_at_every_load = false,
-  --   action = function(pos, node)
-  --     -- Check if replacement is activated
-  --     if npc.spawner.replace_activated then
-  --       -- Replace mg_villages:plotmarker
-  --       spawner.replace_mg_villages_plotmarker(pos)
-  --       -- Set NPCs to spawn
-  --       spawner.calculate_npc_spawning(pos)
-  --     end
-  --   end
-  -- })
-
-  -- ABM Registration
-  minetest.register_abm({
-    label = "Replace mg_villages:plotmarker with Advanced NPC auto spawners",
-    nodenames = {"mg_villages:plotmarker"},
-    interval = 10,--npc.spawner.replacement_interval,
-    chance = 1,--5,
-    catch_up = true,
-    action = function(pos, node, active_object_count, active_object_count_wider)
-      -- Check if replacement is needed
-      local meta = minetest.get_meta(pos)
-      if meta then
-        --   minetest.log("------ Plotmarker metadata -------")
-        --   local plot_nr = meta:get_int("plot_nr")
-        --   local village_id = meta:get_string("village_id")
-        --   minetest.log("Plot nr: "..dump(plot_nr)..", village ID: "..dump(village_id))
-        --   minetest.log(dump(mg_villages.get_plot_and_building_data( village_id, plot_nr )))
-      end
-      if minetest.get_meta(pos):get_string("replaced") == "true" then
-      	return
-      end
-       -- Check if replacement is activated
-      if npc.spawner.replace_activated then
-        -- Replace mg_villages:plotmarker
-        spawner.adapt_mg_villages_plotmarker(pos)
-      end
-    end
-  })
+    -- ABM Registration
+    minetest.register_abm({
+        label = "Replace mg_villages:plotmarker with Advanced NPC auto spawners",
+        nodenames = {"mg_villages:plotmarker"},
+        interval = 10,--npc.spawner.replacement_interval,
+        chance = 1,--5,
+        catch_up = true,
+        action = function(pos, node, active_object_count, active_object_count_wider)
+            -- Check if replacement is needed
+            local meta = minetest.get_meta(pos)
+            if meta then
+                --   minetest.log("------ Plotmarker metadata -------")
+                --   local plot_nr = meta:get_int("plot_nr")
+                --   local village_id = meta:get_string("village_id")
+                --   minetest.log("Plot nr: "..dump(plot_nr)..", village ID: "..dump(village_id))
+                --   minetest.log(dump(mg_villages.get_plot_and_building_data( village_id, plot_nr )))
+            end
+            if minetest.get_meta(pos):get_string("replaced") == "true" then
+                return
+            end
+            -- Check if replacement is activated
+            if npc.spawner.replace_activated then
+                -- Replace mg_villages:plotmarker
+                spawner.adapt_mg_villages_plotmarker(pos)
+            end
+        end
+    })
 
 end
 
@@ -756,50 +832,50 @@ end
 
 -- Chat commands to manage spawners
 minetest.register_chatcommand("restore_plotmarkers", {
-  description = "Replaces all advanced_npc:plotmarker_auto_spawner with mg_villages:plotmarker in the specified radius.",
-  privs = {server=true},
-  func = function(name, param)
-    -- Check if radius is null
-    if param == nil and type(param) ~= "number" then
-      minetest.chat_send_player(name, "Need to enter a radius as an integer number. Ex. /restore_plotmarkers 10 for a radius of 10")
-      return
+    description = "Replaces all advanced_npc:plotmarker_auto_spawner with mg_villages:plotmarker in the specified radius.",
+    privs = {server=true},
+    func = function(name, param)
+        -- Check if radius is null
+        if param == nil and type(param) ~= "number" then
+            minetest.chat_send_player(name, "Need to enter a radius as an integer number. Ex. /restore_plotmarkers 10 for a radius of 10")
+            return
+        end
+        -- Get player position
+        local pos = {}
+        for _,player in pairs(minetest.get_connected_players()) do
+            if player:get_player_name() == name then
+                pos = player:get_pos()
+                break
+            end
+        end
+        -- Search for nodes
+        local radius = tonumber(param)
+        local start_pos = {x=pos.x - radius, y=pos.y - 5, z=pos.z - radius}
+        local end_pos = {x=pos.x + radius, y=pos.y + 5, z=pos.z + radius}
+        local nodes = minetest.find_nodes_in_area_under_air(start_pos, end_pos,
+            {"mg_villages:plotmarker"})
+        -- Check if we have nodes to replace
+        minetest.chat_send_player(name, "Found "..dump(#nodes).." nodes to replace...")
+        if #nodes == 0 then
+            return
+        end
+        -- Replace all nodes
+        for i = 1, #nodes do
+            local meta = minetest.get_meta(nodes[i])
+            local village_id = meta:get_string("village_id")
+            local plot_nr = meta:get_int("plot_nr")
+            local infotext = meta:get_string("infotext")
+            -- Set metadata
+            meta = minetest.get_meta(nodes[i])
+            meta:set_string("village_id", village_id)
+            meta:set_int("plot_nr", plot_nr)
+            meta:set_string("infotext", infotext)
+            -- Clear NPC stats, NPC data and node data
+            meta:set_string("node_data", nil)
+            meta:set_string("npcs", nil)
+            meta:set_string("npc_stats", nil)
+            meta:set_string("replaced", "false")
+        end
+        minetest.chat_send_player(name, "Finished replacement of "..dump(#nodes).." auto-spawners successfully")
     end
-    -- Get player position
-    local pos = {}
-    for _,player in pairs(minetest.get_connected_players()) do
-      if player:get_player_name() == name then
-        pos = player:get_pos()
-        break
-      end
-    end
-    -- Search for nodes
-    local radius = tonumber(param)
-    local start_pos = {x=pos.x - radius, y=pos.y - 5, z=pos.z - radius}
-    local end_pos = {x=pos.x + radius, y=pos.y + 5, z=pos.z + radius}
-    local nodes = minetest.find_nodes_in_area_under_air(start_pos, end_pos,
-      {"mg_villages:plotmarker"})
-    -- Check if we have nodes to replace
-    minetest.chat_send_player(name, "Found "..dump(#nodes).." nodes to replace...")
-    if #nodes == 0 then
-      return
-    end
-    -- Replace all nodes
-    for i = 1, #nodes do
-      local meta = minetest.get_meta(nodes[i])
-      local village_id = meta:get_string("village_id")
-      local plot_nr = meta:get_int("plot_nr")
-      local infotext = meta:get_string("infotext")
-      -- Set metadata
-      meta = minetest.get_meta(nodes[i])
-      meta:set_string("village_id", village_id)
-      meta:set_int("plot_nr", plot_nr)
-      meta:set_string("infotext", infotext)
-      -- Clear NPC stats, NPC data and node data
-      meta:set_string("node_data", nil)
-      meta:set_string("npcs", nil)
-      meta:set_string("npc_stats", nil)
-      meta:set_string("replaced", "false")
-    end
-    minetest.chat_send_player(name, "Finished replacement of "..dump(#nodes).." auto-spawners successfully")
-  end
 })

@@ -302,7 +302,7 @@ if minetest.get_modpath("mg_villages") ~= nil then
 	            if nearby_plotmarkers[i].workplaces then
 	                -- Insert all workplaces in this plotmarker
 	                for j = 1, #nearby_plotmarkers[i].workplaces do
-	                    minetest.log("Nearby plotmarker workplace #"..dump(j)..": "..dump(nearby_plotmarkers[i].workplaces[j]))
+	                    --minetest.log("Nearby plotmarker workplace #"..dump(j)..": "..dump(nearby_plotmarkers[i].workplaces[j]))
 	                    table.insert(result, {
 	                        workplace=nearby_plotmarkers[i].workplaces[j],
 							building_type = nearby_plotmarkers[i].building_type,
@@ -328,7 +328,7 @@ function npc.places.find_plotmarkers(pos, radius, exclude_current_pos)
 	local result = {}
 	local start_pos = {x=pos.x - radius, y=pos.y - 1, z=pos.z - radius}
 	local end_pos = {x=pos.x + radius, y=pos.y + 1, z=pos.z + radius}
-	local nodes = minetest.find_nodes_in_area_under_air(start_pos, end_pos,
+	local nodes = minetest.find_nodes_in_area(start_pos, end_pos,
 		npc.places.nodes.PLOTMARKER_TYPE)
 	-- Scan nodes
 	for i = 1, #nodes do
@@ -357,7 +357,7 @@ function npc.places.find_plotmarkers(pos, radius, exclude_current_pos)
 				end
             end
             -- Add building
-            minetest.log("Adding building: "..dump(def))
+            --minetest.log("Adding building: "..dump(def))
 			table.insert(result, def)
 		end
 	end

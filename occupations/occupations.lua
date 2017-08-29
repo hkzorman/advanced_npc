@@ -70,6 +70,9 @@
 --			-- items and the specified count, or, a count between min and max
 --			-- when the entry contains random=true
 --			-- If left empty, it will initialize with random items.
+--		initial_trader_status = "",
+--			-- String that specifies initial trader value. Valid values are:
+--			-- "casual", "trader", "none"
 --		schedules_entries = {},
 --			-- This is a table of tables in the following format:
 --			-- {
@@ -95,6 +98,9 @@ local occupations = {}
 -- The key is the name of the occupation.
 npc.occupations.registered_occupations = {}
 
+-- Basic occupation name
+npc.occupations.basic_name = "default_basic"
+
 -- This is the basic occupation definition, this is for all NPCs that
 -- don't have a specific occupation. It serves as an example.
 npc.occupations.basic_def = {
@@ -110,15 +116,15 @@ npc.occupations.basic_def = {
 		[7] = {
 			-- Get out of bed
 			[1] = {task = npc.actions.cmd.USE_BED, args = {
-					pos = npc.places.PLACE_TYPE.BED.PRIMARY,
-					action = npc.actions.const.beds.GET_UP
-				}
+				pos = npc.places.PLACE_TYPE.BED.PRIMARY,
+				action = npc.actions.const.beds.GET_UP
+			}
 			},
 			-- Walk to home inside
 			[2] = {task = npc.actions.cmd.WALK_TO_POS, args = {
-					end_pos = npc.places.PLACE_TYPE.OTHER.HOME_INSIDE,
-					walkable = {}
-				},
+				end_pos = npc.places.PLACE_TYPE.OTHER.HOME_INSIDE,
+				walkable = {}
+			},
 				chance = 75
 			},
 			-- Allow mobs_redo wandering
@@ -128,9 +134,9 @@ npc.occupations.basic_def = {
 		[8] = {
 			-- Walk to outside of home
 			[1] = {task = npc.actions.cmd.WALK_TO_POS, args = {
-					end_pos = npc.places.PLACE_TYPE.OTHER.HOME_OUTSIDE,
-					walkable = {}
-				},
+				end_pos = npc.places.PLACE_TYPE.OTHER.HOME_OUTSIDE,
+				walkable = {}
+			},
 				chance = 75
 			},
 			-- Allow mobs_redo wandering
@@ -140,36 +146,36 @@ npc.occupations.basic_def = {
 		[12] = {
 			-- Walk to a sittable node
 			[1] = {task = npc.actions.cmd.WALK_TO_POS, args = {
-					end_pos = {place_type=npc.places.PLACE_TYPE.SITTABLE.PRIMARY, use_access_node=true},
-					walkable = {"cottages:bench"}
-				},
+				end_pos = {place_type=npc.places.PLACE_TYPE.SITTABLE.PRIMARY, use_access_node=true},
+				walkable = {"cottages:bench"}
+			},
 				chance = 75
 			},
 			-- Sit on the node
 			[2] = {task = npc.actions.cmd.USE_SITTABLE, args = {
-					pos = npc.places.PLACE_TYPE.SITTABLE.PRIMARY,
-					action = npc.actions.const.sittable.SIT
-				},
+				pos = npc.places.PLACE_TYPE.SITTABLE.PRIMARY,
+				action = npc.actions.const.sittable.SIT
+			},
 				depends = {1}
 			},
 			-- Stay put into place
 			[3] = {action = npc.actions.cmd.SET_INTERVAL, args = {
-					freeze = true,
-					interval = 35
-				},
+				freeze = true,
+				interval = 35
+			},
 				depends = {2}
 			},
 			[4] = {action = npc.actions.cmd.SET_INTERVAL, args = {
-					freeze = true,
-					interval = npc.actions.default_interval
-				},
+				freeze = true,
+				interval = npc.actions.default_interval
+			},
 				depends = {3}
 			},
 			-- Get up from sit
 			[5] = {action = npc.actions.cmd.USE_SITTABLE, args = {
-					pos = npc.places.PLACE_TYPE.SITTABLE.PRIMARY,
-					action = npc.actions.const.sittable.GET_UP
-				},
+				pos = npc.places.PLACE_TYPE.SITTABLE.PRIMARY,
+				action = npc.actions.const.sittable.GET_UP
+			},
 				depends = {4}
 			}
 		},
@@ -177,21 +183,21 @@ npc.occupations.basic_def = {
 		[13] = {
 			-- Give NPC money to buy from player
 			[1] = {property = npc.schedule_properties.put_multiple_items, args = {
-					itemlist = {
-						{name="default:iron_lump", random=true, min=2, max=4}
-					}
-				},
+				itemlist = {
+					{name="default:iron_lump", random=true, min=2, max=4}
+				}
+			},
 				chance = 75
 			},
 			-- Change trader status to "trader"
 			[2] = {property = npc.schedule_properties.trader_status, args = {
-					status = npc.trade.TRADER
-				},
+				status = npc.trade.TRADER
+			},
 				chance = 75
 			},
 			[3] = {property = npc.schedule_properties.can_receive_gifts, args = {
-					can_receive_gifts = false
-				},
+				can_receive_gifts = false
+			},
 				depends = {1}
 			},
 			-- Allow mobs_redo wandering
@@ -201,19 +207,19 @@ npc.occupations.basic_def = {
 		[18] = {
 			-- Change trader status to "none"
 			[1] = {property = npc.schedule_properties.trader_status, args = {
-					status = npc.trade.NONE
-				}
+				status = npc.trade.NONE
+			}
 			},
 			-- Enable gift receiving again
 			[2] = {property = npc.schedule_properties.can_receive_gifts, args = {
-					can_receive_gifts = true
-				}
+				can_receive_gifts = true
+			}
 			},
 			-- Get inside home
 			[3] = {task = npc.actions.cmd.WALK_TO_POS, args = {
-					end_pos = npc.places.PLACE_TYPE.OTHER.HOME_INSIDE,
-					walkable = {}
-				}
+				end_pos = npc.places.PLACE_TYPE.OTHER.HOME_INSIDE,
+				walkable = {}
+			}
 			},
 			-- Allow mobs_redo wandering
 			[4] = {action = npc.actions.cmd.FREEZE, args = {freeze = false}}
@@ -221,15 +227,15 @@ npc.occupations.basic_def = {
 		-- Schedule entry for 10 in the evening
 		[22] = {
 			[1] = {task = npc.actions.cmd.WALK_TO_POS, args = {
-					end_pos = {place_type=npc.places.PLACE_TYPE.BED.PRIMARY, use_access_node=true},
-					walkable = {}
-				}
+				end_pos = {place_type=npc.places.PLACE_TYPE.BED.PRIMARY, use_access_node=true},
+				walkable = {}
+			}
 			},
 			-- Use bed
 			[2] = {task = npc.actions.cmd.USE_BED, args = {
-					pos = npc.places.PLACE_TYPE.BED.PRIMARY,
-					action = npc.actions.const.beds.LAY
-				}
+				pos = npc.places.PLACE_TYPE.BED.PRIMARY,
+				action = npc.actions.const.beds.LAY
+			}
 			},
 			-- Stay put on bed
 			[3] = {action = npc.actions.cmd.FREEZE, args = {freeze = true}}
@@ -249,7 +255,7 @@ end
 -- of occupation names (strings)
 function npc.occupations.get_for_building(building_type, surrounding_building_types)
 	local result = {}
-	for name,def in pairs(npc.registered_occupations) do
+	for name,def in pairs(npc.occupations.registered_occupations) do
 		-- Check for empty or nil building types, in that case, any building
 		if def.building_types == nil or def.building_types == {} then
 			-- Empty building types, add to result
@@ -259,13 +265,18 @@ function npc.occupations.get_for_building(building_type, surrounding_building_ty
 			if npc.utils.array_contains(def.building_types, building_type) then
 				-- Check for empty or nil surrounding building types
 				if def.surrounding_building_types == nil
-					or def.surrounding_building_types == {} then
+						or def.surrounding_building_types == {} then
 					-- Add this occupation
 					table.insert(result, name)
 				else
 					-- Check if surround type is included in the def
-					if npc.utils.array_is_subset_of_array(def.surrounding_building_types,
-						surrounding_building_types) then
+					if npc.utils.array_is_subset_of_array(
+						def.surrounding_building_types,
+						surrounding_building_types)
+							or npc.utils.array_is_subset_of_array(
+						surrounding_building_types,
+						def.surrounding_building_types)
+					then
 						-- Add this occupation
 						table.insert(result, name)
 					end
@@ -294,16 +305,20 @@ function npc.occupations.initialize_occupation_values(self, occupation_name)
 	minetest.log("Texture entries: "..dump(table.getn(def.textures)))
 	if def.textures and table.getn(def.textures) > 0 then
 		self.selected_texture =
-			npc.get_random_texture_from_array(self.sex, self.age, def.textures)
+		npc.get_random_texture_from_array(self.sex, self.age, def.textures)
 		-- Set texture if it found for sex and age
-		minetest.log("No textures found for sex "..dump(self.sex).." and age "..dump(self.age))
-		if self.selected_texture then
-			-- Set texture and base texture
-			self.textures = self.selected_texture
-			self.base_texture = self.selected_texture
-			-- Refresh entity
-			self.object:set_properties(self)
+		-- If an array was returned, select a random texture from it
+		if type(self.selected_texture) == "table" then
+			local selected_texture = self.selected_texture[math.random(1, #self.selected_texture)]
+			self.selected_texture = selected_texture
 		end
+		-- Set texture and base texture
+		self.textures = {self.selected_texture}
+		self.base_texture = {self.selected_texture }
+		-- Assign sex based on texture
+		self.sex = npc.assign_sex_from_texture(self)
+		-- Refresh entity
+		self.object:set_properties(self)
 	end
 
 	-- Initialize inventory
@@ -321,16 +336,17 @@ function npc.occupations.initialize_occupation_values(self, occupation_name)
 	end
 
 	-- Initialize dialogues
-	if def.dialogues and table.getn(def.dialogues) > 0 then
+	if def.dialogues then
 		local dialogue_keys = {}
 		-- Check which type of dialogues we have
 		if def.dialogues.type == "given" then
 			-- We have been given the dialogues, so def.dialogues.data contains
 			-- an array of dialogues
-			for _, dialogue in def.dialogues.data do
+			for _, dialogue in pairs(def.dialogues.data) do
 				-- Add to the dialogue tags the "occupation name"
 				table.insert(dialogue.tags, occupation_name)
 				-- Register dialogue
+				npc.log("INFO", "Registering dialogue for occupation "..dump(occupation_name)..": "..dump(dialogue))
 				local key = npc.dialogue.register_dialogue(dialogue)
 				-- Add key to set of dialogue keys
 				table.insert(dialogue_keys, key)
@@ -340,7 +356,7 @@ function npc.occupations.initialize_occupation_values(self, occupation_name)
 			-- an array of dialogues and def.dialogues.tags contains an array of
 			-- tags that we will use to search
 			-- Register dialogues
-			for _, dialogue in def.dialogues.data do
+			for _, dialogue in pairs(def.dialogues.data) do
 				-- Add to the dialogue tags the "occupation name"
 				table.insert(dialogue.tags, occupation_name)
 				-- Register dialogue
@@ -351,7 +367,7 @@ function npc.occupations.initialize_occupation_values(self, occupation_name)
 			-- Find dialogues using tags
 			local dialogues = npc.search_dialogue_by_tags(def.dialogues.tags, true)
 			-- Add keys to set of dialogue keys
-			for _, key in npc.utils.get_map_keys(dialogues) do
+			for _, key in pairs(npc.utils.get_map_keys(dialogues)) do
 				table.insert(dialogue_keys, key)
 			end
 		elseif def.dialogues.type == "tags" then
@@ -368,16 +384,21 @@ function npc.occupations.initialize_occupation_values(self, occupation_name)
 			max_dialogue_count = def.dialogues.max_count
 		end
 		-- Add dialogues to the normal dialogues for NPC
-		self.dialogues.normal = {}
-		for i = 1, max_dialogue_count do
-			self.dialogues.normal[i] = dialogue_keys[i]
-		end
+		self.dialogues.normal = dialogue_keys
+--		for i = 1, max_dialogue_count do
+--			self.dialogues.normal[i] = dialogue_keys[i]
+--		end
+	end
+
+	-- Initialize trader status
+	if def.initial_trader_status then
+		self.trader_data.trader_status = def.initial_trader_status
 	end
 
 	-- Initialize schedule entries
 	if def.schedules_entries and table.getn(npc.utils.get_map_keys(def.schedules_entries)) > 0 then
 		-- Create schedule in NPC
-  		npc.create_schedule(self, npc.schedule_types.generic, 0)
+		npc.create_schedule(self, npc.schedule_types.generic, 0)
 		-- Traverse schedules
 		for time, entries in pairs(def.schedules_entries) do
 			-- Add schedule entry for each time
