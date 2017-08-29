@@ -457,7 +457,7 @@ function npc.initialize(entity, pos, is_lua_entity, npc_stats, occupation_name)
 		-- Used to calculate dependencies
 		temp_executed_queue = {},
 		-- An array of schedules, meant to be one per day at some point
-		--- when calendars are implemented. Allows for only 7 schedules,
+		-- when calendars are implemented. Allows for only 7 schedules,
 		-- one for each day of the week
 		generic = {},
 		-- An array of schedules, meant to be for specific dates in the
@@ -472,6 +472,9 @@ function npc.initialize(entity, pos, is_lua_entity, npc_stats, occupation_name)
 	-- If occupation name given, override properties with
 	-- occupation values and initialize schedules
 	if occupation_name and occupation_name ~= "" and ent.age == npc.age.adult then
+        -- Set occupation name
+        ent.occupation_name = occupation_name
+        -- Override relevant values
 		npc.occupations.initialize_occupation_values(ent, occupation_name)
 	end
 
