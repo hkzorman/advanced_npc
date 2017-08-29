@@ -84,8 +84,8 @@ npc.places.PLACE_TYPE = {
 		TARGET = "schedule_target_pos"
 	},
 	WORKPLACE = {
-		WORKPLACE_PRIMARY = "workplace_primary",
-		WORKPLACE_TOOL = "workplace_tool"
+		PRIMARY = "workplace_primary",
+		TOOL = "workplace_tool"
 	},
 	OTHER = {
 		HOME_PLOTMARKER = "home_plotmarker",
