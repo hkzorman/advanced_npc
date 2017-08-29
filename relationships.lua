@@ -209,7 +209,7 @@ function npc.relationships.get_dialogues_for_gift_item(item_name, dialogue_type,
 	if phase ~= nil then
 		tags[5] = phase
 	end
-	minetest.log("Searching with tags: "..dump(tags))
+	npc.log("DEBUG","Searching with tags: "..dump(tags))
 
 	return npc.dialogue.search_dialogue_by_tags(tags, true)
 end

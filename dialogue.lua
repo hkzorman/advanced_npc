@@ -325,7 +325,7 @@ function npc.dialogue.select_random_dialogues_for_npc(self, phase)
 	for i = 1, number_of_dialogues do
 		local key_id = math.random(1, #keys)
 		result.normal[i] = keys[key_id]
-		minetest.log("Adding dialogue: "..dump(dialogues[keys[key_id]]))
+		npc.log("DEBUG", "Adding dialogue: "..dump(dialogues[keys[key_id]]))
 	end
 
 	-- Add item hints.

@@ -30,8 +30,16 @@ end
 
 function npc.utils.get_map_keys(map)
 	local result = {}
-	for key, value in pairs(map) do
+	for key, _ in pairs(map) do
 		table.insert(result, key)
+	end
+	return result
+end
+
+function npc.utils.get_map_values(map)
+	local result = {}
+	for _, value in pairs(map) do
+		table.insert(result, value)
 	end
 	return result
 end
