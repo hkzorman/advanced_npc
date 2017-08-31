@@ -238,7 +238,7 @@ function npc.spawner.determine_npc_occupation(building_type, workplace_nodes, np
                             npc.utils.array_contains(surrounding_building_types, workplace_nodes[j].building_type) then
                         minetest.log("Found corresponding node: "..dump(workplace_nodes[j]))
                         local meta = minetest.get_meta(workplace_nodes[j].node_pos)
-                        local worker_data = minetest.deserialize(meta:get_string("worker_data") or "")
+                        local worker_data = minetest.deserialize(meta:get_string("work_data") or "")
                         -- If no worker data is found, then create it
                         if not worker_data then
                             return {name=occupation_names[i], node=workplace_nodes[j]}
@@ -249,7 +249,7 @@ function npc.spawner.determine_npc_occupation(building_type, workplace_nodes, np
             end
         end
     end
-    return nil
+    return {name=npc.occupations.basic_name, node={}}
 end
 
 -- This function is called when the node timer for spawning NPC
@@ -279,12 +279,25 @@ function npc.spawner.spawn_npc_on_plotmarker(pos)
     -- Determine occupation
     area_info["building_type"] = meta:get_string("building_type")
     local nearby_plotmarkers = minetest.deserialize(meta:get_string("nearby_plotmarkers"))
+    --minetest.log("BEFORE Workplace nodes: "..dump(area_info.node_data.workplace_type))
     local occupation_data = npc.spawner.determine_npc_occupation(
         area_info.building_type,
         area_info.node_data.workplace_type,
         area_info.npcs)
 
-    local metadata = npc.spawner.spawn_npc(pos, area_info, occupation_data.name)
+    --minetest.log("AFTER Workplace nodes: "..dump(area_info.node_data.workplace_type))
+    -- Assign workplace node
+    if occupation_data then
+        for i = 1, #area_info.node_data.workplace_type do
+            if area_info.node_data.workplace_type[i].node_pos == occupation_data.node.node_pos then
+                -- Found node, mark it as being used by NPC
+                area_info.node_data.workplace_type[i]["occupation"] = occupation_data.name
+            end
+        end
+    end
+
+    -- Spawn NPC
+    local metadata = npc.spawner.spawn_npc(pos, area_info, occupation_data.name, occupation_data.node.node_pos)
 
     -- Set all metadata back into the node
     -- Increase NPC spawned count
@@ -311,7 +324,7 @@ end
 
 -- This function spawns a NPC into the given pos.
 -- If area_info is given, updated area_info is returned at end
-function npc.spawner.spawn_npc(pos, area_info, occupation_name)
+function npc.spawner.spawn_npc(pos, area_info, occupation_name, occupation_workplace_pos)
     -- Get current NPC info
     local npc_table = area_info.npcs
     -- Get NPC stats
@@ -367,6 +380,7 @@ function npc.spawner.spawn_npc(pos, area_info, occupation_name)
                 sex = ent:get_luaentity().sex,
                 age = age,
                 occupation = occupation,
+                workplace = occupation_workplace_pos,
                 born_day = minetest.get_day_count()
             }
             minetest.log("Area info: "..dump(area_info))
@@ -486,9 +500,28 @@ function npc.spawner.assign_places(self, entrance, node_data, pos)
 
     -- Assign workplace nodes
     if #node_data.workplace_type > 0 then
-        local occupation = npc.occupations.registered_occupations[self.occupation_name]
-
-
+        -- First, find the workplace_node that was marked
+        for i = 1, #node_data.workplace_type do
+            minetest.log("In assign places: workplace nodes: "..dump(node_data.workplace_type))
+            if node_data.workplace_type[i].occupation
+                    and node_data.workplace_type[i].occupation == self.occupation_name then
+                -- Found the node. Assign only this node to the NPC.
+                npc.places.add_shared_accessible_place(self, node_data.workplace_type[i],
+                    npc.places.PLACE_TYPE.WORKPLACE.PRIMARY)
+                -- Edit metadata of this workplace node to not allow it for other NPCs
+                local meta = minetest.get_meta(node_data.workplace_type[i].node_pos)
+                local work_data = {
+                    npc_name = self.npc_name,
+                    occupation = self.occupation_name,
+                    multiple_npcs =
+                        npc.occupations.registered_occupations[self.occupation_name].allow_multiple_npcs_at_workplace
+                }
+                meta:set_string("work_data", minetest.serialize(work_data))
+--
+--                meta = minetest.get_meta(node_data.workplace_type[i].node_pos)
+--                minetest.log("Work data: "..dump(minetest.deserialize(meta:get_string("work_data"))))
+            end
+        end
     end
 
     npc.log("DEBUG", "Places for NPC "..self.npc_name..": "..dump(self.places_map))
@@ -865,6 +898,15 @@ minetest.register_chatcommand("restore_plotmarkers", {
             local village_id = meta:get_string("village_id")
             local plot_nr = meta:get_int("plot_nr")
             local infotext = meta:get_string("infotext")
+            local npcs = minetest.deserialize(meta:get_string("npcs"))
+            -- Restore workplaces to original status
+            for i = 1, #npcs do
+                if npcs[i].workplace then
+                    -- Remove work data
+                    local workplace_meta = minetest.get_meta(npcs[i].workplace)
+                    workplace_meta:set_string("work_data", nil)
+                end
+            end
             -- Set metadata
             meta = minetest.get_meta(nodes[i])
             meta:set_string("village_id", village_id)

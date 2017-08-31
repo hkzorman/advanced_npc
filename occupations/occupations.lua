@@ -246,7 +246,44 @@ npc.occupations.basic_def = {
 
 -- This function registers an occupation
 function npc.occupations.register_occupation(name, def)
+	-- Register all dialogues per definition
+	local dialogue_keys = {}
+	if def.dialogues then
+		-- Check which type of dialogues we have
+		if def.dialogues.type == "given" then
+			-- We have been given the dialogues, so def.dialogues.data contains
+			-- an array of dialogues
+			for _, dialogue in pairs(def.dialogues.data) do
+				-- Add to the dialogue tags the "occupation name"
+				table.insert(dialogue.tags, name)
+				-- Register dialogue
+				npc.log("INFO", "Registering dialogue for occupation "..dump(name)..": "..dump(dialogue))
+				local key = npc.dialogue.register_dialogue(dialogue)
+				-- Add key to set of dialogue keys
+				table.insert(dialogue_keys, key)
+			end
+		elseif def.dialogues.type == "mix" then
+			-- We have been given the dialogues, so def.dialogues.data contains
+			-- an array of dialogues and def.dialogues.tags contains an array of
+			-- tags. Currently only registering will be performed.
+			-- Register dialogues
+			for _, dialogue in pairs(def.dialogues.data) do
+				-- Add to the dialogue tags the "occupation name"
+				table.insert(dialogue.tags, name)
+				-- Register dialogue
+				local key = npc.dialogue.register_dialogue(dialogue)
+				-- Add key to set of dialogue keys
+				table.insert(dialogue_keys, key)
+			end
+		end
+	end
+
+	-- Save into the definition the dialogue keys
+	def.dialogues["keys"] = dialogue_keys
+
+	-- Save the definition
 	npc.occupations.registered_occupations[name] = def
+
 	npc.log("INFO", "Successfully registered occupation with name: "..dump(name))
 end
 
@@ -339,30 +376,22 @@ function npc.occupations.initialize_occupation_values(self, occupation_name)
 	if def.dialogues then
 		local dialogue_keys = {}
 		-- Check which type of dialogues we have
-		if def.dialogues.type == "given" then
+		if def.dialogues.type == "given" and def.dialogues.keys then
 			-- We have been given the dialogues, so def.dialogues.data contains
-			-- an array of dialogues
-			for _, dialogue in pairs(def.dialogues.data) do
-				-- Add to the dialogue tags the "occupation name"
-				table.insert(dialogue.tags, occupation_name)
-				-- Register dialogue
-				npc.log("INFO", "Registering dialogue for occupation "..dump(occupation_name)..": "..dump(dialogue))
-				local key = npc.dialogue.register_dialogue(dialogue)
-				-- Add key to set of dialogue keys
-				table.insert(dialogue_keys, key)
+			-- an array of dialogues. These dialogues were registered, therefore we need
+			-- just the keys
+			for i = 1, #def.dialogues.keys do
+				table.insert(dialogue_keys, def.dialogues.keys[i])
 			end
 		elseif def.dialogues.type == "mix" then
 			-- We have been given the dialogues, so def.dialogues.data contains
 			-- an array of dialogues and def.dialogues.tags contains an array of
 			-- tags that we will use to search
-			-- Register dialogues
-			for _, dialogue in pairs(def.dialogues.data) do
-				-- Add to the dialogue tags the "occupation name"
-				table.insert(dialogue.tags, occupation_name)
-				-- Register dialogue
-				local key = npc.dialogue.register_dialogue(dialogue)
-				-- Add key to set of dialogue keys
-				table.insert(dialogue_keys, key)
+			if def.dialogues.keys then
+				-- Add the registered dialogues
+				for i = 1, #def.dialogues.keys do
+					table.insert(dialogue_keys, def.dialogues.keys[i])
+				end
 			end
 			-- Find dialogues using tags
 			local dialogues = npc.search_dialogue_by_tags(def.dialogues.tags, true)
@@ -384,10 +413,10 @@ function npc.occupations.initialize_occupation_values(self, occupation_name)
 			max_dialogue_count = def.dialogues.max_count
 		end
 		-- Add dialogues to the normal dialogues for NPC
-		self.dialogues.normal = dialogue_keys
---		for i = 1, max_dialogue_count do
---			self.dialogues.normal[i] = dialogue_keys[i]
---		end
+		self.dialogues.normal = {}
+		for i = 1, math.min(max_dialogue_count, #dialogue_keys) do
+			self.dialogues.normal[i] = dialogue_keys[i]
+		end
 	end
 
 	-- Initialize trader status
