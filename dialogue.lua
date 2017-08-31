@@ -419,7 +419,10 @@ function npc.dialogue.start_dialogue(self, player, show_married_dialogue)
 	      	if table.getn(self.trader_data.custom_trades) > 0 then
 	        	-- Show custom trade options
 	       		dialogue = npc.dialogue.create_custom_trade_options(self, player)
-	    	end
+            else
+                -- If not available, choose normal dialogue
+                dialogue = self.dialogues.normal[math.random(1, #self.dialogues.normal)]
+            end
 	    elseif self.trader_data.trader_status == npc.trade.CASUAL then
 	      	local max_trade_chance = 2
 	      	if table.getn(self.trader_data.custom_trades) > 0 then
