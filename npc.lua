@@ -844,7 +844,8 @@ npc.schedule_properties = {
 	put_multiple_items = "put_multiple_items",
 	take_item = "take_item",
 	trader_status = "trader_status",
-	can_receive_gifts = "can_receive_gifts"
+	can_receive_gifts = "can_receive_gifts",
+	flag = "flag"
 }
 
 local function get_time_in_hours()
@@ -997,6 +998,20 @@ function npc.schedule_change_property(self, property, args)
 		local value = args.can_receive_gifts
 		-- Set status
 		self.can_receive_gifts = value
+	elseif property == npc.schedule_properties.flag then
+		local action = args.action
+		if action == "set" then
+			-- Adds or overwrites an existing flag and sets it to the given value
+			self.flags[args.flag_name] = args.flag_value
+		elseif action == "reset" then
+			-- Sets value of flag to false or to 0
+			local flag_type = type(self.flags[args.flag_name])
+			if flag_type == "number" then
+				self.flags[args.flag_name] = 0
+			elseif flag_type == "boolean" then
+				self.flags[args.flag_name] = false
+			end
+		end
 	end
 end
 
@@ -1146,8 +1161,8 @@ mobs:register_mob("advanced_npc:npc", {
 	attacks_monsters = true,
 	-- Added group attack
 	group_attack = true,
-	--pathfinding = true,
-	pathfinding = 1,
+	-- Pathfinder = 2 to make NPCs more smart when attacking
+	pathfinding = 2,
 	hp_min = 10,
 	hp_max = 20,
 	armor = 100,
@@ -1233,7 +1248,7 @@ mobs:register_mob("advanced_npc:npc", {
 		local item = clicker:get_wielded_item()
 		local name = clicker:get_player_name()
 
-		npc.log("DEBUG", "Right-clicked NPC: "..dump(self))
+		npc.log("INFO", "Right-clicked NPC: "..dump(self))
 
 		-- Receive gift or start chat. If player has no item in hand
 		-- then it is going to start chat directly
