@@ -228,9 +228,9 @@ function npc.spawner.determine_npc_occupation(building_type, workplace_nodes, np
                 for j = 1, #workplace_nodes do
                     -- Get building types from occupation
                     local local_building_types =
-                        npc.occupations.registered_occupations[occupation_names[i]].building_type or {}
+                    npc.occupations.registered_occupations[occupation_names[i]].building_type or {}
                     local surrounding_building_types =
-                        npc.occupations.registered_occupations[occupation_names[i]].surrounding_building_types or {}
+                    npc.occupations.registered_occupations[occupation_names[i]].surrounding_building_types or {}
                     minetest.log("Occupation btype: "..dump(local_building_types))
                     minetest.log("Surrounding btypes: "..dump(surrounding_building_types))
                     -- Check the workplace_node is of any of those building_types
@@ -514,12 +514,12 @@ function npc.spawner.assign_places(self, entrance, node_data, pos)
                     npc_name = self.npc_name,
                     occupation = self.occupation_name,
                     multiple_npcs =
-                        npc.occupations.registered_occupations[self.occupation_name].allow_multiple_npcs_at_workplace
+                    npc.occupations.registered_occupations[self.occupation_name].allow_multiple_npcs_at_workplace
                 }
                 meta:set_string("work_data", minetest.serialize(work_data))
---
---                meta = minetest.get_meta(node_data.workplace_type[i].node_pos)
---                minetest.log("Work data: "..dump(minetest.deserialize(meta:get_string("work_data"))))
+                --
+                --                meta = minetest.get_meta(node_data.workplace_type[i].node_pos)
+                --                minetest.log("Work data: "..dump(minetest.deserialize(meta:get_string("work_data"))))
             end
         end
     end
@@ -900,11 +900,13 @@ minetest.register_chatcommand("restore_plotmarkers", {
             local infotext = meta:get_string("infotext")
             local npcs = minetest.deserialize(meta:get_string("npcs"))
             -- Restore workplaces to original status
-            for i = 1, #npcs do
-                if npcs[i].workplace then
-                    -- Remove work data
-                    local workplace_meta = minetest.get_meta(npcs[i].workplace)
-                    workplace_meta:set_string("work_data", nil)
+            if npcs then
+                for i = 1, #npcs do
+                    if npcs[i].workplace then
+                        -- Remove work data
+                        local workplace_meta = minetest.get_meta(npcs[i].workplace)
+                        workplace_meta:set_string("work_data", nil)
+                    end
                 end
             end
             -- Set metadata
