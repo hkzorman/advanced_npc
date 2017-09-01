@@ -504,7 +504,7 @@ end
 -- walking from one place to another, operating a furnace, storing or taking
 -- items from a chest, are provided here.
 
-local function get_pos_argument(self, pos)
+local function get_pos_argument(self, pos, use_access_node)
 	--minetest.log("Type of pos: "..dump(type(pos)))
 	-- Check which type of position argument we received
 	if type(pos) == "table" then
@@ -543,13 +543,21 @@ local function get_pos_argument(self, pos)
 			-- Check all places, return owned if existent, else return the first one
 			for i = 1, #places_pos do
 				if places_pos[i].status == "owned" then
-					return places_pos[i].pos
+					if use_access_node then
+						return places_pos[i].access_node
+					else
+						return places_pos[i].pos
+					end
 				end
 			end
 		end
 		-- Return the first position only if it couldn't find an owned
-		-- place, or if it there is only oneg
-		return places_pos[1].pos
+		-- place, or if it there is only one
+		if use_access_node then
+			return places_pos[1].access_node
+		else
+			return places_pos[1].pos
+		end
 	end
 end
 
@@ -830,7 +838,7 @@ end
 -- path.
 function npc.actions.walk_to_pos(self, args)
 	-- Get arguments for this task 
-	local end_pos = get_pos_argument(self, args.end_pos)
+	local end_pos = get_pos_argument(self, args.end_pos, args.use_access_node)
 	if end_pos == nil then
 		npc.log("WARNING", "Got nil position in 'walk_to_pos' using args.pos: "..dump(args.end_pos))
 		return
