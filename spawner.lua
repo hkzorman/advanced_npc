@@ -506,7 +506,7 @@ function npc.spawner.assign_places(self, entrance, node_data, pos)
             if node_data.workplace_type[i].occupation
                     and node_data.workplace_type[i].occupation == self.occupation_name then
                 -- Found the node. Assign only this node to the NPC.
-                npc.places.add_shared_accessible_place(self, node_data.workplace_type[i],
+                npc.places.add_shared_accessible_place(self, {node_data.workplace_type[i]},
                     npc.places.PLACE_TYPE.WORKPLACE.PRIMARY)
                 -- Edit metadata of this workplace node to not allow it for other NPCs
                 local meta = minetest.get_meta(node_data.workplace_type[i].node_pos)
