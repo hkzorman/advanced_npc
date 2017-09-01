@@ -413,9 +413,11 @@ function npc.occupations.initialize_occupation_values(self, occupation_name)
 			max_dialogue_count = def.dialogues.max_count
 		end
 		-- Add dialogues to the normal dialogues for NPC
-		self.dialogues.normal = {}
-		for i = 1, math.min(max_dialogue_count, #dialogue_keys) do
-			self.dialogues.normal[i] = dialogue_keys[i]
+		if #dialogue_keys > 0 then
+			self.dialogues.normal = {}
+			for i = 1, math.min(max_dialogue_count, #dialogue_keys) do
+				self.dialogues.normal[i] = dialogue_keys[i]
+			end
 		end
 	end
 
