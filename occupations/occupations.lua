@@ -30,6 +30,9 @@
 -- occupation that can be used to initialize NPCs. The format is the following:
 -- {
 --		dialogues = {
+--			enable_gift_item_dialogues = true,
+--				-- This flag enables/disables gift item dialogues.
+--				-- If not set, it defaults to true.
 --			type = "",
 --				-- The type can be "given", "mix" or "tags"
 --			data = {},
@@ -374,6 +377,11 @@ function npc.occupations.initialize_occupation_values(self, occupation_name)
 
 	-- Initialize dialogues
 	if def.dialogues then
+		-- Check for gift item dialogues enable
+		if def.dialogues.disable_gift_item_dialogues then
+			self.dialogues.hints = {}
+		end
+
 		local dialogue_keys = {}
 		-- Check which type of dialogues we have
 		if def.dialogues.type == "given" and def.dialogues.keys then
@@ -421,10 +429,19 @@ function npc.occupations.initialize_occupation_values(self, occupation_name)
 		end
 	end
 
-	-- Initialize trader status
-	if def.initial_trader_status then
-		self.trader_data.trader_status = def.initial_trader_status
+	-- Initialize properties
+	minetest.log("def.properties: "..dump(def.properties))
+	if def.properties then
+		-- Initialize trader status
+		if def.properties.initial_trader_status then
+			self.trader_data.trader_status = def.properties.initial_trader_status
+		end
+		-- Enable/disable gift items hints
+		if def.properties.enable_gift_items_hints ~= nil then
+			self.gift_data.enable_gift_items_hints = def.properties.enable_gift_items_hints
+		end
 	end
+
 
 	-- Initialize schedule entries
 	if def.schedules_entries and table.getn(npc.utils.get_map_keys(def.schedules_entries)) > 0 then

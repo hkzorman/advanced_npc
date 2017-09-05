@@ -344,6 +344,8 @@ function npc.initialize(entity, pos, is_lua_entity, npc_stats, occupation_name)
 		favorite_items = npc.relationships.select_random_favorite_items(ent.sex, "phase1"),
 		-- Choose disliked items. Choose phase1 per default
 		disliked_items = npc.relationships.select_random_disliked_items(ent.sex),
+		-- Enable/disable gift item hints dialogue lines
+		enable_gift_items_hints = true
 	}
 
 	-- Flag that determines if NPC can have a relationship
@@ -845,7 +847,8 @@ npc.schedule_properties = {
 	take_item = "take_item",
 	trader_status = "trader_status",
 	can_receive_gifts = "can_receive_gifts",
-	flag = "flag"
+	flag = "flag",
+	enable_gift_items_hints = "enable_gift_items_hints"
 }
 
 local function get_time_in_hours()
@@ -1012,6 +1015,8 @@ function npc.schedule_change_property(self, property, args)
 				self.flags[args.flag_name] = false
 			end
 		end
+	elseif property == npc.schedule_properties.enable_gift_item_hints then
+		self.gift_data.enable_gift_items_hints = args.value
 	end
 end
 
