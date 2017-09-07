@@ -178,8 +178,15 @@ function npc.actions.dig(self, args)
 				if add_to_inventory then
 					-- Get node drop
 					local drop = minetest.registered_nodes[node.name].drop
+				    local drop_itemname = node.name
+				    if drop and drop.items then
+					    local random_item = drop.items[math.random(1, #drop)]
+						if random_item then
+							drop_itemname = random_item.items[1]
+						end
+					end
 					-- Add to NPC inventory
-					npc.npc.add_item_to_inventory(self, drop, 1)
+					npc.add_item_to_inventory(self, drop_itemname, 1)
 				end
 				return true
 			end
@@ -222,18 +229,18 @@ function npc.actions.place(self, args)
 			-- Take from inventory if necessary
 			local place_item = false
 			if source == npc.actions.take_from_inventory then
-				if npc.take_item_from_inventory(self, node.name, 1) then
+				if npc.take_item_from_inventory(self, node, 1) then
 					place_item = true
 				end
 			elseif source == npc.actions.take_from_inventory_forced then
-				npc.take_item_from_inventory(self, node.name, 1)
+				npc.take_item_from_inventory(self, node, 1)
 				place_item = true
 			elseif source == npc.actions.force_place then
 				place_item = true
 			end
 			-- Place node
-			if place_item then
-				minetest.set_node(pos, node)
+			if place_item == true then
+				minetest.set_node(pos, {name=node})
 			end
 		end
 	end
@@ -272,18 +279,21 @@ function npc.actions.walk_step(self, args)
 	local dir = args.dir
 	local speed = args.speed
 	local target_pos = args.target_pos
+	local start_pos = args.start_pos
 	local vel = {}
+
 	-- Set default node per seconds
 	if speed == nil then
 		speed = npc.actions.one_nps_speed
 	end
-	-- If there is a target position to reach, set it
-	if target_pos ~= nil then
-		self.actions.walking.target_pos = target_pos
-	end
 
 	-- Set is_walking = true
 	self.actions.walking.is_walking = true
+
+	-- Check if dir should be random
+	if dir == "random" then
+		dir = math.random(0, 7)
+	end
 
 	if dir == npc.direction.north then
 		vel = {x=0, y=0, z=speed}
@@ -300,8 +310,20 @@ function npc.actions.walk_step(self, args)
 	elseif dir == npc.direction.west then
 		vel = {x=-speed, y=0, z=0}
 	elseif dir == npc.direction.north_west then
-		vel = {x=-speed, y=0, z=speed}
+		vel = {x=-speed, y=0, z=speed }
 	end
+
+	-- Automatically calculate target pos for dir = "random"
+	if args.dir == "random" and not target_pos and start_pos then
+		--minetest.log("Vel: "..dump(vel.x/speed)..", "..dump(vel.y/speed)..", "..dump(vel.z/speed))
+		target_pos = {x=start_pos.x + (vel.x/speed), y=start_pos.y + (vel.y/speed), z=start_pos.z + (vel.z/speed)}
+	end
+
+	-- If there is a target position to reach, set it
+	if target_pos ~= nil then
+		self.actions.walking.target_pos = target_pos
+	end
+
 	-- Rotate NPC
 	npc.actions.rotate(self, {dir=dir})
 	-- Set velocity so that NPC walks
@@ -533,7 +555,7 @@ local function get_pos_argument(self, pos, use_access_node)
 		end
 	elseif type(pos) == "string" then
 		-- Received name of place, so we are going to look for the actual pos
-		local places_pos = npc.places.get_by_type(self, pos)
+		local places_pos = npc.places.get_by_type(self, pos, false)
 		-- Return nil if no position found
 		if places_pos == nil or #places_pos == 0 then
 			return nil
