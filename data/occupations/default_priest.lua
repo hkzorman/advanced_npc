@@ -82,7 +82,18 @@ local priest_def = {
                                 [12] = "Judge not, lest ye be judged. Mankind is nothing but a great family and we all spring from common source",
                                 [13] = "Anger clouds the mind in the very moments that clarity and objectivity are needed most.",
                                 [14] = "Nature, Being, The Absolute, Creator... whatever name man chooses, there is but one force in the universe. All people and things are of one essence",
-                                [15] = "Study the words, no doubt, but look behind them to the thought they indicate;\nhaving fond it, throw the words away. Live the spirit of them"
+                                [15] = "Study the words, no doubt, but look behind them to the thought they indicate;\nhaving fond it, throw the words away. Live the spirit of them",
+                                [16] = "The wise store up choice food and olive oil, \nbut fools gulp theirs down.",
+                                [17] = "An inheritance claimed too soon \nwill not be blessed at the end.",
+                                [18] = "Young men give glory in their strength, \nbut old men are honored for their gray hair.",
+                                [19] = "Humility is the fear of the Creator, or whatever name man chooses; \nits wages are riches and honor in life.",
+                                [20] = "Listen, my child, and be wise, \nand set your heart on the right path.",
+                                [21] = "Do not speak to fools, \nfor they will scorn your prudent words.",
+                                [22] = "The schemes of folly are sin, \nand people detest a mocker.",
+                                [23] = "An honest answer is like a kiss on the lips.",
+                                [24] = "Do not envy the wicked, \ndo not desire their company; \nfor their hearts plot violence, \nand their lips talk about making trouble.",
+                                [25] = "Do not fret because of evildoers, for the evildoer has no future hope.",
+                                [26] = "It is to one's honor to avoid strife, \nbut every fool is quick to quarrel"
                             }
                             npc.chat(self.npc_name, player:get_player_name(), teachings[math.random(1, #teachings)]
                                     ..". \nThese are the teachings of our Creator.")
