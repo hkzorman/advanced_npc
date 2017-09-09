@@ -58,8 +58,8 @@ local farmer_def = {
                     check = true,
                     range = 3,
                     random_execution_times = true,
-                    min_count = 8,
-                    max_count = 8,
+                    min_count = 16,
+                    max_count = 96,
                     nodes = {"farming:wheat_8"},
                     actions =
                     {
