@@ -43,5 +43,6 @@ dofile(path .. "/data/names_data.lua")
 dofile(path .. "/data/occupations/default.lua")
 dofile(path .. "/data/occupations/default_farmer.lua")
 dofile(path .. "/data/occupations/default_priest.lua")
+dofile(path .. "/data/occupations/default_miner.lua")
 
 print (S("[Mod] Advanced NPC loaded"))
