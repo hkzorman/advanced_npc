@@ -40,4 +40,29 @@ local miner_def = {
             min_count = 20,
             max_count = 99,
             nodes = {"default:stone", "default:stonebrick", "default:stone_block", "default:mossycobble", "default:desert_stone", "default:desert_cobble", "default:desert_stonebrick", "default:desert_stone_block"},
-            
+            actions = {
+              ["default:stone"] = {
+                [1] = {
+                  action = npc.actions.cmd.WALK_STEP
+                },
+                [2] = {
+                  action = npc.actions.cmd.DIG
+                }
+              }
+            }
+          },
+        none_actions = {
+          [1] = {
+            action = npc.actions.cmd.WALK_STEP,
+            args = {
+              dir = "random"
+              }
+            }
+          }
+        }
+      }
+    }
+}
+
+-- Occupation registration
+npc.occupations.register_occupation("miner", miner_def)
