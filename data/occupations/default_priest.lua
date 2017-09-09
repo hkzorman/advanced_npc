@@ -93,7 +93,13 @@ local priest_def = {
                                 [23] = "An honest answer is like a kiss on the lips.",
                                 [24] = "Do not envy the wicked, \ndo not desire their company; \nfor their hearts plot violence, \nand their lips talk about making trouble.",
                                 [25] = "Do not fret because of evildoers, for the evildoer has no future hope.",
-                                [26] = "It is to one's honor to avoid strife, \nbut every fool is quick to quarrel"
+                                [26] = "It is to one's honor to avoid strife, \nbut every fool is quick to quarrel",
+                                [27] = "Kill reverence, and you've killed the hero in man.",
+                                [28] = "Kill man's sense of value, kill his capacity to recognize greatness or to achieve it, \nand you've killed his will to live.",
+                                [29] = "The true hater of man, expects nothing from him and is indiscriminate to his works.",
+                                [30] = "Love is a tool for capturing the souls of men. Pretend to love, and he will accept you. \nLove is reverence, and worship, and glory, and the upward glance. Not a bandage for dirty sores. \nBut he doesn’t know it. Those who speak of love most promiscuously are the ones who’ve never felt it. \nThey make some sort of feeble stew out of sympathy, compassion, contempt and general indifference, and they call it love. \nOnce you’ve felt what it means to love, the total passion for the total height—you’re incapable of anything less.",
+                                [31] = "If you learn how to rule one single man’s soul, you can get the rest of mankind. \nIt’s the soul, not whips or swords or fire or guns. \nThat’s  why the Caesars, the Attilas, the Napoleons were fools and did not last. \nThe soul, is that which can’t be ruled. It must be broken. \nDrive a wedge in, get your fingers on it—and the man is yours.",
+                                [32] = "Great and wise men can’t be ruled."
                             }
                             npc.chat(self.npc_name, player:get_player_name(), teachings[math.random(1, #teachings)]
                                     ..". \nThese are the teachings of our Creator.")
@@ -205,4 +211,4 @@ local priest_def = {
 }
 
 -- Register occupation
-npc.occupations.register_occupation("basic_priest", priest_def)
+npc.occupations.register_occupation("priest", priest_def)
