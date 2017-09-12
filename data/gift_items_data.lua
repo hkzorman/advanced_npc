@@ -233,5 +233,7 @@ npc.relationships.register_disliked_item("default:cobble", "male", {
 	hints = {"If I really hate something, that's cobblestone!"}
 })
 
-npc.log("INFO", "Registered gift items: "..dump(npc.relationships.gift_items))
-npc.log("INFO", "Registered dialogues: "..dump(npc.dialogue.registered_dialogues))
+npc.log("DEBUG", "Registered gift items: "..dump(npc.relationships.gift_items))
+npc.log("DEBUG", "Registered dialogues: "..dump(npc.dialogue.registered_dialogues))
+npc.log("INFO", "Registered gift items count: "..dump(#npc.relationships.gift_items))
+npc.log("INFO", "Registered dialogues count: "..dump(#npc.dialogue.registered_dialogues))
