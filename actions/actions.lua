@@ -15,6 +15,49 @@ npc.actions = {}
 
 npc.actions.default_interval = 1
 
+npc.actions.dir_data = {
+	-- North
+	[0] = {
+		yaw = 0,
+		vel = {x=0, y=0, z=1}
+	},
+	-- East
+	[1] = {
+		yaw = (3 * math.pi) / 2,
+		vel = {x=1, y=0, z=0}
+	},
+	-- South
+	[2] = {
+		yaw = math.pi,
+		vel = {x=0, y=0, z=-1}
+	},
+	-- West
+	[3] = {
+		yaw = math.pi / 2,
+		vel = {x=-1, y=0, z=0}
+	},
+	-- North east
+	[4] = {
+		yaw = (7 * math.pi) / 4,
+		vel = {x=1, y=0, z=1}
+	},
+	-- North west
+	[5] = {
+		yaw = math.pi / 4,
+		vel = {x=-1, y=0, z=1}
+	},
+	-- South east
+	[6] = {
+		yaw = (5 * math.pi) / 4,
+		vel = {x=1, y=0, z=-1}
+	},
+	-- South west
+	[7] = {
+		yaw = (3 * math.pi) / 4,
+		vel = {x=-1, y=0, z=-1}
+	}
+}
+
 -- Describes actions with doors or openable nodes
 npc.actions.const = {
 	doors = {
@@ -164,12 +207,18 @@ end
 -- If 'add_to_inventory' is true, it will put the digged node in the NPC
 -- inventory.
 -- Returns true if dig is successful, otherwise false
-function npc.actions.dig(self, args) 
+function npc.actions.dig(self, args)
 	local pos = args.pos
 	local add_to_inventory = args.add_to_inventory
 	local bypass_protection = args.bypass_protection
 	local node = minetest.get_node_or_nil(pos)
 	if node then
+		-- Set mine animation
+		self.object:set_animation({
+			x = npc.ANIMATION_MINE_START,
+			y = npc.ANIMATION_MINE_END},
+			self.animation.speed_normal, 0)
+
 		-- Check if protection not enforced
 		if not force_dig then
 			-- Try to dig node
@@ -178,9 +227,9 @@ function npc.actions.dig(self, args)
 				if add_to_inventory then
 					-- Get node drop
 					local drop = minetest.registered_nodes[node.name].drop
-				    local drop_itemname = node.name
-				    if drop and drop.items then
-					    local random_item = drop.items[math.random(1, #drop)]
+					local drop_itemname = node.name
+					if drop and drop.items then
+						local random_item = drop.items[math.random(1, #drop.items)]
 						if random_item then
 							drop_itemname = random_item.items[1]
 						end
@@ -188,7 +237,8 @@ function npc.actions.dig(self, args)
 					-- Add to NPC inventory
 					npc.add_item_to_inventory(self, drop_itemname, 1)
 				end
-				return true
+				--return true
+				return
 			end
 		else
 			-- Add to inventory
@@ -202,7 +252,7 @@ function npc.actions.dig(self, args)
 			minetest.set_node(pos, {name="air"})
 		end
 	end
-	return false
+	--return false
 end
 
 
@@ -221,11 +271,11 @@ function npc.actions.place(self, args)
 	local bypass_protection = args.bypass_protection
 	local node_at_pos = minetest.get_node_or_nil(pos)
 	-- Check if position is empty or has a node that can be built to
-	if node_at_pos and 
-		(node_at_pos.name == "air" or minetest.registered_nodes(node_at_pos.name).buildable_to == true) then
+	if node_at_pos and
+			(node_at_pos.name == "air" or minetest.registered_nodes(node_at_pos.name).buildable_to == true) then
 		-- Check protection
 		if (not bypass_protection and not minetest.is_protected(pos, self.npc_name))
-			or bypass_protection == true then
+				or bypass_protection == true then
 			-- Take from inventory if necessary
 			local place_item = false
 			if source == npc.actions.take_from_inventory then
@@ -240,16 +290,55 @@ function npc.actions.place(self, args)
 			end
 			-- Place node
 			if place_item == true then
+				-- Set mine animation
+				self.object:set_animation({
+					x = npc.ANIMATION_MINE_START,
+					y = npc.ANIMATION_MINE_END},
+					self.animation.speed_normal, 0)
+				-- Place node
 				minetest.set_node(pos, {name=node})
 			end
 		end
 	end
 end
 
+-- This function allows to move into directions that are walkable. It
+-- avoids fences and allows to move on plants.
+-- This will make for nice wanderings, making the NPC move smartly instead
+-- of just getting stuck at places
+local function random_dir_helper(start_pos, speed, dir_start, dir_end)
+	-- Limit the number of tries - otherwise it could become an infinite loop
+	for i = 1, 8 do
+		local dir = math.random(dir_start, dir_end)
+		local vel = vector.multiply(npc.actions.dir_data[dir].vel, speed)
+		local pos = vector.add(start_pos, vel)
+		local node = minetest.get_node(pos)
+		if node then
+			if node.name == "air"
+					-- Any walkable node except fences
+					or (minetest.registered_nodes[node.name].walkable == true
+					and minetest.registered_nodes[node.name].groups.fence ~= 1)
+					-- Farming plants
+					or minetest.registered_nodes[node.name].groups.plant == 1 then
+				return dir
+			end
+		end
+	end
+	-- Return -1 signaling that no good direction could be found
+	return -1
+end
+
 -- This action is to rotate to mob to a specifc direction. Currently, the code
 -- contains also for diagonals, but remaining in the orthogonal domain is preferrable.
 function npc.actions.rotate(self, args)
 	local dir = args.dir
+	local start_pos = args.start_pos
+	local end_pos = args.end_pos
+	-- Calculate dir if positions are given
+	if start_pos and end_pos and not dir then
+		dir = npc.actions.get_direction(start_pos, end_pos)
+	end
+
 	local yaw = 0
 	self.rotate = 0
 	if dir == npc.direction.north then
@@ -277,6 +366,7 @@ end
 -- true if it can move on that direction, and false if there is an obstacle
 function npc.actions.walk_step(self, args)
 	local dir = args.dir
+	local step_into_air_only = args.step_into_air_only
 	local speed = args.speed
 	local target_pos = args.target_pos
 	local start_pos = args.start_pos
@@ -287,12 +377,12 @@ function npc.actions.walk_step(self, args)
 		speed = npc.actions.one_nps_speed
 	end
 
-	-- Set is_walking = true
-	self.actions.walking.is_walking = true
-
 	-- Check if dir should be random
-	if dir == "random" then
-		dir = math.random(0, 7)
+	if dir == "random_all" or dir == "random" then
+		dir = random_dir_helper(start_pos, speed, 0, 7)
+	end
+	if dir == "random_orthogonal" then
+		dir = random_dir_helper(start_pos, speed, 0, 3)
 	end
 
 	if dir == npc.direction.north then
@@ -311,17 +401,16 @@ function npc.actions.walk_step(self, args)
 		vel = {x=-speed, y=0, z=0}
 	elseif dir == npc.direction.north_west then
 		vel = {x=-speed, y=0, z=speed }
+	else
+		-- No direction provided or NPC is trapped, don't move NPC
+		vel = {x=0, y=0, z=0}
 	end
 
-	-- Automatically calculate target pos for dir = "random"
-	if args.dir == "random" and not target_pos and start_pos then
-		--minetest.log("Vel: "..dump(vel.x/speed)..", "..dump(vel.y/speed)..", "..dump(vel.z/speed))
-		target_pos = {x=start_pos.x + (vel.x/speed), y=start_pos.y + (vel.y/speed), z=start_pos.z + (vel.z/speed)}
-	end
-
-	-- If there is a target position to reach, set it
+	-- If there is a target position to reach, set it and set walking to true
 	if target_pos ~= nil then
 		self.actions.walking.target_pos = target_pos
+		-- Set is_walking = true
+		self.actions.walking.is_walking = true
 	end
 
 	-- Rotate NPC
@@ -330,37 +419,37 @@ function npc.actions.walk_step(self, args)
 	self.object:setvelocity(vel)
 	-- Set walk animation
 	self.object:set_animation({
-			x = npc.ANIMATION_WALK_START,
-			y = npc.ANIMATION_WALK_END},
-			self.animation.speed_normal, 0)
+		x = npc.ANIMATION_WALK_START,
+		y = npc.ANIMATION_WALK_END},
+		self.animation.speed_normal, 0)
 end
 
 -- This action makes the NPC stand and remain like that
 function npc.actions.stand(self, args)
 	local pos = args.pos
 	local dir = args.dir
-	-- Set is_walking = true
-		self.actions.walking.is_walking = false
+	-- Set is_walking = false
+	self.actions.walking.is_walking = false
 	-- Stop NPC
 	self.object:setvelocity({x=0, y=0, z=0})
 	-- If position given, set to that position
 	if pos ~= nil then
 		self.object:moveto(pos)
 	end
-		-- If dir given, set to that dir
+	-- If dir given, set to that dir
 	if dir ~= nil then
 		npc.actions.rotate(self, {dir=dir})
 	end
 	-- Set stand animation
 	self.object:set_animation({
-				x = npc.ANIMATION_STAND_START,
-				y = npc.ANIMATION_STAND_END},
-				self.animation.speed_normal, 0)
+		x = npc.ANIMATION_STAND_START,
+		y = npc.ANIMATION_STAND_END},
+		self.animation.speed_normal, 0)
 end
 
 -- This action makes the NPC sit on the node where it is
 function npc.actions.sit(self, args)
-	local pos = args.pos 
+	local pos = args.pos
 	local dir = args.dir
 	-- Stop NPC
 	self.object:setvelocity({x=0, y=0, z=0})
@@ -374,9 +463,9 @@ function npc.actions.sit(self, args)
 	end
 	-- Set sit animation
 	self.object:set_animation({
-				x = npc.ANIMATION_SIT_START,
-				y = npc.ANIMATION_SIT_END},
-				self.animation.speed_normal, 0)
+		x = npc.ANIMATION_SIT_START,
+		y = npc.ANIMATION_SIT_END},
+		self.animation.speed_normal, 0)
 end
 
 -- This action makes the NPC lay on the node where it is
@@ -390,9 +479,9 @@ function npc.actions.lay(self, args)
 	end
 	-- Set sit animation
 	self.object:set_animation({
-				x = npc.ANIMATION_LAY_START,
-				y = npc.ANIMATION_LAY_END},
-				self.animation.speed_normal, 0)
+		x = npc.ANIMATION_LAY_START,
+		y = npc.ANIMATION_LAY_END},
+		self.animation.speed_normal, 0)
 end
 
 -- Inventory functions for players and for nodes
@@ -424,7 +513,7 @@ function npc.actions.put_item_on_external_inventory(self, args)
 		end
 		-- Add items to external inventory
 		inv:add_item(inv_list, item)
-		
+
 		-- If this is a furnace, start furnace timer
 		if is_furnace == true then
 			minetest.get_node_timer(pos):start(1.0)
@@ -600,15 +689,15 @@ function npc.actions.use_furnace(self, args)
 	-- Define which items are usable as fuels. The NPC
 	-- will mainly use this as fuels to avoid getting useful
 	-- items (such as coal lumps) for burning
-	local fuels = {"default:leaves", 
-					"default:pine_needles",
-					"default:tree",
-					"default:acacia_tree",
-					"default:aspen_tree",
-					"default:jungletree",
-					"default:pine_tree",
-					"default:coalblock",
-					"farming:straw"}
+	local fuels = {"default:leaves",
+		"default:pine_needles",
+		"default:tree",
+		"default:acacia_tree",
+		"default:aspen_tree",
+		"default:jungletree",
+		"default:pine_tree",
+		"default:coalblock",
+		"farming:straw"}
 
 	-- Check if NPC has item to cook
 	local src_item = npc.inventory_contains(self, npc.get_item_name(item))
@@ -619,23 +708,23 @@ function npc.actions.use_furnace(self, args)
 
 	-- Check if NPC has a fuel item
 	for i = 1,9 do
-		local fuel_item = npc.inventory_contains(self, fuels[i]) 
-	
+		local fuel_item = npc.inventory_contains(self, fuels[i])
+
 		if fuel_item ~= nil then
 			-- Get fuel item's burn time
-			local fuel_time = 
-			minetest.get_craft_result({method="fuel", width=1, items={ItemStack(fuel_item.item_string)}}).time 
+			local fuel_time =
+			minetest.get_craft_result({method="fuel", width=1, items={ItemStack(fuel_item.item_string)}}).time
 			local total_fuel_time = fuel_time * npc.get_item_count(fuel_item.item_string)
 			npc.log("DEBUG", "Fuel time: "..dump(fuel_time))
 
 			-- Get item to cook's cooking time
-			local cook_result = 
+			local cook_result =
 			minetest.get_craft_result({method="cooking", width=1, items={ItemStack(src_item.item_string)}})
 			local total_cook_time = cook_result.time * npc.get_item_count(item)
 			npc.log("DEBUG", "Cook: "..dump(cook_result))
 
 			npc.log("DEBUG", "Total cook time: "..total_cook_time
-				..", total fuel burn time: "..dump(total_fuel_time))
+					..", total fuel burn time: "..dump(total_fuel_time))
 
 			-- Check if there is enough fuel to cook all items
 			if total_cook_time > total_fuel_time then
@@ -658,21 +747,21 @@ function npc.actions.use_furnace(self, args)
 
 			-- Put this item on the fuel inventory list of the furnace
 			local args = {
-				 player = nil, 
-				 pos = pos, 
-				 inv_list = "fuel",
-				 item_name = npc.get_item_name(fuel_item.item_string),
-				 count = fuel_amount
+				player = nil,
+				pos = pos,
+				inv_list = "fuel",
+				item_name = npc.get_item_name(fuel_item.item_string),
+				count = fuel_amount
 			}
 			npc.add_action(self, npc.actions.cmd.PUT_ITEM, args)
 			-- Put the item that we want to cook on the furnace
 			args = {
-				 player = nil, 
-				 pos = pos, 
-				 inv_list = "src",
-				 item_name = npc.get_item_name(src_item.item_string),
-				 count = npc.get_item_count(item),
-				 is_furnace = true
+				player = nil,
+				pos = pos,
+				inv_list = "src",
+				item_name = npc.get_item_name(src_item.item_string),
+				count = npc.get_item_count(item),
+				is_furnace = true
 			}
 			npc.add_action(self, npc.actions.cmd.PUT_ITEM, args)
 
@@ -692,13 +781,13 @@ function npc.actions.use_furnace(self, args)
 
 			-- Take cooked items back
 			args = {
-				 
-				 player = nil, 
-				 pos = pos, 
-				 inv_list = "dst",
-				 item_name = cook_result.item:get_name(),
-				 count = npc.get_item_count(item),
-				 is_furnace = false
+
+				player = nil,
+				pos = pos,
+				inv_list = "dst",
+				item_name = cook_result.item:get_name(),
+				count = npc.get_item_count(item),
+				is_furnace = false
 			}
 			npc.log("DEBUG", "Taking item back: "..minetest.pos_to_string(pos))
 			npc.add_action(self, npc.actions.cmd.TAKE_ITEM, args)
@@ -743,7 +832,7 @@ function npc.actions.use_bed(self, args)
 			return
 		end
 		local bed_pos_y = npc.actions.nodes.beds[node.name].get_lay_pos(pos, dir).y
-		local bed_pos = {x = pos.x, y = bed_pos_y, z = pos.z} 
+		local bed_pos = {x = pos.x, y = bed_pos_y, z = pos.z}
 		-- Sit up
 		npc.add_action(self, npc.actions.cmd.SIT, {pos=bed_pos})
 		-- Initialize direction: Default is front of bottom of bed
@@ -761,7 +850,7 @@ function npc.actions.use_bed(self, args)
 		end
 		-- Calculate position to get out of bed
 		local pos_out_of_bed =
-			{x=empty_nodes[1].pos.x, y=empty_nodes[1].pos.y + 1, z=empty_nodes[1].pos.z}
+		{x=empty_nodes[1].pos.x, y=empty_nodes[1].pos.y + 1, z=empty_nodes[1].pos.z}
 		-- Account for benches if they are present to avoid standing over them
 		if empty_nodes[1].name == "cottages:bench" then
 			pos_out_of_bed = {x=empty_nodes[1].pos.x, y=empty_nodes[1].pos.y + 1, z=empty_nodes[1].pos.z}
@@ -860,7 +949,7 @@ end
 -- path.
 function npc.actions.walk_to_pos(self, args)
 	-- Get arguments for this task 
-	local end_pos = get_pos_argument(self, args.end_pos, args.use_access_node)
+	local end_pos = get_pos_argument(self, args.end_pos, args.use_access_node or true)
 	if end_pos == nil then
 		npc.log("WARNING", "Got nil position in 'walk_to_pos' using args.pos: "..dump(args.end_pos))
 		return
@@ -968,6 +1057,6 @@ function npc.actions.walk_to_pos(self, args)
 		if enforce_move then
 			-- Move to end pos
 			self.object:moveto({x=end_pos.x, y=end_pos.y+1, z=end_pos.z})
-		end 
+		end
 	end
 end
