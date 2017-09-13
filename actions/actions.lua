@@ -220,7 +220,7 @@ function npc.actions.dig(self, args)
 			self.animation.speed_normal, 0)
 
 		-- Check if protection not enforced
-		if not force_dig then
+		if not bypass_protection then
 			-- Try to dig node
 			if minetest.dig_node(pos) then
 				-- Add to inventory the node drops
@@ -245,8 +245,15 @@ function npc.actions.dig(self, args)
 			if add_to_inventory then
 				-- Get node drop
 				local drop = minetest.registered_nodes[node.name].drop
+				local drop_itemname = node.name
+				if drop and drop.items then
+					local random_item = drop.items[math.random(1, #drop.items)]
+					if random_item then
+						drop_itemname = random_item.items[1]
+					end
+				end
 				-- Add to NPC inventory
-				npc.npc.add_item_to_inventory(self, drop, 1)
+				npc.add_item_to_inventory(self, drop_itemname, 1)
 			end
 			-- Dig node
 			minetest.set_node(pos, {name="air"})
@@ -272,7 +279,7 @@ function npc.actions.place(self, args)
 	local node_at_pos = minetest.get_node_or_nil(pos)
 	-- Check if position is empty or has a node that can be built to
 	if node_at_pos and
-			(node_at_pos.name == "air" or minetest.registered_nodes(node_at_pos.name).buildable_to == true) then
+			(node_at_pos.name == "air" or minetest.registered_nodes[node_at_pos.name].buildable_to == true) then
 		-- Check protection
 		if (not bypass_protection and not minetest.is_protected(pos, self.npc_name))
 				or bypass_protection == true then
@@ -633,9 +640,9 @@ local function get_pos_argument(self, pos, use_access_node)
 			-- Check index is valid on the places map
 			if #places >= index then
 				-- Check if access node is desired
-				if use_access_node then
+				if use_access_node == true then
 					-- Return actual node pos
-					return places[index].access_node
+					return places[index].access_node, places[index].pos
 				else
 					-- Return node pos that allows access to node
 					return places[index].pos
@@ -654,8 +661,8 @@ local function get_pos_argument(self, pos, use_access_node)
 			-- Check all places, return owned if existent, else return the first one
 			for i = 1, #places_pos do
 				if places_pos[i].status == "owned" then
-					if use_access_node then
-						return places_pos[i].access_node
+					if use_access_node == true then
+						return places_pos[i].access_node, places_pos[i].pos
 					else
 						return places_pos[i].pos
 					end
@@ -664,8 +671,8 @@ local function get_pos_argument(self, pos, use_access_node)
 		end
 		-- Return the first position only if it couldn't find an owned
 		-- place, or if it there is only one
-		if use_access_node then
-			return places_pos[1].access_node
+		if use_access_node == true then
+			return places_pos[1].access_node, places_pos[1].pos
 		else
 			return places_pos[1].pos
 		end
@@ -914,7 +921,8 @@ end
 -- This function returns the direction enum
 -- for the moving from v1 to v2
 function npc.actions.get_direction(v1, v2)
-	local dir = vector.subtract(v2, v1)
+	local vector_dir = vector.direction(v1, v2)
+	local dir = vector.round(vector_dir)
 
 	if dir.x ~= 0 and dir.z ~= 0 then
 		if dir.x > 0 and dir.z > 0 then
@@ -948,8 +956,9 @@ end
 -- going to be considered walkable for the algorithm to find a
 -- path.
 function npc.actions.walk_to_pos(self, args)
-	-- Get arguments for this task 
-	local end_pos = get_pos_argument(self, args.end_pos, args.use_access_node or true)
+	-- Get arguments for this task
+	local use_access_node = args.use_access_node or true
+	local end_pos, node_pos = get_pos_argument(self, args.end_pos, use_access_node)
 	if end_pos == nil then
 		npc.log("WARNING", "Got nil position in 'walk_to_pos' using args.pos: "..dump(args.end_pos))
 		return
@@ -959,10 +968,21 @@ function npc.actions.walk_to_pos(self, args)
 
 	-- Round start_pos to make sure it can find start and end
 	local start_pos = vector.round(self.object:getpos())
-	-- Use y of end_pos (this can only be done assuming flat terrain)
-	--start_pos.y = self.object:getpos().y
 	npc.log("DEBUG", "walk_to_pos: Start pos: "..minetest.pos_to_string(start_pos))
 	npc.log("DEBUG", "walk_to_pos: End pos: "..minetest.pos_to_string(end_pos))
+
+	-- Check if start_pos and end_pos are the same
+	if vector.equals(start_pos, end_pos) == true then
+		-- Check if it was using access node, if it was, add action to
+		-- rotate NPC into that direction
+		if use_access_node == true then
+			local dir = npc.actions.get_direction(end_pos, node_pos)
+			npc.add_action(self, npc.actions.cmd.STAND, {dir = dir})
+		end
+		npc.log("WARNING", "walk_to_pos Found start_pos == end_pos")
+		return
+	end
+
 
 	-- Set walkable nodes to empty if the parameter hasn't been used
 	if walkable_nodes == nil then
@@ -997,6 +1017,10 @@ function npc.actions.walk_to_pos(self, args)
 				-- Add the last step
 				npc.add_action(self, npc.actions.cmd.WALK_STEP, {dir = dir, speed = speed, target_pos = path[i+1].pos})
 				-- Add stand animation at end
+				if use_access_node == true then
+					dir = npc.actions.get_direction(end_pos, node_pos)
+				end
+				-- Change dir if using access_node
 				npc.add_action(self, npc.actions.cmd.STAND, {dir = dir})
 				break
 			end
