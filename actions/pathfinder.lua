@@ -14,60 +14,61 @@ npc.pathfinder = {}
 local pathfinder = {}
 
 npc.pathfinder.node_types = {
-  start = 0,
-  goal = 1,
-  walkable = 2,
-  openable = 3,
-  non_walkable = 4
+	start = 0,
+	goal = 1,
+	walkable = 2,
+	openable = 3,
+	non_walkable = 4
 }
 
 npc.pathfinder.nodes = {
-  openable_prefix = {
-    "doors:",
-    "cottages:gate",
-    "cottages:half_door"
-  }
-} 
+	openable_prefix = {
+		"doors:",
+		"cottages:gate",
+		"cottages:half_door"
+	}
+}
 
 -- This function is used to determine if a node is walkable
 -- or openable, in which case is good to use when finding a path
 function pathfinder.is_good_node(node, exceptions)
---local function is_good_node(node, exceptions)
-  -- Is openable is to support doors, fence gates and other
-  -- doors from other mods. Currently, default doors, gates
-  -- and cottages doors are supported.
-  local is_openable = false
-  for _,node_prefix in pairs(npc.pathfinder.nodes.openable_prefix) do
-    local start_i,end_i = string.find(node.name, node_prefix)
-    if start_i ~= nil then
-      is_openable = true
-      break
-    end
-  end
-  if node ~= nil and node.name ~= nil and not minetest.registered_nodes[node.name].walkable then
-    return npc.pathfinder.node_types.walkable
-  elseif is_openable then
-    return npc.pathfinder.node_types.openable
-  else
-    for i = 1, #exceptions do
-      if node.name == exceptions[i] then
-        return npc.pathfinder.node_types.walkable
-      end
-    end
-    return npc.pathfinder.node_types.non_walkable
-  end
+	--local function is_good_node(node, exceptions)
+	-- Is openable is to support doors, fence gates and other
+	-- doors from other mods. Currently, default doors, gates
+	-- and cottages doors are supported.
+	local is_openable = false
+	for _,node_prefix in pairs(npc.pathfinder.nodes.openable_prefix) do
+		local start_i,end_i = string.find(node.name, node_prefix)
+		if start_i ~= nil then
+			is_openable = true
+			break
+		end
+	end
+	if node ~= nil and node.name ~= nil and not minetest.registered_nodes[node.name].walkable then
+		return npc.pathfinder.node_types.walkable
+	elseif is_openable then
+		return npc.pathfinder.node_types.openable
+	else
+		for i = 1, #exceptions do
+			if node.name == exceptions[i] then
+				return npc.pathfinder.node_types.walkable
+			end
+		end
+		return npc.pathfinder.node_types.non_walkable
+	end
 end
 
 function pathfinder.get_decorated_path(path)
-  	-- Get details from path nodes
-    local path_detail = {}
-    for i = 1, #path do
-      local node = minetest.get_node(path[i])
-      table.insert(path_detail, {pos=path[i], type=pathfinder.is_good_node(node, {})})
-    end
+	-- Get details from path nodes
+	local path_detail = {}
+	for i = 1, #path do
+		local node = minetest.get_node(path[i])
+		table.insert(path_detail, {pos={x=path[i].x, y=path[i].y-0.5, z=path[i].z},
+			type=pathfinder.is_good_node(node, {})})
+	end
 
-    npc.log("DEBUG", "Detailed path: "..dump(path_detail))
-    return path_detail
+	npc.log("DEBUG", "Detailed path: "..dump(path_detail))
+	return path_detail
 end
 
 function npc.pathfinder.find_path(start_pos, end_pos, entity, decorate_path)
@@ -78,7 +79,7 @@ function npc.pathfinder.find_path(start_pos, end_pos, entity, decorate_path)
 		end
 	else
 		npc.log("ERROR", "Couldn't find path from "..minetest.pos_to_string(start_pos)
-			.." to "..minetest.pos_to_string(end_pos))
+				.." to "..minetest.pos_to_string(end_pos))
 	end
 	return path
 end
@@ -135,42 +136,42 @@ end
 -- or openable, in which case is good to use when finding a path
 local function walkable(node, exceptions)
 	local exceptions = exceptions or {}
-  -- Is openable is to support doors, fence gates and other
-  -- doors from other mods. Currently, default doors, gates
-  -- and cottages doors are supported.
-  --minetest.log("Is good node: "..dump(node))
-  local is_openable = false
-  for _,node_prefix in pairs(npc.pathfinder.nodes.openable_prefix) do
-    local start_i,end_i = string.find(node.name, node_prefix)
-    if start_i ~= nil then
-      is_openable = true
-      break
-    end
-  end
-  -- Detect mg_villages ceilings usage of thin wood nodeboxes
-  -- TODO: Improve
-  local is_mg_villages_ceiling = false
-  if node.name == "cottages:wood_flat" then
-  	is_mg_villages_ceiling = true
-  end
-  if node ~= nil 
-  	and node.name ~= nil 
-  	and node.name ~= "ignore" 
-  	and minetest.registered_nodes[node.name]
-  	and not minetest.registered_nodes[node.name].walkable then
-    return false
-  elseif is_openable then
-    return false
-  elseif is_mg_villages_ceiling then
-	return false 
-  else
-    for i = 1, #exceptions do
-      if node.name == exceptions[i] then
-        return false
-      end
-    end
-    return true
-  end
+	-- Is openable is to support doors, fence gates and other
+	-- doors from other mods. Currently, default doors, gates
+	-- and cottages doors are supported.
+	--minetest.log("Is good node: "..dump(node))
+	local is_openable = false
+	for _,node_prefix in pairs(npc.pathfinder.nodes.openable_prefix) do
+		local start_i,end_i = string.find(node.name, node_prefix)
+		if start_i ~= nil then
+			is_openable = true
+			break
+		end
+	end
+	-- Detect mg_villages ceilings usage of thin wood nodeboxes
+	-- TODO: Improve
+	local is_mg_villages_ceiling = false
+	if node.name == "cottages:wood_flat" then
+		is_mg_villages_ceiling = true
+	end
+	if node ~= nil
+			and node.name ~= nil
+			and node.name ~= "ignore"
+			and minetest.registered_nodes[node.name]
+			and not minetest.registered_nodes[node.name].walkable then
+		return false
+	elseif is_openable then
+		return false
+	elseif is_mg_villages_ceiling then
+		return false
+	else
+		for i = 1, #exceptions do
+			if node.name == exceptions[i] then
+				return false
+			end
+		end
+		return true
+	end
 end
 
 local function check_clearance(cpos, x, z, height)
@@ -277,65 +278,65 @@ function pathfinder.find_path(pos, endpos, entity)
 		local neighbors = {}
 		local neighbors_index = 1
 		for z = -1, 1 do
-		for x = -1, 1 do
-			local neighbor_pos = {x = current_pos.x + x, y = current_pos.y, z = current_pos.z + z}
-			local neighbor = minetest.get_node(neighbor_pos)
-			local neighbor_ground_level = get_neighbor_ground_level(neighbor_pos, entity_jump_height, entity_fear_height)
-			local neighbor_clearance = false
-			if neighbor_ground_level then
-				-- print(neighbor_ground_level.y - current_pos.y)
-				--minetest.set_node(neighbor_ground_level, {name = "default:dry_shrub"})
-				local node_above_head = minetest.get_node(
+			for x = -1, 1 do
+				local neighbor_pos = {x = current_pos.x + x, y = current_pos.y, z = current_pos.z + z}
+				local neighbor = minetest.get_node(neighbor_pos)
+				local neighbor_ground_level = get_neighbor_ground_level(neighbor_pos, entity_jump_height, entity_fear_height)
+				local neighbor_clearance = false
+				if neighbor_ground_level then
+					-- print(neighbor_ground_level.y - current_pos.y)
+					--minetest.set_node(neighbor_ground_level, {name = "default:dry_shrub"})
+					local node_above_head = minetest.get_node(
 						{x = current_pos.x, y = current_pos.y + entity_height, z = current_pos.z})
-				if neighbor_ground_level.y - current_pos.y > 0 and not walkable(node_above_head) then
-					local height = -1
-					repeat
-						height = height + 1
-						local node = minetest.get_node(
+					if neighbor_ground_level.y - current_pos.y > 0 and not walkable(node_above_head) then
+						local height = -1
+						repeat
+							height = height + 1
+							local node = minetest.get_node(
 								{x = neighbor_ground_level.x,
-								y = neighbor_ground_level.y + height,
-								z = neighbor_ground_level.z})
-					until walkable(node) or height > entity_height
-					if height >= entity_height then
-						neighbor_clearance = true
-					end
-				elseif neighbor_ground_level.y - current_pos.y > 0 and walkable(node_above_head) then
-					neighbors[neighbors_index] = {
+									y = neighbor_ground_level.y + height,
+									z = neighbor_ground_level.z})
+						until walkable(node) or height > entity_height
+						if height >= entity_height then
+							neighbor_clearance = true
+						end
+					elseif neighbor_ground_level.y - current_pos.y > 0 and walkable(node_above_head) then
+						neighbors[neighbors_index] = {
 							hash = nil,
 							pos = nil,
 							clear = nil,
 							walkable = nil,
-					}
-				else
-					local height = -1
-					repeat
-						height = height + 1
-						local node = minetest.get_node(
+						}
+					else
+						local height = -1
+						repeat
+							height = height + 1
+							local node = minetest.get_node(
 								{x = neighbor_ground_level.x,
-								y = current_pos.y + height,
-								z = neighbor_ground_level.z})
-					until walkable(node) or height > entity_height
-					if height >= entity_height then
-						neighbor_clearance = true
+									y = current_pos.y + height,
+									z = neighbor_ground_level.z})
+						until walkable(node) or height > entity_height
+						if height >= entity_height then
+							neighbor_clearance = true
+						end
 					end
-				end
 
-				neighbors[neighbors_index] = {
+					neighbors[neighbors_index] = {
 						hash = minetest.hash_node_position(neighbor_ground_level),
 						pos = neighbor_ground_level,
 						clear = neighbor_clearance,
 						walkable = walkable(neighbor),
-				}
-			else
-				neighbors[neighbors_index] = {
+					}
+				else
+					neighbors[neighbors_index] = {
 						hash = nil,
 						pos = nil,
 						clear = nil,
 						walkable = nil,
-				}
+					}
+				end
+				neighbors_index = neighbors_index + 1
 			end
-			neighbors_index = neighbors_index + 1
-		end
 		end
 
 		for id, neighbor in pairs(neighbors) do
@@ -343,22 +344,22 @@ function pathfinder.find_path(pos, endpos, entity)
 			local cut_corner = false
 			if id == 1 then
 				if not neighbors[id + 1].clear or not neighbors[id + 3].clear
-					or neighbors[id + 1].walkable or neighbors[id + 3].walkable then
+						or neighbors[id + 1].walkable or neighbors[id + 3].walkable then
 					cut_corner = true
 				end
 			elseif id == 3 then
 				if not neighbors[id - 1].clear or not neighbors[id + 3].clear
-					or neighbors[id - 1].walkable or neighbors[id + 3].walkable then
+						or neighbors[id - 1].walkable or neighbors[id + 3].walkable then
 					cut_corner = true
 				end
 			elseif id == 7 then
 				if not neighbors[id + 1].clear or not neighbors[id - 3].clear
-				or neighbors[id + 1].walkable or neighbors[id - 3].walkable then
+						or neighbors[id + 1].walkable or neighbors[id - 3].walkable then
 					cut_corner = true
 				end
 			elseif id == 9 then
 				if not neighbors[id - 1].clear or not neighbors[id - 3].clear
-				or neighbors[id - 1].walkable or neighbors[id - 3].walkable then
+						or neighbors[id - 1].walkable or neighbors[id - 3].walkable then
 					cut_corner = true
 				end
 			end
@@ -375,11 +376,11 @@ function pathfinder.find_path(pos, endpos, entity)
 					end
 					local hCost = get_distance(neighbor.pos, endpos)
 					openSet[neighbor.hash] = {
-							gCost = move_cost_to_neighbor,
-							hCost = hCost,
-							fCost = move_cost_to_neighbor + hCost,
-							parent = current_index,
-							pos = neighbor.pos
+						gCost = move_cost_to_neighbor,
+						hCost = hCost,
+						fCost = move_cost_to_neighbor + hCost,
+						parent = current_index,
+						pos = neighbor.pos
 					}
 				end
 			end
