@@ -113,12 +113,9 @@ local priest_def = {
         initial_trader_status = npc.trade.NONE,
         enable_gift_items_hints = false
     },
-
-    building_types = {
-        "hut", "house", "farm_tiny", "lumberjack"
-    },
+    building_types = {},
     surrounding_building_types = {
-        "church"
+        {type="church", origin_building_types={"hut", "house", "farm_tiny", "lumberjack"}}
     },
     schedules_entries = {
         [7] = {
