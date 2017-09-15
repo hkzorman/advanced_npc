@@ -733,7 +733,7 @@ minetest.register_node("advanced_npc:workplace_marker", {
                 "field[0.5,1;6.5,2;text;(farm_tiny, farm_full, house, church, etc.);"..building_type.."]"..
                 "button_exit[2.25,2.25;2.5,0.75;exit;Proceed]"
 
-        workplace_pos[clicker:get_player_name()] = pos
+        spawner.workplace_pos[clicker:get_player_name()] = pos
 
         minetest.show_formspec(clicker:get_player_name(), "advanced_npc:workplace_marker_formspec", formspec)
     end,
