@@ -212,8 +212,8 @@ function npc.spawner.determine_npc_occupation(building_type, workplace_nodes, np
         building_type,
         surrounding_buildings_map
     )
-    npc.log("DEBUG, ""Found occupations: "..dump(occupation_names).."\nfor local building type: "
-    ..dump(building_type).."\nAnd surrounding building types: "..dump(surrounding_buildings_map))
+    npc.log("DEBUG", "Found occupations: "..dump(occupation_names).."\nfor local building type: "
+        ..dump(building_type).."\nAnd surrounding building types: "..dump(surrounding_buildings_map))
 
     -- Insert default occupation into result
     table.insert(result, {name=npc.occupations.basic_name, node={node_pos={}}})
