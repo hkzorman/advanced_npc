@@ -48,7 +48,9 @@ npc.log_level = {
 	INFO = true,
 	WARNING = true,
 	ERROR = true,
-	DEBUG = false
+	DEBUG = false,
+	DEBUG_ACTION = false,
+	DEBUG_SCHEDULE = false
 }
 
 npc.texture_check = {
@@ -474,9 +476,9 @@ function npc.initialize(entity, pos, is_lua_entity, npc_stats, occupation_name)
 	-- If occupation name given, override properties with
 	-- occupation values and initialize schedules
 	if occupation_name and occupation_name ~= "" and ent.age == npc.age.adult then
-        -- Set occupation name
-        ent.occupation_name = occupation_name
-        -- Override relevant values
+		-- Set occupation name
+		ent.occupation_name = occupation_name
+		-- Override relevant values
 		npc.occupations.initialize_occupation_values(ent, occupation_name)
 	end
 
@@ -707,9 +709,10 @@ end
 -- This function removes the first action in the action queue
 -- and then executes it
 function npc.execute_action(self)
+	npc.log("DEBUG_ACTION", "Current actions queue: "..dump(self.actions.queue))
 	-- Check if an action was interrupted
 	if self.actions.current_action_state == npc.action_state.interrupted then
-		npc.log("DEBUG", "Re-inserting interrupted action for NPC: '"..dump(self.npc_name).."': "..dump(self.actions.state_before_lock.interrupted_action))
+		npc.log("DEBUG_ACTION", "Re-inserting interrupted action for NPC: '"..dump(self.npc_name).."': "..dump(self.actions.state_before_lock.interrupted_action))
 		-- Insert into queue the interrupted action
 		table.insert(self.actions.queue, 1, self.actions.state_before_lock.interrupted_action)
 		-- Clear the action
@@ -731,17 +734,17 @@ function npc.execute_action(self)
 	end
 	-- Check if action is an schedule check
 	if action_obj.action == "schedule_check" then
-		-- Execute schedule check
-		npc.schedule_check(self)
 		-- Remove table entry
 		table.remove(self.actions.queue, 1)
+		-- Execute schedule check
+		npc.schedule_check(self)
 		-- Return
 		return false
 	end
 	-- If the entry is a task, then push all this new operations in
 	-- stack fashion
 	if action_obj.is_task == true then
-		npc.log("DEBUG", "Executing task for NPC '"..dump(self.npc_name).."': "..dump(action_obj))
+		npc.log("DEBUG_ACTION", "Executing task for NPC '"..dump(self.npc_name).."': "..dump(action_obj))
 		-- Backup current queue
 		local backup_queue = self.actions.queue
 		-- Remove this "task" action from queue
@@ -757,7 +760,7 @@ function npc.execute_action(self)
 			table.insert(self.actions.queue, backup_queue[i])
 		end
 	else
-		npc.log("DEBUG", "Executing action for NPC '"..dump(self.npc_name).."': "..dump(action_obj))
+		npc.log("DEBUG_ACTION", "Executing action for NPC '"..dump(self.npc_name).."': "..dump(action_obj))
 		-- Store the action that is being executed
 		self.actions.state_before_lock.interrupted_action = action_obj
 		-- Store current position
@@ -811,7 +814,7 @@ function npc.lock_actions(self)
 	-- Freeze mobs_redo API
 	self.freeze = false
 
-	npc.log("DEBUG", "Locking NPC "..dump(self.npc_id).." actions")
+	npc.log("DEBUG_ACTION", "Locking NPC "..dump(self.npc_id).." actions")
 end
 
 function npc.unlock_actions(self)
@@ -825,7 +828,7 @@ function npc.unlock_actions(self)
 		self.freeze = true
 	end
 
-	npc.log("DEBUG", "Unlocked NPC "..dump(self.npc_id).." actions")
+	npc.log("DEBUG_ACTION", "Unlocked NPC "..dump(self.npc_id).." actions")
 end
 
 ---------------------------------------------------------------------------------------
@@ -1024,6 +1027,19 @@ function npc.add_schedule_check(self)
 	table.insert(self.actions.queue, {action="schedule_check", args={}, is_task=false})
 end
 
+function npc.enqueue_schedule_action(self, entry)
+	if entry.task ~= nil then
+		-- Add task
+		npc.add_task(self, entry.task, entry.args)
+	elseif entry.action ~= nil then
+		-- Add action
+		npc.add_action(self, entry.action, entry.args)
+	elseif entry.property ~= nil then
+		-- Change NPC property
+		npc.schedule_change_property(self, entry.property, entry.args)
+	end
+end
+
 -- Range: integer, radius in which nodes will be searched. Recommended radius is
 --		  between 1-3
 -- Nodes: array of node names
@@ -1035,7 +1051,9 @@ end
 -- None-action: array of entries {action=<action_enum>, args={}}.
 --				Will be executed when no node is found.
 function npc.schedule_check(self)
+	npc.log("DEBUG_SCHEDULE", "Prev Actions queue: "..dump(self.actions.queue))
 	local range = self.schedules.current_check_params.range
+	local walkable_nodes = self.schedules.current_check_params.walkable_nodes
 	local nodes = self.schedules.current_check_params.nodes
 	local actions = self.schedules.current_check_params.actions
 	local none_actions = self.schedules.current_check_params.none_actions
@@ -1044,15 +1062,17 @@ function npc.schedule_check(self)
 	-- Search nodes
 	local found_nodes = npc.places.find_node_nearby(start_pos, nodes, range)
 	-- Check if any node was found
-	if found_nodes then
+	npc.log("DEBUG_SCHEDULE", "Found nodes using radius: "..dump(found_nodes))
+	if found_nodes and #found_nodes > 0 then
 		-- Pick a random node to act upon
 		local node_pos = found_nodes[math.random(1, #found_nodes)]
 		local node = minetest.get_node(node_pos)
 		-- Set node as a place
 		-- Note: Code below isn't *adding* a node, but overwriting the
 		-- place with "schedule_target_pos" place type
+		npc.log("DEBUG_SCHEDULE", "Found "..dump(node.name).." at pos: "..minetest.pos_to_string(node_pos))
 		npc.places.add_shared_accessible_place(
-			self, node, npc.places.PLACE_TYPE.SCHEDULE.TARGET, true)
+			self, {owner="", node_pos=node_pos}, npc.places.PLACE_TYPE.SCHEDULE.TARGET, true, walkable_nodes)
 		-- Get actions related to node and enqueue them
 		for i = 1, #actions[node.name] do
 			local args = {}
@@ -1069,9 +1089,10 @@ function npc.schedule_check(self)
 				-- otherwise
 				args = {
 					pos = node_pos,
-					add_to_inventory = action[node.name][i].args.add_to_inventory or true,
-					bypass_protection = action[node.name][i].args.bypass_protection or false
+					add_to_inventory = actions[node.name][i].args.add_to_inventory or true,
+					bypass_protection = actions[node.name][i].args.bypass_protection or false
 				}
+				npc.add_action(self, actions[node.name][i].action, args)
 			elseif actions[node.name][i].action == npc.actions.cmd.PLACE then
 				-- Position: providing node_pos is because the currently planned
 				-- behavior for placing nodes is replacing digged nodes. A NPC farmer,
@@ -1081,16 +1102,29 @@ function npc.schedule_check(self)
 				-- if not will be force-placed (item comes from thin air)
 				-- Protection will be respected
 				args = {
-					pos =  action[node.name][i].args.pos or node_pos,
-					source = action[node.name][i].args.source or npc.actions.take_from_inventory_forced,
-					node =  action[node.name][i].args.node,
-					bypass_protection =  action[node.name][i].args.bypass_protection or false
+					pos = actions[node.name][i].args.pos or node_pos,
+					source = actions[node.name][i].args.source or npc.actions.take_from_inventory_forced,
+					node = actions[node.name][i].args.node,
+					bypass_protection =  actions[node.name][i].args.bypass_protection or false
 				}
+				--minetest.log("Enqueue dig action with args: "..dump(args))
+				npc.add_action(self, actions[node.name][i].action, args)
+			elseif actions[node.name][i].action == npc.actions.cmd.ROTATE then
+				-- Set arguments
+				args = {
+					dir = actions[node.name][i].dir,
+					start_pos = actions[node.name][i].start_pos
+							or {x=start_pos.x, y=node_pos.y, z=start_pos.z},
+					end_pos = actions[node.name][i].end_pos or node_pos
+				}
+				-- Enqueue action
+				npc.add_action(self, actions[node.name][i].action, args)
 			elseif actions[node.name][i].action == npc.actions.cmd.WALK_STEP then
 				-- Defaults: direction is calculated from start node to node_pos.
 				-- Speed is default wandering speed. Target pos is node_pos
 				-- Calculate dir if dir is random
 				local dir = npc.actions.get_direction(start_pos, node_pos)
+				minetest.log("actions: "..dump(actions[node.name][i]))
 				if actions[node.name][i].args.dir == "random" then
 					dir = math.random(0,7)
 				elseif type(actions[node.name][i].args.dir) == "number" then
@@ -1101,57 +1135,76 @@ function npc.schedule_check(self)
 					speed = actions[node.name][i].args.speed or npc.actions.one_nps_speed,
 					target_pos = actions[node.name][i].args.target_pos or node_pos
 				}
-			elseif actions[node.name][i].action == npc.actions.cmd.WALK_TO_POS then
+				npc.add_action(self, actions[node.name][i].action, args)
+			elseif actions[node.name][i].task == npc.actions.cmd.WALK_TO_POS then
 				-- Optimize walking -- since distances can be really short,
 				-- a simple walk_step() action can do most of the times. For
 				-- this, however, we need to calculate direction
 				-- First of all, check distance
-				if vector.distance(start_pos, node_pos) < 3 then
+				local distance = vector.distance(start_pos, node_pos)
+				if distance < 3 then
 					-- Will do walk_step based instead
-					action = npc.actions.cmd.WALK_STEP
-					args = {
-						dir = npc.actions.get_direction(start_pos, node_pos),
-						speed = npc.actions.one_nps_speed,
-						target_pos = node_pos
-					}
+					if distance > 1 then
+						args = {
+							dir = npc.actions.get_direction(start_pos, node_pos),
+							speed = npc.actions.one_nps_speed
+						}
+						-- Enqueue walk step
+						npc.add_action(self, npc.actions.cmd.WALK_STEP, args)
+					end
+					-- Add standing action to look at node
+					npc.add_action(self, npc.actions.cmd.STAND,
+						{dir = npc.actions.get_direction(self.object:getpos(), node_pos)}
+					)
 				else
 					-- Set end pos to be node_pos
 					args = {
 						end_pos = actions[node.name][i].args.end_pos or node_pos,
-						walkable = actions[node.name][i].args.walkable or {}
+						walkable = actions[node.name][i].args.walkable or walkable_nodes or {}
 					}
+					-- Enqueue
+					npc.add_task(self, actions[node.name][i].task, args)
 				end
-			elseif actions[node.name][i].action == npc.actions.cmd.USE_FURNACE then
+			elseif actions[node.name][i].task == npc.actions.cmd.USE_FURNACE then
 				-- Defaults: pos is node_pos. Freeze is true
 				args = {
 					pos = actions[node.name][i].args.pos or node_pos,
 					item = actions[node.name][i].args.item,
 					freeze = actions[node.name][i].args.freeze or true
 				}
+				npc.add_task(self, actions[node.name][i].task, args)
+			else
+				-- Action or task that is not supported for value calculation
+				npc.enqueue_schedule_action(self, actions[node.name][i])
 			end
-			-- Enqueue actions
-			npc.add_action(self, action or actions[node.name][i].action, args or actions[node.name][i].args)
 		end
+		-- Increase execution count
+		self.schedules.current_check_params.execution_count =
+			self.schedules.current_check_params.execution_count + 1
 		-- Enqueue next schedule check
 		if self.schedules.current_check_params.execution_count
 				< self.schedules.current_check_params.execution_times then
-			npc.add_schedule_check()
+			npc.add_schedule_check(self)
 		end
-		-- Nodes found
-		return true
+		npc.log("DEBUG_SCHEDULE", "Actions queue: "..dump(self.actions.queue))
 	else
 		-- No nodes found, enqueue none_actions
 		for i = 1, #none_actions do
+			-- Add start_pos to none_actions
+			none_actions[i].args["start_pos"] = start_pos
 			-- Enqueue actions
 			npc.add_action(self, none_actions[i].action, none_actions[i].args)
 		end
+		-- Increase execution count
+		self.schedules.current_check_params.execution_count =
+			self.schedules.current_check_params.execution_count + 1
 		-- Enqueue next schedule check
 		if self.schedules.current_check_params.execution_count
 				< self.schedules.current_check_params.execution_times then
-			npc.add_schedule_check()
+			npc.add_schedule_check(self)
 		end
 		-- No nodes found
-		return false
+		npc.log("DEBUG_SCHEDULE", "Actions queue: "..dump(self.actions.queue))
 	end
 end
 
@@ -1253,7 +1306,7 @@ mobs:register_mob("advanced_npc:npc", {
 		local item = clicker:get_wielded_item()
 		local name = clicker:get_player_name()
 
-		npc.log("INFO", "Right-clicked NPC: "..dump(self))
+		npc.log("DEBUG", "Right-clicked NPC: "..dump(self))
 
 		-- Receive gift or start chat. If player has no item in hand
 		-- then it is going to start chat directly
@@ -1371,7 +1424,7 @@ mobs:register_mob("advanced_npc:npc", {
 				if self.actions.walking.is_walking == true then
 					-- Move NPC to expected position to ensure not getting lost
 					local pos = self.actions.walking.target_pos
-					self.object:moveto({x=pos.x, y=pos.y-0.5, z=pos.z})
+					self.object:moveto({x=pos.x, y=pos.y, z=pos.z})
 				end
 				-- Execute action
 				self.freeze = npc.execute_action(self)
@@ -1395,18 +1448,18 @@ mobs:register_mob("advanced_npc:npc", {
 				time = (time) - (time % 1)
 				-- Check if there is a schedule entry for this time
 				-- Note: Currently only one schedule is supported, for day 0
-				minetest.log("Time: "..dump(time))
+				npc.log("DEBUG_SCHEDULE", "Time: "..dump(time))
 				local schedule = self.schedules.generic[0]
 				if schedule ~= nil then
 					-- Check if schedule for this time exists
 					if schedule[time] ~= nil then
-						npc.log("DEBUG", "Adding actions to action queue")
+						npc.log("DEBUG_SCHEDULE", "Adding actions to action queue")
 						-- Add to action queue all actions on schedule
 						for i = 1, #schedule[time] do
 							-- Check if schedule has a check function
 							if schedule[time][i].check then
 								-- Add parameters for check function and run for first time
-								npc.log("DEBUG", "NPC "..dump(self.npc_name).." is starting check on "..minetest.pos_to_string(self.object:getpos()))
+									npc.log("DEBUG", "NPC "..dump(self.npc_id).." is starting check on "..minetest.pos_to_string(self.object:getpos()))
 								local check_params = schedule[time][i]
 								-- Calculates how many times check will be executed
 								local execution_times = check_params.count
@@ -1416,16 +1469,18 @@ mobs:register_mob("advanced_npc:npc", {
 								-- Set current parameters
 								self.schedules.current_check_params = {
 									range = check_params.range,
+									walkable_nodes = check_params.walkable_nodes,
 									nodes = check_params.nodes,
 									actions = check_params.actions,
 									none_actions = check_params.none_actions,
 									execution_count = 0,
 									execution_times = execution_times
 								}
-								-- Execute check for the first time
-								npc.schedule_check(self)
+								-- Enqueue the schedule check
+								npc.add_schedule_check(self)
 							else
-								npc.log("DEBUG", "Executing schedule entry: "..dump(schedule[time][i]))
+								npc.log("DEBUG_SCHEDULE", "Executing schedule entry for NPC "..dump(self.npc_id)..": "
+										..dump(schedule[time][i]))
 								-- Run usual schedule entry
 								-- Check chance
 								local execution_chance = math.random(1, 100)
@@ -1466,12 +1521,12 @@ mobs:register_mob("advanced_npc:npc", {
 						end
 						-- Clear execution queue
 						self.schedules.temp_executed_queue = {}
-						npc.log("DEBUG", "New action queue: "..dump(self.actions))
+						npc.log("DEBUG", "New action queue: "..dump(self.actions.queue))
 					end
 				end
 			else
 				-- Check if lock can be released
-				if (time % 1) > dtime then
+				if (time % 1) > dtime + 0.1 then
 					-- Release lock
 					self.schedules.lock = false
 				end

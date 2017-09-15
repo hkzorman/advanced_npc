@@ -56,7 +56,8 @@ npc.places.nodes = {
 	},
 	WORKPLACE_TYPE = {
 		-- TODO: Do we have an advanced_npc workplace?
-		"mg_villages:mob_workplace_marker"
+		"mg_villages:mob_workplace_marker",
+		"advanced_npc:workplace_marker"
 	}
 }
 
@@ -102,13 +103,13 @@ function npc.places.add_owned(self, place_name, place_type, pos, access_node)
 	self.places_map[place_name] = {type=place_type, pos=pos, access_node=access_node or pos, status="owned"}
 end
 
-function npc.places.add_owned_accessible_place(self, nodes, place_type)
+function npc.places.add_owned_accessible_place(self, nodes, place_type, walkables)
 	for i = 1, #nodes do
 		-- Check if node has owner
 		if nodes[i].owner == "" then
 			-- If node has no owner, check if it is accessible
-			local empty_nodes = npc.places.find_node_orthogonally(
-				nodes[i].node_pos, {"air"}, 0)
+			local empty_nodes = npc.places.find_orthogonal_accessible_node(
+			nodes[i].node_pos, nil, 0, true, walkables)
 			-- Check if node is accessible
 			if #empty_nodes > 0 then
 				-- Set owner to this NPC
@@ -127,27 +128,30 @@ end
 -- Override flag allows to overwrite a place in the places_map.
 -- The only valid use right now is for schedules - don't use this
 -- anywhere else unless you have a position that changes over time.
-function npc.places.add_shared_accessible_place(self, nodes, place_type, override)
-	if not override then
+function npc.places.add_shared_accessible_place(self, nodes, place_type, override, walkables)
+
+	if not override or (override and override == false) then
 		for i = 1, #nodes do
 			-- Check if not adding same owned place
 			if nodes[i].owner ~= self.npc_id then
 				-- Check if it is accessible
-				local empty_nodes = npc.places.find_node_orthogonally(
-					nodes[i].node_pos, {"air"}, 0)
+				local empty_nodes = npc.places.find_orthogonal_accessible_node(
+					nodes[i].node_pos, nil, 0, true, walkables)
 				-- Check if node is accessible
 				if #empty_nodes > 0 then
 					-- Assign node to NPC
 					npc.places.add_shared(self, place_type..dump(i),
 						place_type, nodes[i].node_pos, empty_nodes[1].pos)
+				else
+					npc.log("WARNING", "Found non-accessible place at pos: "..minetest.pos_to_string(nodes[i].node_pos))
 				end
 			end
 		end
-	elseif override then
+	elseif override == true then
 		-- Note: Nodes is only *one* node in case override = true
 		-- Check if it is accessible
-		local empty_nodes = npc.places.find_node_orthogonally(
-			nodes.node_pos, {"air"}, 0)
+		local empty_nodes = npc.places.find_orthogonal_accessible_node(
+			nodes.node_pos, nil, 0, true, walkables)
 		-- Check if node is accessible
 		if #empty_nodes > 0 then
 			-- Nodes is only one node
@@ -157,10 +161,31 @@ function npc.places.add_shared_accessible_place(self, nodes, place_type, overrid
 	end
 end
 
-function npc.places.get_by_type(self, place_type)
+function npc.places.get_by_type(self, place_type, exact_match)
 	local result = {}
 	for _, place_entry in pairs(self.places_map) do
-		if place_entry.type == place_type then
+		-- Check if place_type matches any stored place
+		--		local condition = false
+		--		if exact_match then
+		--			-- If no exact match, search if place_type is contained
+		--			if exact_match == false then
+		--				local s, _ = string.find(place_entry.type, place_type)
+		--				if s ~= nil then
+		--					condition = true
+		--				end
+		--			else
+		--				-- Exact match
+		--				if place_entry.type == place_type then
+		--					condition = true
+		--				end
+		--			end
+		--		end
+		--		if condition == true
+		local s, _ = string.find(place_entry.type, place_type)
+		--minetest.log("place_entry: "..dump(place_entry))
+		--minetest.log("place_type: "..dump(place_type))
+		--minetest.log("S: "..dump(s))
+		if s ~= nil then
 			table.insert(result, place_entry)
 		end
 	end
@@ -187,6 +212,12 @@ end
 
 -- TODO: This function can be improved to support a radius greater than 1.
 function npc.places.find_node_orthogonally(pos, nodes, y_adjustment)
+	-- Call the more generic function with appropriate params
+	npc.places.find_orthogonal_accessible_node(pos, nodes, y_adjustment, nil, nil)
+end
+
+-- TODO: This function can be improved to support a radius greater than 1.
+function npc.places.find_orthogonal_accessible_node(pos, nodes, y_adjustment, include_walkables, extra_walkables)
 	-- Calculate orthogonal points
 	local points = {}
 	table.insert(points, {x=pos.x+1,y=pos.y+y_adjustment,z=pos.z})
@@ -197,14 +228,27 @@ function npc.places.find_node_orthogonally(pos, nodes, y_adjustment)
 	for _,point in pairs(points) do
 		local node = minetest.get_node(point)
 		--minetest.log("Found node: "..dump(node)..", at pos: "..dump(point))
-		for _,node_name in pairs(nodes) do
-			if node.name == node_name then
+		-- Search for specific node names
+		if nodes then
+			for _,node_name in pairs(nodes) do
+				if node.name == node_name then
+					table.insert(result, {name=node.name, pos=point, param2=node.param2})
+				end
+			end
+		else
+			-- Search for air, walkable nodes, or any node availble in the extra_walkables array
+			if node.name == "air"
+				or (include_walkables == true
+					and minetest.registered_nodes[node.name].walkable
+					and minetest.registered_nodes[node.name].groups.fence ~= 1)
+				or (extra_walkables and npc.utils.array_contains(extra_walkables, node.name)) then
 				table.insert(result, {name=node.name, pos=point, param2=node.param2})
 			end
 		end
 	end
 	return result
 end
+
 
 -- Wrapper around minetest.find_nodes_in_area()
 -- TODO: Verify if this wrapper is actually needed
@@ -268,57 +312,57 @@ if minetest.get_modpath("mg_villages") ~= nil then
 			result.building_type = result.building_data.typ
 		end
 		return result
-    end
+	end
 
-    -- Pre-requisite: only run this function on mg_villages:plotmarker that has been adapted
-    -- by using spawner.adapt_mg_villages_plotmarker
-    function npc.places.get_all_workplaces_from_plotmarker(pos)
-        local result = {}
-        local meta = minetest.get_meta(pos)
-        local pos_data = minetest.deserialize(meta:get_string("building_pos_data"))
-        if pos_data then
-        	local workplaces = pos_data.workplaces
-	        if workplaces then
-	            -- Insert all workplaces in this plotmarker
-	            for i = 1, #workplaces do
-	                table.insert(result,
-	                    {
-	                        workplace=workplaces[i],
-	                        building_type=meta:get_string("building_type"),
+	-- Pre-requisite: only run this function on mg_villages:plotmarker that has been adapted
+	-- by using spawner.adapt_mg_villages_plotmarker
+	function npc.places.get_all_workplaces_from_plotmarker(pos)
+		local result = {}
+		local meta = minetest.get_meta(pos)
+		local pos_data = minetest.deserialize(meta:get_string("building_pos_data"))
+		if pos_data then
+			local workplaces = pos_data.workplaces
+			if workplaces then
+				-- Insert all workplaces in this plotmarker
+				for i = 1, #workplaces do
+					table.insert(result,
+						{
+							workplace=workplaces[i],
+							building_type=meta:get_string("building_type"),
 							surrounding_workplace = false,
-	                        node_pos= {
-	                            x=workplaces[i].x,
-	                            y=workplaces[i].y,
-	                            z=workplaces[i].z
-	                        }
-	                    })
-	            end
-	        end
-	    end
-        -- Check the other plotmarkers as well
-        local nearby_plotmarkers = minetest.deserialize(meta:get_string("nearby_plotmarkers"))
-        if nearby_plotmarkers then
-	        for i = 1, #nearby_plotmarkers do
-	            if nearby_plotmarkers[i].workplaces then
-	                -- Insert all workplaces in this plotmarker
-	                for j = 1, #nearby_plotmarkers[i].workplaces do
-	                    --minetest.log("Nearby plotmarker workplace #"..dump(j)..": "..dump(nearby_plotmarkers[i].workplaces[j]))
-	                    table.insert(result, {
-	                        workplace=nearby_plotmarkers[i].workplaces[j],
+							node_pos= {
+								x=workplaces[i].x,
+								y=workplaces[i].y,
+								z=workplaces[i].z
+							}
+						})
+				end
+			end
+		end
+		-- Check the other plotmarkers as well
+		local nearby_plotmarkers = minetest.deserialize(meta:get_string("nearby_plotmarkers"))
+		if nearby_plotmarkers then
+			for i = 1, #nearby_plotmarkers do
+				if nearby_plotmarkers[i].workplaces then
+					-- Insert all workplaces in this plotmarker
+					for j = 1, #nearby_plotmarkers[i].workplaces do
+						--minetest.log("Nearby plotmarker workplace #"..dump(j)..": "..dump(nearby_plotmarkers[i].workplaces[j]))
+						table.insert(result, {
+							workplace=nearby_plotmarkers[i].workplaces[j],
 							building_type = nearby_plotmarkers[i].building_type,
 							surrounding_workplace = true,
 							node_pos = {
-	                            x=nearby_plotmarkers[i].workplaces[j].x,
-	                            y=nearby_plotmarkers[i].workplaces[j].y,
-	                            z=nearby_plotmarkers[i].workplaces[j].z
-	                        }
+								x=nearby_plotmarkers[i].workplaces[j].x,
+								y=nearby_plotmarkers[i].workplaces[j].y,
+								z=nearby_plotmarkers[i].workplaces[j].z
+							}
 						})
-	                end
-	            end
-	        end
-	    end
-        return result
-    end
+					end
+				end
+			end
+		end
+		return result
+	end
 end
 
 -- This function will search for nodes of type plotmarker and,
@@ -353,11 +397,11 @@ function npc.places.find_plotmarkers(pos, radius, exclude_current_pos)
 				def["building_type"] = data.building_type
 				if data.building_pos_data then
 					def["building_pos_data"] = data.building_pos_data
-                    def["workplaces"] = data.building_pos_data.workplaces
+					def["workplaces"] = data.building_pos_data.workplaces
 				end
-            end
-            -- Add building
-            --minetest.log("Adding building: "..dump(def))
+			end
+			-- Add building
+			--minetest.log("Adding building: "..dump(def))
 			table.insert(result, def)
 		end
 	end
@@ -374,7 +418,7 @@ function npc.places.scan_area_for_usable_nodes(pos1, pos2)
 		furnace_type = {},
 		storage_type = {},
 		openable_type = {},
-        workplace_type = {}
+		workplace_type = {}
 	}
 	local start_pos, end_pos = vector.sort(pos1, pos2)
 
@@ -384,17 +428,24 @@ function npc.places.scan_area_for_usable_nodes(pos1, pos2)
 	result.storage_type = npc.places.get_nodes_by_type(start_pos, end_pos, npc.places.nodes.STORAGE_TYPE)
 	result.openable_type = npc.places.get_nodes_by_type(start_pos, end_pos, npc.places.nodes.OPENABLE_TYPE)
 
-    -- Find workplace nodes: if mg_villages:plotmarker is given a start pos, take it from there.
-    -- If not, search for them.
-    local node = minetest.get_node(pos1)
-    if node.name == "mg_villages:plotmarker" then
-        if npc.places.get_all_workplaces_from_plotmarker then
-            result.workplace_type = npc.places.get_all_workplaces_from_plotmarker(pos1)
-        end
-    else
-        -- Just search for workplace nodes
-        result.workplace_type = npc.places.get_nodes_by_type(start_pos, end_pos, npc.places.nodes.WORKPLACE_TYPE)
-    end
+	-- Find workplace nodes: if mg_villages:plotmarker is given a start pos, take it from there.
+	-- If not, search for them.
+	local node = minetest.get_node(pos1)
+	if node.name == "mg_villages:plotmarker" then
+		if npc.places.get_all_workplaces_from_plotmarker then
+			result.workplace_type = npc.places.get_all_workplaces_from_plotmarker(pos1)
+		end
+	else
+		-- Just search for workplace nodes
+		result.workplace_type = npc.places.get_nodes_by_type(start_pos, end_pos, npc.places.nodes.WORKPLACE_TYPE)
+		-- Find out building type and add it to the result
+		for i = 1, #result.workplace_type do
+			local meta = minetest.get_meta(result.workplace_type[i].node_pos)
+			local building_type = meta:get_string("building_type") or "none"
+			minetest.log("Building type: "..dump(building_type))
+			result.workplace_type[i]["building_type"] = building_type
+		end
+	end
 
 	return result
 end

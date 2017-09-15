@@ -293,32 +293,42 @@ end
 -- This function scans all registered occupations and filter them by
 -- building type and surrounding building type, returning an array
 -- of occupation names (strings)
+-- BEWARE! Below this lines lies ugly, incomprehensible code!
 function npc.occupations.get_for_building(building_type, surrounding_building_types)
 	local result = {}
 	for name,def in pairs(npc.occupations.registered_occupations) do
 		-- Check for empty or nil building types, in that case, any building
-		if def.building_types == nil or def.building_types == {} then
+		if def.building_types == nil or def.building_types == {}
+				and def.surrounding_building_types == nil or def.surrounding_building_types == {} then
+			--minetest.log("Empty")
 			-- Empty building types, add to result
 			table.insert(result, name)
-		else
+		elseif def.building_types ~= nil and #def.building_types > 0 then
 			-- Check if building type is contained in the def's building types
 			if npc.utils.array_contains(def.building_types, building_type) then
-				-- Check for empty or nil surrounding building types
-				if def.surrounding_building_types == nil
-						or def.surrounding_building_types == {} then
-					-- Add this occupation
-					table.insert(result, name)
-				else
-					-- Check if surround type is included in the def
-					if npc.utils.array_is_subset_of_array(
-						def.surrounding_building_types,
-						surrounding_building_types)
-							or npc.utils.array_is_subset_of_array(
-						surrounding_building_types,
-						def.surrounding_building_types)
-					then
-						-- Add this occupation
-						table.insert(result, name)
+				table.insert(result, name)
+			end
+		end
+		-- Check for empty or nil surrounding building types
+		if def.surrounding_building_types ~= nil
+				and #def.surrounding_building_types > 0 then
+--			-- Add this occupation
+--			--table.insert(result, name)
+--		else
+			-- Surrounding buildings is not empty, loop though them and compare
+			-- to the given ones
+			for i = 1, #surrounding_building_types do
+				for j = 1, #def.surrounding_building_types do
+					-- Check if the definition's surrounding building type is the same
+					-- as the given one
+					if def.surrounding_building_types[j].type
+							== surrounding_building_types[i].type then
+						-- Check if the origin buildings contain the expected type
+						if npc.utils.array_contains(def.surrounding_building_types[j].origin_building_types,
+							surrounding_building_types[i].origin_building_type) then
+							-- Add this occupation
+							table.insert(result, name)
+						end
 					end
 				end
 			end
@@ -342,7 +352,6 @@ function npc.occupations.initialize_occupation_values(self, occupation_name)
 	npc.log("INFO", "Overriding NPC values using occupation '"..dump(occupation_name).."' values")
 
 	-- Initialize textures, else it will leave the current textures
-	minetest.log("Texture entries: "..dump(table.getn(def.textures)))
 	if def.textures and table.getn(def.textures) > 0 then
 		self.selected_texture =
 		npc.get_random_texture_from_array(self.sex, self.age, def.textures)
