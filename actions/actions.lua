@@ -111,6 +111,7 @@ npc.actions.take_from_inventory = "take_from_inventory"
 npc.actions.take_from_inventory_forced = "take_from_inventory_forced"
 npc.actions.force_place = "force_place"
 
+--------------
 -- Executor --
 --------------
 -- Function references aren't reliable in Minetest entities. Objects get serialized
@@ -211,6 +212,7 @@ function npc.actions.dig(self, args)
 	local pos = args.pos
 	local add_to_inventory = args.add_to_inventory
 	local bypass_protection = args.bypass_protection
+	local play_sound = args.play_sound or true
 	local node = minetest.get_node_or_nil(pos)
 	if node then
 		-- Set mine animation
@@ -218,6 +220,17 @@ function npc.actions.dig(self, args)
 			x = npc.ANIMATION_MINE_START,
 			y = npc.ANIMATION_MINE_END},
 			self.animation.speed_normal, 0)
+
+		-- Play dig sound
+		if play_sound == true then
+			minetest.sound_play(
+				minetest.registered_nodes[node.name].sounds.dug,
+				{
+					max_hear_distance = 10,
+					object = self.object
+				}
+			)
+		end
 
 		-- Check if protection not enforced
 		if not bypass_protection then
@@ -276,6 +289,7 @@ function npc.actions.place(self, args)
 	local node = args.node
 	local source = args.source
 	local bypass_protection = args.bypass_protection
+	local play_sound = args.play_sound or true
 	local node_at_pos = minetest.get_node_or_nil(pos)
 	-- Check if position is empty or has a node that can be built to
 	if node_at_pos and
@@ -304,6 +318,16 @@ function npc.actions.place(self, args)
 					self.animation.speed_normal, 0)
 				-- Place node
 				minetest.set_node(pos, {name=node})
+				-- Play place sound
+				if play_sound == true then
+					minetest.sound_play(
+						minetest.registered_nodes[node].sounds.place,
+						{
+							max_hear_distance = 10,
+							object = self.object
+						}
+					)
+				end
 			end
 		end
 	end
