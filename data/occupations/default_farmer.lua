@@ -92,6 +92,36 @@ local farmer_def = {
                     }
 
                 },
+                [3] =
+                {
+                    check = true,
+                    range = 3,
+                    random_execution_times = true,
+                    min_count = 16,
+                    max_count = 96,
+                    nodes = {"farming:wheat_8"},
+                    actions =
+                    {
+                        ["farming:wheat_8"] =
+                        {
+                            [1] =
+                            {
+                                action = npc.actions.cmd.WALK_STEP,
+                            },
+                            [2] =
+                            {
+                                action = npc.actions.cmd.DIG,
+                            },
+                            [3] =
+                            {
+                                action = npc.actions.cmd.PLACE,
+                                args =
+                                {
+                                    node = "farming:wheat_1"
+                                }
+                            }
+                       }
+                  },
                 none_actions =
                 {
                     -- Walk a single step in a random direction
@@ -113,4 +143,4 @@ local farmer_def = {
 }
 
 -- Register occupation
-npc.occupations.register_occupation("test_farmer", farmer_def)
+npc.occupations.register_occupation("farmer", farmer_def)
