@@ -13,6 +13,7 @@
 local priest_def = {
     dialogues = {
         type = "given",
+        max_count = 5,
         data = {
             {
                 text = "Blessings be upon you, my child!",
@@ -20,6 +21,7 @@ local priest_def = {
             },
             {
                 text = "The temple will always open the doors to everyone.",
+                flag = {name="on_church", value=true},
                 tags = {"unisex"}
             },
             {
@@ -28,6 +30,7 @@ local priest_def = {
             },
             {
                 text = "Thanks for coming to greet me, I hope you have a blessed day! ",
+                flag = {name="on_church", value=false},
                 tags = {"unisex"}
             },
             {
@@ -57,7 +60,7 @@ local priest_def = {
                             else
                                 npc.chat(self.npc_name, player:get_player_name(),
                                     "Receive the blessings of the Creator!")
-                                effect(self.object:getpos(), 20, "default_coral_skeleton.png", 0.1, 0.3, 3, 10)
+                                npc.effect(self.object:getpos(), 20, "default_coral_skeleton.png", 0.1, 0.3, 3, 10)
                                 -- Heal one heart
                                 player:set_hp(player:get_hp() + 2)
                             end
@@ -117,7 +120,8 @@ local priest_def = {
     },
     properties = {
         initial_trader_status = npc.trade.NONE,
-        enable_gift_items_hints = false
+        enable_gift_items_hints = false,
+        can_receive_gifts = false
     },
     building_types = {},
     surrounding_building_types = {
@@ -208,4 +212,4 @@ local priest_def = {
 }
 
 -- Register occupation
-npc.occupations.register_occupation("priest", priest_def)
+npc.occupations.register_occupation("default_priest", priest_def)
