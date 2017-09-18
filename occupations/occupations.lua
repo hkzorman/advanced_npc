@@ -426,7 +426,7 @@ function npc.occupations.initialize_occupation_values(self, occupation_name)
 		-- Add dialogues to NPC
 		-- Check if there is a max of dialogues to be added
 		local max_dialogue_count = npc.dialogue.MAX_DIALOGUES
-		if def.dialogues.max_count and def.max_dialogue_count > 0 then
+		if def.dialogues.max_count and def.dialogues.max_count > 0 then
 			max_dialogue_count = def.dialogues.max_count
 		end
 		-- Add dialogues to the normal dialogues for NPC

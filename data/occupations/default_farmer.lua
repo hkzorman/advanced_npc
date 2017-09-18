@@ -46,14 +46,274 @@ local farmer_def = {
                 check = true,
                 range = 2,
                 random_execution_times = true,
-                min_count = 10,
-                max_count = 12,
-                nodes = {"farming:cotton_3"},
+                min_count = 20,
+                max_count = 25,
+                nodes = farming_plants.cotton,
+                prefer_last_acted_upon_node = true,
                 walkable_nodes = farming_plants.cotton,
                 actions =
                 {
                     -- Actions for cotton - harvest and replant
+                    ["farming:cotton_1"] =
+                    {
+                        [1] =
+                        {
+                            task = npc.actions.cmd.WALK_TO_POS,
+                            args = {
+                                end_pos = npc.places.PLACE_TYPE.SCHEDULE.TARGET,
+                                walkable = farming_plants.cotton
+                            }
+                        },
+                        [2] =
+                        {
+                            action = npc.actions.cmd.DIG,
+                            args = {
+                                bypass_protection = true
+                            }
+                        },
+                        [3] =
+                        {
+                            action = npc.actions.cmd.STAND,
+                            args = {}
+                        },
+                        [4] =
+                        {
+                            action = npc.actions.cmd.PLACE,
+                            args =
+                            {
+                                node = "farming:cotton_2",
+                                bypass_protection = true
+                            }
+                        },
+                        [5] =
+                        {
+                            action = npc.actions.cmd.STAND,
+                            args = {}
+                        }
+                    },
+                    ["farming:cotton_2"] =
+                    {
+                        [1] =
+                        {
+                            task = npc.actions.cmd.WALK_TO_POS,
+                            args = {
+                                end_pos = npc.places.PLACE_TYPE.SCHEDULE.TARGET,
+                                walkable = farming_plants.cotton
+                            }
+                        },
+                        [2] =
+                        {
+                            action = npc.actions.cmd.DIG,
+                            args = {
+                                bypass_protection = true
+                            }
+                        },
+                        [3] =
+                        {
+                            action = npc.actions.cmd.STAND,
+                            args = {}
+                        },
+                        [4] =
+                        {
+                            action = npc.actions.cmd.PLACE,
+                            args =
+                            {
+                                node = "farming:cotton_3",
+                                bypass_protection = true
+                            }
+                        },
+                        [5] =
+                        {
+                            action = npc.actions.cmd.STAND,
+                            args = {}
+                        }
+                    },
                     ["farming:cotton_3"] =
+                    {
+                        [1] =
+                        {
+                            task = npc.actions.cmd.WALK_TO_POS,
+                            args = {
+                                end_pos = npc.places.PLACE_TYPE.SCHEDULE.TARGET,
+                                walkable = farming_plants.cotton
+                            }
+                        },
+                        [2] =
+                        {
+                            action = npc.actions.cmd.DIG,
+                            args = {
+                                bypass_protection = true
+                            }
+                        },
+                        [3] =
+                        {
+                            action = npc.actions.cmd.STAND,
+                            args = {}
+                        },
+                        [4] =
+                        {
+                            action = npc.actions.cmd.PLACE,
+                            args =
+                            {
+                                node = "farming:cotton_4",
+                                bypass_protection = true
+                            }
+                        },
+                        [5] =
+                        {
+                            action = npc.actions.cmd.STAND,
+                            args = {}
+                        }
+                    },
+                    ["farming:cotton_4"] =
+                    {
+                        [1] =
+                        {
+                            task = npc.actions.cmd.WALK_TO_POS,
+                            args = {
+                                end_pos = npc.places.PLACE_TYPE.SCHEDULE.TARGET,
+                                walkable = farming_plants.cotton
+                            }
+                        },
+                        [2] =
+                        {
+                            action = npc.actions.cmd.DIG,
+                            args = {
+                                bypass_protection = true
+                            }
+                        },
+                        [3] =
+                        {
+                            action = npc.actions.cmd.STAND,
+                            args = {}
+                        },
+                        [4] =
+                        {
+                            action = npc.actions.cmd.PLACE,
+                            args =
+                            {
+                                node = "farming:cotton_5",
+                                bypass_protection = true
+                            }
+                        },
+                        [5] =
+                        {
+                            action = npc.actions.cmd.STAND,
+                            args = {}
+                        }
+                    },
+                    ["farming:cotton_5"] =
+                    {
+                        [1] =
+                        {
+                            task = npc.actions.cmd.WALK_TO_POS,
+                            args = {
+                                end_pos = npc.places.PLACE_TYPE.SCHEDULE.TARGET,
+                                walkable = farming_plants.cotton
+                            }
+                        },
+                        [2] =
+                        {
+                            action = npc.actions.cmd.DIG,
+                            args = {
+                                bypass_protection = true
+                            }
+                        },
+                        [3] =
+                        {
+                            action = npc.actions.cmd.STAND,
+                            args = {}
+                        },
+                        [4] =
+                        {
+                            action = npc.actions.cmd.PLACE,
+                            args =
+                            {
+                                node = "farming:cotton_6",
+                                bypass_protection = true
+                            }
+                        },
+                        [5] =
+                        {
+                            action = npc.actions.cmd.STAND,
+                            args = {}
+                        }
+                    },
+                    ["farming:cotton_6"] =
+                    {
+                        [1] =
+                        {
+                            task = npc.actions.cmd.WALK_TO_POS,
+                            args = {
+                                end_pos = npc.places.PLACE_TYPE.SCHEDULE.TARGET,
+                                walkable = farming_plants.cotton
+                            }
+                        },
+                        [2] =
+                        {
+                            action = npc.actions.cmd.DIG,
+                            args = {
+                                bypass_protection = true
+                            }
+                        },
+                        [3] =
+                        {
+                            action = npc.actions.cmd.STAND,
+                            args = {}
+                        },
+                        [4] =
+                        {
+                            action = npc.actions.cmd.PLACE,
+                            args =
+                            {
+                                node = "farming:cotton_7",
+                                bypass_protection = true
+                            }
+                        },
+                        [5] =
+                        {
+                            action = npc.actions.cmd.STAND,
+                            args = {}
+                        }
+                    },
+                    ["farming:cotton_7"] =
+                    {
+                        [1] =
+                        {
+                            task = npc.actions.cmd.WALK_TO_POS,
+                            args = {
+                                end_pos = npc.places.PLACE_TYPE.SCHEDULE.TARGET,
+                                walkable = farming_plants.cotton
+                            }
+                        },
+                        [2] =
+                        {
+                            action = npc.actions.cmd.DIG,
+                            args = {
+                                bypass_protection = true
+                            }
+                        },
+                        [3] =
+                        {
+                            action = npc.actions.cmd.STAND,
+                            args = {}
+                        },
+                        [4] =
+                        {
+                            action = npc.actions.cmd.PLACE,
+                            args =
+                            {
+                                node = "farming:cotton_8",
+                                bypass_protection = true
+                            }
+                        },
+                        [5] =
+                        {
+                            action = npc.actions.cmd.STAND,
+                            args = {}
+                        }
+                    },
+                    ["farming:cotton_8"] =
                     {
                         [1] =
                         {
@@ -90,7 +350,6 @@ local farmer_def = {
                             args = {}
                         }
                     }
-
                 },
                 [3] =
                 {

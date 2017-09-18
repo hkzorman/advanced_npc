@@ -213,7 +213,7 @@ end
 -- TODO: This function can be improved to support a radius greater than 1.
 function npc.places.find_node_orthogonally(pos, nodes, y_adjustment)
 	-- Call the more generic function with appropriate params
-	npc.places.find_orthogonal_accessible_node(pos, nodes, y_adjustment, nil, nil)
+	return npc.places.find_orthogonal_accessible_node(pos, nodes, y_adjustment, nil, nil)
 end
 
 -- TODO: This function can be improved to support a radius greater than 1.
@@ -227,7 +227,6 @@ function npc.places.find_orthogonal_accessible_node(pos, nodes, y_adjustment, in
 	local result = {}
 	for _,point in pairs(points) do
 		local node = minetest.get_node(point)
-		--minetest.log("Found node: "..dump(node)..", at pos: "..dump(point))
 		-- Search for specific node names
 		if nodes then
 			for _,node_name in pairs(nodes) do
@@ -442,7 +441,8 @@ function npc.places.scan_area_for_usable_nodes(pos1, pos2)
 		for i = 1, #result.workplace_type do
 			local meta = minetest.get_meta(result.workplace_type[i].node_pos)
 			local building_type = meta:get_string("building_type") or "none"
-			minetest.log("Building type: "..dump(building_type))
+			local surrounding_workplace = meta:get_string("surrounding_workplace") or "false"
+			result.workplace_type[i]["surrounding_workplace"] = minetest.is_yes(surrounding_workplace)
 			result.workplace_type[i]["building_type"] = building_type
 		end
 	end

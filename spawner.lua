@@ -727,11 +727,15 @@ minetest.register_node("advanced_npc:workplace_marker", {
         -- Read current value
         local meta = minetest.get_meta(pos)
         local building_type = meta:get_string("building_type") or ""
+        local surrounding_workplace = meta:get_string("surrounding_workplace")
         -- Consider changing the field for a dropdown
-        local formspec = "size[7,3]"..
+        local formspec = "size[7,4]"..
                 "label[0.1,0.25;Building type]"..
                 "field[0.5,1;6.5,2;text;(farm_tiny, farm_full, house, church, etc.);"..building_type.."]"..
-                "button_exit[2.25,2.25;2.5,0.75;exit;Proceed]"
+                "checkbox[0.5,2.25;is_surrounding;Is surrounding building;"
+                ..surrounding_workplace.."]"..
+                "button_exit[0.95,3.25;2.5,0.75;exit_btn;Proceed]"..
+                "button_exit[3.5,3.25;2.5,0.75;reset_btn;Reset]"
 
         spawner.workplace_pos[clicker:get_player_name()] = pos
 
@@ -779,8 +783,23 @@ minetest.register_on_player_receive_fields(function(player, formname, fields)
         -- Handle workplace marker formspec
         if formname == "advanced_npc:workplace_marker_formspec" then
             if fields then
-                local pos = workplace_pos[player:get_player_name()]
-                if pos and fields.text then
+                local pos = spawner.workplace_pos[player:get_player_name()]
+                local meta = minetest.get_meta(pos)
+                -- Checkbox setting
+                if fields.is_surrounding then
+                    minetest.log("Saving.. "..fields.is_surrounding)
+                    meta:set_string("surrounding_workplace", ""..fields.is_surrounding.."")
+                end
+                -- Handle reset button
+                if fields.reset_btn then
+                    meta:set_string("building_type", "")
+                    meta:set_string("surrounding_workplace", false)
+                    meta:set_string("infotext", "Unconfigured workplace marker")
+                    meta:set_string("work_data", nil)
+                    return
+                end
+                -- Handle set button
+                if pos and fields.text and fields.exit_btn then
                     local meta = minetest.get_meta(pos)
                     meta:set_string("building_type", fields.text)
                     meta:set_string("infotext", fields.text.." (workplace)")

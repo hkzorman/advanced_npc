@@ -73,6 +73,34 @@ function npc.chat(npc_name, player_name, message)
 	minetest.chat_send_player(player_name, npc_name..": "..message)
 end
 
+-- Simple wrapper over minetest.add_particle()
+-- Copied from mobs_redo/api.lua
+function npc.effect(pos, amount, texture, min_size, max_size, radius, gravity, glow)
+
+	radius = radius or 2
+	min_size = min_size or 0.5
+	max_size = max_size or 1
+	gravity = gravity or -10
+	glow = glow or 0
+
+	minetest.add_particlespawner({
+		amount = amount,
+		time = 0.25,
+		minpos = pos,
+		maxpos = pos,
+		minvel = {x = -radius, y = -radius, z = -radius},
+		maxvel = {x = radius, y = radius, z = radius},
+		minacc = {x = 0, y = gravity, z = 0},
+		maxacc = {x = 0, y = gravity, z = 0},
+		minexptime = 0.1,
+		maxexptime = 1,
+		minsize = min_size,
+		maxsize = max_size,
+		texture = texture,
+		glow = glow,
+	})
+end
+
 -- Gets name of player or NPC
 function npc.get_entity_name(entity)
 	if entity:is_player() then
@@ -1064,9 +1092,27 @@ function npc.schedule_check(self)
 	-- Check if any node was found
 	npc.log("DEBUG_SCHEDULE", "Found nodes using radius: "..dump(found_nodes))
 	if found_nodes and #found_nodes > 0 then
-		-- Pick a random node to act upon
-		local node_pos = found_nodes[math.random(1, #found_nodes)]
-		local node = minetest.get_node(node_pos)
+		local node_pos
+		local node
+		-- Check if there is preference to act on nodes already acted upon
+		if self.schedules.current_check_params.prefer_last_acted_upon_node == true then
+			-- Find a node other than the acted upon - try 3 times
+			for i = 1, #found_nodes do
+				node_pos = found_nodes[i]
+				-- Get node info
+				node = minetest.get_node(node_pos)
+				if node.name == self.schedules.current_check_params.last_node_acted_upon then
+					break
+				end
+			end
+		else
+			-- Pick a random node to act upon
+			node_pos = found_nodes[math.random(1, #found_nodes)]
+			-- Get node info
+			node = minetest.get_node(node_pos)
+		end
+		-- Save this node as the last acted upon
+		self.schedules.current_check_params.last_node_acted_upon = node.name
 		-- Set node as a place
 		-- Note: Code below isn't *adding* a node, but overwriting the
 		-- place with "schedule_target_pos" place type
@@ -1473,6 +1519,8 @@ mobs:register_mob("advanced_npc:npc", {
 									nodes = check_params.nodes,
 									actions = check_params.actions,
 									none_actions = check_params.none_actions,
+									prefer_last_acted_upon_node = check_params.prefer_last_acted_upon_node or false,
+									last_node_acted_upon = "",
 									execution_count = 0,
 									execution_times = execution_times
 								}
