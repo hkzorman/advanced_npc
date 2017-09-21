@@ -37,6 +37,7 @@ npc.trade.prices.table["default:shovel_stone"]  = {tier = npc.trade.prices.curre
 npc.trade.prices.table["default:axe_stone"]  =    {tier = npc.trade.prices.currency.tier3.string, count = 6}
 npc.trade.prices.table["default:hoe_stone"]  =    {tier = npc.trade.prices.currency.tier3.string, count = 6}
 npc.trade.prices.table["default:pick_stone"]  =   {tier = npc.trade.prices.currency.tier3.string, count = 7}
+npc.trade.prices.table["bucket:bucket_empty"] =   {tier = npc.trade.prices.currency.tier3.string, count = 10}
 npc.trade.prices.table["farming:cotton"] =        {tier = npc.trade.prices.currency.tier3.string, count = 15}
 npc.trade.prices.table["farming:bread"]  =        {tier = npc.trade.prices.currency.tier3.string, count = 20}
 

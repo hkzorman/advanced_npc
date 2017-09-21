@@ -420,11 +420,7 @@ function npc.initialize(entity, pos, is_lua_entity, npc_stats, occupation_name)
 		-- It is mostly related to its occupation.
 		-- If empty, the NPC will revert to casual trading
 		-- If not, it will try to sell those that it have, and buy the ones it not.
-		trade_list = {
-			sell = {},
-			buy = {},
-			both = {}
-		},
+		trade_list = {},
 		-- Custom trade allows to specify more than one payment
 		-- and a custom prompt (instead of the usual buy or sell prompts)
 		custom_trades = {}
@@ -521,21 +517,21 @@ function npc.initialize(entity, pos, is_lua_entity, npc_stats, occupation_name)
 
 	-- TODO: Remove this - do inside occupation
 	-- Dedicated trade test
-	ent.trader_data.trade_list.both = {
-		["default:tree"] = {},
-		["default:cobble"] = {},
-		["default:wood"] = {},
-		["default:diamond"] = {},
-		["default:mese_crystal"] = {},
-		["flowers:rose"] = {},
-		["advanced_npc:marriage_ring"] = {},
-		["flowers:geranium"] = {},
-		["mobs:meat"] = {},
-		["mobs:leather"] = {},
-		["default:sword_stone"] = {},
-		["default:shovel_stone"] = {},
-		["default:axe_stone"] = {}
-	}
+--	ent.trader_data.trade_list = {
+--		["default:tree"] = {},
+--		["default:cobble"] = {},
+--		["default:wood"] = {},
+--		["default:diamond"] = {},
+--		["default:mese_crystal"] = {},
+--		["flowers:rose"] = {},
+--		["advanced_npc:marriage_ring"] = {},
+--		["flowers:geranium"] = {},
+--		["mobs:meat"] = {},
+--		["mobs:leather"] = {},
+--		["default:sword_stone"] = {},
+--		["default:shovel_stone"] = {},
+--		["default:axe_stone"] = {}
+--	}
 
 	-- Generate trade offers
 	npc.trade.generate_trade_offers_by_status(ent)
@@ -564,10 +560,11 @@ function npc.generate_trade_list_from_inventory(self)
 	for i = 1, #self.inventory do
 		list[npc.get_item_name(self.inventory[i])] = {}
 	end
-	self.trader_data.trade_list.both = list
+	self.trader_data.trade_list = list
 end
 
 function npc.set_trading_status(self, status)
+	minetest.log("Trader_data: "..dump(self.trader_data))
 	-- Set status
 	self.trader_data.trader_status = status
 	-- Re-generate trade offers
@@ -879,7 +876,8 @@ npc.schedule_properties = {
 	trader_status = "trader_status",
 	can_receive_gifts = "can_receive_gifts",
 	flag = "flag",
-	enable_gift_items_hints = "enable_gift_items_hints"
+	enable_gift_items_hints = "enable_gift_items_hints",
+	set_trade_list = "set_trade_list"
 }
 
 local function get_time_in_hours()
@@ -1048,7 +1046,18 @@ function npc.schedule_change_property(self, property, args)
 		end
 	elseif property == npc.schedule_properties.enable_gift_item_hints then
 		self.gift_data.enable_gift_items_hints = args.value
-	end
+	elseif property == npc.schedule_properties.set_trade_list then
+		-- Insert items
+		for i = 1, #args.items do
+			-- Insert entry into trade list
+			self.trader_data.trade_list[args.items[i].name] = {
+				max_item_buy_count = args.items[i].buy,
+				max_item_sell_count = args.items[i].sell,
+				amount_to_keep = args.items[i].keep
+			}
+
+		end
+ 	end
 end
 
 function npc.add_schedule_check(self)
