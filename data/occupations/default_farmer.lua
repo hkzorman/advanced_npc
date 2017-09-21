@@ -36,7 +36,9 @@ local farmer_def = {
         {type="field", origin_building_types={"hut", "house", "lumberjack"}}
     },
     walkable_nodes = farming_plants,
-    initial_inventory = {},
+    initial_inventory = {
+        {name="farming:seed_cotton", count=6}
+    },
     schedules_entries = {
         [6] = {
             -- Get out of bed
@@ -481,21 +483,32 @@ local farmer_def = {
                 },
                 chance = 50
             },
-            -- Change trader status to "trader"
+            -- Set trade list - what NPC will buy and what NPC will sell
             [2] = {
+                property = npc.schedule_properties.set_trade_list, args = {
+                    items = {
+                        [1] = {name="farming:seed_cotton", sell=5, keep=5},
+                        [2] = {name="farming:cotton", sell=10},
+                        [3] = {name="bucket:bucket_empty", buy=2},
+                        [4] = {name="farming:hoe_stone", buy=2}
+                    }
+                }
+            },
+            -- Change trader status to "trader"
+            [3] = {
                 property = npc.schedule_properties.trader_status, args = {
                     status = npc.trade.TRADER
                 },
                 chance = 90
             },
-            [3] = {
+            [4] = {
                 property = npc.schedule_properties.can_receive_gifts, args = {
                     can_receive_gifts = false
                 },
                 depends = {1}
             },
             -- Allow mobs_redo wandering
-            [4] = {action = npc.actions.cmd.FREEZE, args = {freeze = false}}
+            [5] = {action = npc.actions.cmd.FREEZE, args = {freeze = false}}
         },
         -- Schedule entry for 6 in the evening
         [18] = {
