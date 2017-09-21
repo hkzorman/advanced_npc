@@ -879,7 +879,6 @@ function npc.actions.use_bed(self, args)
 		local empty_nodes = npc.places.find_node_orthogonally(bed_pos, {"air", "cottages:bench"}, y_adjustment)
 		if empty_nodes ~= nil and #empty_nodes > 0 then
 			-- Get direction to the empty node
-			minetest.log("bed_pos: "..dump(bed_pos)..", empty_nodes: "..dump(empty_nodes))
 			dir = npc.actions.get_direction(bed_pos, empty_nodes[1].pos)
 
 			-- Calculate position to get out of bed
