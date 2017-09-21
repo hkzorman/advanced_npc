@@ -17,6 +17,13 @@ local basic_def = {
     schedules_entries = {
         -- Schedule entry for 7 in the morning
         [7] = {
+            -- Change trader status to "none"
+            [1] = {
+                property = npc.schedule_properties.trader_status,
+                args = {
+                    status = npc.trade.NONE
+                }
+            },
             -- Get out of bed
             [1] = {task = npc.actions.cmd.USE_BED, args = {
                 pos = npc.places.PLACE_TYPE.BED.PRIMARY,
@@ -92,9 +99,9 @@ local basic_def = {
             },
                 chance = 75
             },
-            -- Change trader status to "trader"
+            -- Change trader status to "casual trader"
             [2] = {property = npc.schedule_properties.trader_status, args = {
-                status = npc.trade.TRADER
+                status = npc.trade.CASUAL
             },
                 chance = 75
             },
