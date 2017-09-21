@@ -874,27 +874,33 @@ function npc.actions.use_bed(self, args)
 		if npc.actions.nodes.beds[node.name].type == "mat" then
 			y_adjustment = 0
 		end
+
+		local pos_out_of_bed = pos
 		local empty_nodes = npc.places.find_node_orthogonally(bed_pos, {"air", "cottages:bench"}, y_adjustment)
-		if empty_nodes ~= nil then
+		if empty_nodes ~= nil and #empty_nodes > 0 then
 			-- Get direction to the empty node
+			minetest.log("bed_pos: "..dump(bed_pos)..", empty_nodes: "..dump(empty_nodes))
 			dir = npc.actions.get_direction(bed_pos, empty_nodes[1].pos)
-		end
-		-- Calculate position to get out of bed
-		local pos_out_of_bed =
-		{x=empty_nodes[1].pos.x, y=empty_nodes[1].pos.y + 1, z=empty_nodes[1].pos.z}
-		-- Account for benches if they are present to avoid standing over them
-		if empty_nodes[1].name == "cottages:bench" then
-			pos_out_of_bed = {x=empty_nodes[1].pos.x, y=empty_nodes[1].pos.y + 1, z=empty_nodes[1].pos.z}
-			if empty_nodes[1].param2 == 0 then
-				pos_out_of_bed.z = pos_out_of_bed.z - 0.3
-			elseif empty_nodes[1].param2 == 1 then
-				pos_out_of_bed.x = pos_out_of_bed.x - 0.3
-			elseif empty_nodes[1].param2 == 2 then
-				pos_out_of_bed.z = pos_out_of_bed.z + 0.3
-			elseif empty_nodes[1].param2 == 3 then
-				pos_out_of_bed.x = pos_out_of_bed.x + 0.3
+
+			-- Calculate position to get out of bed
+			pos_out_of_bed =
+			{x=empty_nodes[1].pos.x, y=empty_nodes[1].pos.y + 1, z=empty_nodes[1].pos.z}
+			-- Account for benches if they are present to avoid standing over them
+			if empty_nodes[1].name == "cottages:bench" then
+				pos_out_of_bed = {x=empty_nodes[1].pos.x, y=empty_nodes[1].pos.y + 1, z=empty_nodes[1].pos.z}
+				if empty_nodes[1].param2 == 0 then
+					pos_out_of_bed.z = pos_out_of_bed.z - 0.3
+				elseif empty_nodes[1].param2 == 1 then
+					pos_out_of_bed.x = pos_out_of_bed.x - 0.3
+				elseif empty_nodes[1].param2 == 2 then
+					pos_out_of_bed.z = pos_out_of_bed.z + 0.3
+				elseif empty_nodes[1].param2 == 3 then
+					pos_out_of_bed.x = pos_out_of_bed.x + 0.3
+				end
 			end
+
 		end
+
 		-- Stand out of bed
 		npc.add_action(self, npc.actions.cmd.STAND, {pos=pos_out_of_bed, dir=dir})
 	end
