@@ -427,7 +427,7 @@ function npc.places.scan_area_for_usable_nodes(pos1, pos2)
 	result.storage_type = npc.places.get_nodes_by_type(start_pos, end_pos, npc.places.nodes.STORAGE_TYPE)
 	result.openable_type = npc.places.get_nodes_by_type(start_pos, end_pos, npc.places.nodes.OPENABLE_TYPE)
 
-	-- Find workplace nodes: if mg_villages:plotmarker is given a start pos, take it from there.
+	-- Find workplace nodes: if mg_villages:plotmarker is given as start pos, take it from there.
 	-- If not, search for them.
 	local node = minetest.get_node(pos1)
 	if node.name == "mg_villages:plotmarker" then
@@ -436,7 +436,11 @@ function npc.places.scan_area_for_usable_nodes(pos1, pos2)
 		end
 	else
 		-- Just search for workplace nodes
-		result.workplace_type = npc.places.get_nodes_by_type(start_pos, end_pos, npc.places.nodes.WORKPLACE_TYPE)
+		-- The search radius is increased by 2
+		result.workplace_type = npc.places.get_nodes_by_type(
+			{x=start_pos.x-20, y=start_pos.y, z=start_pos.z-20},
+			{x=end_pos.x+20, y=end_pos.y, z=end_pos.z+20},
+			npc.places.nodes.WORKPLACE_TYPE)
 		-- Find out building type and add it to the result
 		for i = 1, #result.workplace_type do
 			local meta = minetest.get_meta(result.workplace_type[i].node_pos)

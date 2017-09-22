@@ -693,6 +693,8 @@ minetest.register_craftitem("advanced_npc:spawn_egg", {
                 building_dropdown_string..
                 "label[0.1,1.45;Occupation]"..
                 occupation_dropdown_string..
+                "field[0.5,3;3,2;radius;Search radius;20]"..
+                "field[3.5,3;3,2;height;Search height;2]"..
                 "button_exit[2.25,6.25;2.5,0.75;exit;Spawn]"
 
         minetest.show_formspec(user:get_player_name(), "advanced_npc:spawn_egg_main", formspec)
@@ -753,8 +755,19 @@ minetest.register_on_player_receive_fields(function(player, formname, fields)
                 -- Handle exit (spawn) button
                 if fields.exit then
                     local pos = spawner.spawn_pos[player:get_player_name()]
-                    local start_pos = {x=pos.x-20, y=pos.y-2, z=pos.z-20 }
-                    local end_pos = {x=pos.x+20, y=pos.y+2, z=pos.z+20 }
+                    local radius = 20
+                    local y_adj = 2
+                    -- Set radius if present
+                    if fields.radius then
+                        radius = tonumber(fields.radius)
+                    end
+                    -- Set y adjustment if present
+                    if fields.height then
+                        y_adj = tonumber(fields.height)
+                    end
+                    -- Calculate positions
+                    local start_pos = {x=pos.x-radius, y=pos.y-y_adj, z=pos.z-radius }
+                    local end_pos = {x=pos.x+radius, y=pos.y+y_adj, z=pos.z+radius }
 
                     -- Scan for usable nodes
                     local area_info = npc.spawner.scan_area_for_spawn(start_pos, end_pos, player:get_player_name())
@@ -787,7 +800,7 @@ minetest.register_on_player_receive_fields(function(player, formname, fields)
                 local meta = minetest.get_meta(pos)
                 -- Checkbox setting
                 if fields.is_surrounding then
-                    minetest.log("Saving.. "..fields.is_surrounding)
+                    --minetest.log("Saving.. "..fields.is_surrounding)
                     meta:set_string("surrounding_workplace", ""..fields.is_surrounding.."")
                 end
                 -- Handle reset button
@@ -799,7 +812,8 @@ minetest.register_on_player_receive_fields(function(player, formname, fields)
                     return
                 end
                 -- Handle set button
-                if pos and fields.text and fields.exit_btn then
+                if (pos and fields.text and fields.exit_btn)
+                        or (fields.key_enter_field and fields.key_enter_field == "building_type")  then
                     local meta = minetest.get_meta(pos)
                     meta:set_string("building_type", fields.text)
                     meta:set_string("infotext", fields.text.." (workplace)")
