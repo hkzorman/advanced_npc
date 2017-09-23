@@ -603,11 +603,18 @@ end
 
 -- TODO: Refactor this function so that it uses a table to check
 -- for doors instead of having separate logic for each door type
-function npc.actions.get_openable_node_state(node, npc_dir)
+function npc.actions.get_openable_node_state(node, pos, npc_dir)
 	--minetest.log("Node name: "..dump(node.name))
 	local state = npc.actions.const.doors.state.CLOSED
-	-- Check for default doors and gates
-	local a_i1, a_i2 = string.find(node.name, "_a")
+	-- Check for MTG doors and gates
+	local mtg_door_closed = false
+	if minetest.get_item_group(node.name, "door") > 0 then
+		local back_pos = vector.add(pos, minetest.facedir_to_dir(node.param2))
+		local back_node = minetest.get_node(back_pos)
+		if back_node.name == "air" or minetest.registered_nodes[back_node.name].walkable == false then
+			mtg_door_closed = true
+		end
+	end
 	-- Check for cottages gates
 	local open_i1, open_i2 = string.find(node.name, "_close")
 	-- Check for cottages half door
@@ -615,7 +622,7 @@ function npc.actions.get_openable_node_state(node, npc_dir)
 	if node.name == "cottages:half_door" then
 		half_door_is_closed = (node.param2 + 2) % 4 == npc_dir
 	end
-	if a_i1 == nil and open_i1 == nil and not half_door_is_closed then
+	if mtg_door_closed == false and open_i1 == nil and half_door_is_closed == false then
 		state = npc.actions.const.doors.state.OPEN
 	end
 	--minetest.log("Door state: "..dump(state))
@@ -630,7 +637,7 @@ function npc.actions.use_openable(self, args)
 	local action = args.action
 	local dir = args.dir
 	local node = minetest.get_node(pos)
-	local state = npc.actions.get_openable_node_state(node, dir)
+	local state = npc.actions.get_openable_node_state(node, pos, dir)
 
 	local clicker = self.object
 	if action ~= state then
@@ -1048,7 +1055,8 @@ function npc.actions.walk_to_pos(self, args)
 				-- Add stand animation at end
 				if use_access_node == true then
 					dir = npc.actions.get_direction(end_pos, node_pos)
-				end
+                end
+                minetest.log("Dir: "..dump(dir))
 				-- Change dir if using access_node
 				npc.add_action(self, npc.actions.cmd.STAND, {dir = dir})
 				break
@@ -1059,7 +1067,7 @@ function npc.actions.walk_to_pos(self, args)
 			if path[i+1].type == npc.pathfinder.node_types.openable then
 				-- Check if door is already open
 				local node = minetest.get_node(path[i+1].pos)
-				if npc.actions.get_openable_node_state(node, dir) == npc.actions.const.doors.state.CLOSED then
+				if npc.actions.get_openable_node_state(node, path[i+1].pos,  dir) == npc.actions.const.doors.state.CLOSED then
 					--minetest.log("Opening action to open door")
 					-- Stop to open door, this avoids misplaced movements later on
 					npc.add_action(self, npc.actions.cmd.STAND, {dir=dir})

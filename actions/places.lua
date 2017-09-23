@@ -109,7 +109,7 @@ function npc.places.add_owned_accessible_place(self, nodes, place_type, walkable
 		if nodes[i].owner == "" then
 			-- If node has no owner, check if it is accessible
 			local empty_nodes = npc.places.find_orthogonal_accessible_node(
-			nodes[i].node_pos, nil, 0, true, walkables)
+				nodes[i].node_pos, nil, 0, true, walkables)
 			-- Check if node is accessible
 			if #empty_nodes > 0 then
 				-- Set owner to this NPC
@@ -237,10 +237,10 @@ function npc.places.find_orthogonal_accessible_node(pos, nodes, y_adjustment, in
 		else
 			-- Search for air, walkable nodes, or any node availble in the extra_walkables array
 			if node.name == "air"
-				or (include_walkables == true
-					and minetest.registered_nodes[node.name].walkable
+					or (include_walkables == true
+					and minetest.registered_nodes[node.name].walkable == false
 					and minetest.registered_nodes[node.name].groups.fence ~= 1)
-				or (extra_walkables and npc.utils.array_contains(extra_walkables, node.name)) then
+					or (extra_walkables and npc.utils.array_contains(extra_walkables, node.name)) then
 				table.insert(result, {name=node.name, pos=point, param2=node.param2})
 			end
 		end
@@ -635,39 +635,56 @@ end
 
 -- Specialized function to find the node position right behind
 -- a door. Used to make NPCs enter buildings.
-function npc.places.find_node_behind_door(door_pos)
+function npc.places.find_node_in_front_and_behind_door(door_pos)
 	local door = minetest.get_node(door_pos)
-	if door.param2 == 0 then
-		-- Looking south
-		return {x=door_pos.x, y=door_pos.y, z=door_pos.z + 1}
-	elseif door.param2 == 1 then
-		-- Looking east
-		return {x=door_pos.x + 1, y=door_pos.y, z=door_pos.z}
-	elseif door.param2 == 2 then
-		-- Looking north
-		return {x=door_pos.x, y=door_pos.y, z=door_pos.z - 1}
-		-- Looking west
-	elseif door.param2 == 3 then
-		return {x=door_pos.x - 1, y=door_pos.y, z=door_pos.z}
+
+	local facedir_vector = minetest.facedir_to_dir(door.param2)
+	local back_pos = vector.add(door_pos, facedir_vector)
+	local back_node = minetest.get_node(back_pos)
+	local front_pos
+	if back_node.name == "air" or minetest.registered_nodes[back_node.name].walkable == false then
+		-- Door is closed, so back_pos is the actual behind position.
+		-- Calculate front node
+		front_pos = vector.add(door_pos, vector.multiply(facedir_vector, -1))
+	else
+		-- Door is open, need to find the front and back pos
+		facedir_vector = minetest.facedir_to_dir((door.param2 + 2) % 4)
+		back_pos = vector.add(door_pos, facedir_vector)
+		front_pos = vector.add(door_pos, vector.multiply(facedir_vector, -1))
 	end
+	return back_pos, front_pos
+
+	--	if door.param2 == 0 then
+	--		-- Looking south
+	--		return {x=door_pos.x, y=door_pos.y, z=door_pos.z + 1}
+	--	elseif door.param2 == 1 then
+	--		-- Looking east
+	--		return {x=door_pos.x + 1, y=door_pos.y, z=door_pos.z}
+	--	elseif door.param2 == 2 then
+	--		-- Looking north
+	--		return {x=door_pos.x, y=door_pos.y, z=door_pos.z - 1}
+	--		-- Looking west
+	--	elseif door.param2 == 3 then
+	--		return {x=door_pos.x - 1, y=door_pos.y, z=door_pos.z}
+	--	end
 end
 
 -- Specialized function to find the node position right in
 -- front of a door. Used to make NPCs exit buildings.
-function npc.places.find_node_in_front_of_door(door_pos)
-	local door = minetest.get_node(door_pos)
-	--minetest.log("Param2 of door: "..dump(door.param2))
-	if door.param2 == 0 then
-		-- Looking south
-		return {x=door_pos.x, y=door_pos.y, z=door_pos.z - 1}
-	elseif door.param2 == 1 then
-		-- Looking east
-		return {x=door_pos.x - 1, y=door_pos.y, z=door_pos.z}
-	elseif door.param2 == 2 then
-		-- Looking north
-		return {x=door_pos.x, y=door_pos.y, z=door_pos.z + 1}
-	elseif door.param2 == 3 then
-		-- Looking west
-		return {x=door_pos.x + 1, y=door_pos.y, z=door_pos.z}
-	end
-end
+--function npc.places.find_node_in_front_of_door(door_pos)
+--	local door = minetest.get_node(door_pos)
+--	--minetest.log("Param2 of door: "..dump(door.param2))
+--	if door.param2 == 0 then
+--		-- Looking south
+--		return {x=door_pos.x, y=door_pos.y, z=door_pos.z - 1}
+--	elseif door.param2 == 1 then
+--		-- Looking east
+--		return {x=door_pos.x - 1, y=door_pos.y, z=door_pos.z}
+--	elseif door.param2 == 2 then
+--		-- Looking north
+--		return {x=door_pos.x, y=door_pos.y, z=door_pos.z + 1}
+--	elseif door.param2 == 3 then
+--		-- Looking west
+--		return {x=door_pos.x + 1, y=door_pos.y, z=door_pos.z}
+--	end
+--end

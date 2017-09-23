@@ -499,8 +499,9 @@ function npc.spawner.assign_places(self, entrance, node_data, pos)
     if entrance ~= nil and entrance.node_pos ~= nil then
         npc.places.add_shared(self, npc.places.PLACE_TYPE.OPENABLE.HOME_ENTRANCE_DOOR, npc.places.PLACE_TYPE.OPENABLE.HOME_ENTRANCE_DOOR, entrance.node_pos)
         -- Find the position inside and outside the door
-        local entrance_inside = npc.places.find_node_behind_door(entrance.node_pos)
-        local entrance_outside = npc.places.find_node_in_front_of_door(entrance.node_pos)
+        local entrance_inside, entrance_outside = npc.places.find_node_in_front_and_behind_door(entrance.node_pos)
+        --local entrance_inside = npc.places.find_node_behind_door(entrance.node_pos)
+        --local entrance_outside = npc.places.find_node_in_front_of_door(entrance.node_pos)
         -- Assign these places to NPC
         npc.places.add_shared(self, npc.places.PLACE_TYPE.OTHER.HOME_INSIDE, npc.places.PLACE_TYPE.OTHER.HOME_INSIDE, entrance_inside)
         npc.places.add_shared(self, npc.places.PLACE_TYPE.OTHER.HOME_OUTSIDE, npc.places.PLACE_TYPE.OTHER.HOME_OUTSIDE, entrance_outside)
