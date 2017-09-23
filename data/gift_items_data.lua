@@ -219,7 +219,7 @@ npc.relationships.register_disliked_item("default:stone", "female", {
 
 npc.relationships.register_disliked_item("default:cobble", "female", {
 	responses = {"Cobblestone? No, no, why?"},
-	hints = {"Anything worst than stone is cobblestone."}
+	hints = {"Anything worse than anything is cobblestone."}
 })
 
 -- Male
