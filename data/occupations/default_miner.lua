@@ -65,4 +65,4 @@ local miner_def = {
 }
 
 -- Occupation registration
-npc.occupations.register_occupation("miner", miner_def)
+npc.occupations.register_occupation("default_miner", miner_def)
