@@ -102,7 +102,7 @@ local occupations = {}
 npc.occupations.registered_occupations = {}
 
 -- Basic occupation name
-npc.occupations.basic_name = "default_basic"
+npc.occupations.basic_name = "default"
 
 -- This is the basic occupation definition, this is for all NPCs that
 -- don't have a specific occupation. It serves as an example.
