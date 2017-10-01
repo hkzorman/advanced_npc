@@ -208,7 +208,18 @@ end
 --		inventory, node will be placed anyways.
 --   3. force_place: places node regardless of inventory - will not touch
 --		the NPCs inventory
+function npc.getFacingNodeInfo(self)
+	local facing_dir = self.vFacingDirection
+	local dug_pos = {
+		x=self.vPos.x + villagers.NODE_AREA[facing_dir][1], 
+		y=self.vTargetHeight, 
+		z=self.vPos.z + villagers.NODE_AREA[facing_dir][2]
+	}
+	local node_names = npc.getNodeName(dug_pos)	
+	return {dug_pos, node_names[1], node_names[2]}
+end
 function npc.actions.cmd.PLACE(self, args)
+	local log = true
 	local pos = args.pos
 	local node = args.node
 	local source = args.source
