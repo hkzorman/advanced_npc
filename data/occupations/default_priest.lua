@@ -212,4 +212,4 @@ local priest_def = {
 }
 
 -- Register occupation
-npc.occupations.register_occupation("basic_priest", priest_def)
+npc.occupations.register_occupation("default_priest", priest_def)
