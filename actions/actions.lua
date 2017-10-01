@@ -56,6 +56,7 @@ npc.actions.cmd = {
 	DIG = 15,
 	PLACE = 16
 }
+	
 
 --npc.actions.one_nps_speed = 0.98
 --npc.actions.one_half_nps_speed = 1.40
@@ -153,7 +154,7 @@ end
 -- The following action is for allowing the rest of mobs redo API to be executed
 -- after this action ends. This is useful for times when no action is needed
 -- and the NPC is allowed to roam freely.
-function npc.actions.freeze(self, args)
+function npc.actions.cmd.FREEZE(self, args)
 	local freeze_mobs_api = args.freeze
 	--minetest.log("Received: "..dump(freeze_mobs_api))
 	--minetest.log("Returning: "..dump(not(freeze_mobs_api)))
@@ -164,7 +165,7 @@ end
 -- If 'add_to_inventory' is true, it will put the digged node in the NPC
 -- inventory.
 -- Returns true if dig is successful, otherwise false
-function npc.actions.dig(self, args) 
+function npc.actions.cmd.DIG(self, args) 
 	local pos = args.pos
 	local add_to_inventory = args.add_to_inventory
 	local bypass_protection = args.bypass_protection
@@ -207,7 +208,7 @@ end
 --		inventory, node will be placed anyways.
 --   3. force_place: places node regardless of inventory - will not touch
 --		the NPCs inventory
-function npc.actions.place(self, args)
+function npc.actions.cmd.PLACE(self, args)
 	local pos = args.pos
 	local node = args.node
 	local source = args.source
@@ -241,7 +242,7 @@ end
 
 -- This action is to rotate to mob to a specifc direction. Currently, the code
 -- contains also for diagonals, but remaining in the orthogonal domain is preferrable.
-function npc.actions.rotate(self, args)
+function npc.actions.cmd.ROTATE(self, args)
 	local dir = args.dir
 	local yaw = 0
 	self.rotate = 0
@@ -268,7 +269,7 @@ end
 -- This function will make the NPC walk one step on a 
 -- specifc direction. One step means one node. It returns 
 -- true if it can move on that direction, and false if there is an obstacle
-function npc.actions.walk_step(self, args)
+function npc.actions.cmd.WALK_STEP(self, args)
 	local dir = args.dir
 	local speed = args.speed
 	local target_pos = args.target_pos
@@ -314,7 +315,7 @@ function npc.actions.walk_step(self, args)
 end
 
 -- This action makes the NPC stand and remain like that
-function npc.actions.stand(self, args)
+function npc.actions.cmd.STAND(self, args)
 	local pos = args.pos
 	local dir = args.dir
 	-- Set is_walking = true
@@ -337,7 +338,7 @@ function npc.actions.stand(self, args)
 end
 
 -- This action makes the NPC sit on the node where it is
-function npc.actions.sit(self, args)
+function npc.actions.cmd.SIT(self, args)
 	local pos = args.pos 
 	local dir = args.dir
 	-- Stop NPC
@@ -358,7 +359,7 @@ function npc.actions.sit(self, args)
 end
 
 -- This action makes the NPC lay on the node where it is
-function npc.actions.lay(self, args)
+function npc.actions.cmd.LAY(self, args)
 	local pos = args.pos
 	-- Stop NPC
 	self.object:setvelocity({x=0, y=0, z=0})
@@ -483,7 +484,7 @@ end
 -- This function is used to open or close openable nodes.
 -- Currently supported openable nodes are: any doors using the
 -- default doors API, and the cottages mod gates and doors. 
-function npc.actions.use_openable(self, args)
+function npc.actions.cmd.USE_OPENABLE(self, args)
 	local pos = args.pos
 	local action = args.action
 	local dir = args.dir
@@ -566,7 +567,7 @@ end
 -- with the fuel items the NPC will take whatever was cooked and whatever
 -- remained to cook. The function received the position of the furnace
 -- to use, and the item to cook in furnace. Item is an itemstring
-function npc.actions.use_furnace(self, args)
+function npc.actions.cmd.USE_FURNACE(self, args)
 	local pos = get_pos_argument(self, args.pos)
 	if pos == nil then
 		npc.log("WARNING", "Got nil position in 'use_furnace' using args.pos: "..dump(args.pos))
@@ -692,7 +693,7 @@ end
 
 -- This function makes the NPC lay or stand up from a bed. The
 -- pos is the location of the bed, action can be lay or get up
-function npc.actions.use_bed(self, args)
+function npc.actions.cmd.USE_BED(self, args)
 	local pos = get_pos_argument(self, args.pos)
 	if pos == nil then
 		npc.log("WARNING", "Got nil position in 'use_bed' using args.pos: "..dump(args.pos))
@@ -760,7 +761,7 @@ end
 
 -- This function makes the NPC lay or stand up from a bed. The
 -- pos is the location of the bed, action can be lay or get up
-function npc.actions.use_sittable(self, args)
+function npc.actions.cmd.USE_SITTABLE(self, args)
 	local pos = get_pos_argument(self, args.pos)
 	if pos == nil then
 		npc.log("WARNING", "Got nil position in 'use_sittable' using args.pos: "..dump(args.pos))
@@ -836,7 +837,7 @@ end
 -- is included, which is a table of node names, these nodes are
 -- going to be considered walkable for the algorithm to find a
 -- path.
-function npc.actions.walk_to_pos(self, args)
+function npc.actions.cmd.WALK_TO_POS(self, args)
 	-- Get arguments for this task 
 	local end_pos = get_pos_argument(self, args.end_pos, args.use_access_node)
 	if end_pos == nil then
