@@ -218,8 +218,8 @@ function npc.getFacingNodeInfo(self)
 	local node_names = npc.getNodeName(dug_pos)	
 	return {dug_pos, node_names[1], node_names[2]}
 end
+
 function npc.actions.cmd.PLACE(self, args)
-	local log = true
 	local pos = args.pos
 	local node = args.node
 	local source = args.source
