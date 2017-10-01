@@ -36,7 +36,11 @@ local farmer_def = {
                     {
                         [1] =
                         {
-                            action = npc.actions.cmd.WALK_STEP,
+                            action = npc.actions.cmd.WALK_TO_POS,
+                            args = {
+                                node = "farming:cotton_3",
+                                walkable = true
+                            }
                         },
                         [2] =
                         {
@@ -67,7 +71,10 @@ local farmer_def = {
                         {
                             [1] =
                             {
-                                action = npc.actions.cmd.WALK_STEP,
+                                action = npc.actions.cmd.WALK_TO_POS,
+                                args = {
+                                    node = "farming:wheat_8",
+                                    walkable = true
                             },
                             [2] =
                             {
@@ -92,7 +99,7 @@ local farmer_def = {
                         {
                             dir = "random"
                         }
-                    },
+                    }
                 }
             }
         }
@@ -100,4 +107,4 @@ local farmer_def = {
 }
 
 -- Register occupation
-npc.occupations.register_occupation("farmer", farmer_def)
+npc.occupations.register_occupation("default_farmer", farmer_def)
