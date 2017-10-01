@@ -219,6 +219,18 @@ function npc.getFacingNodeInfo(self)
 	return {dug_pos, node_names[1], node_names[2]}
 end
 
+function villagers.getNodeName(pos)	
+	local node_name = minetest.get_node({x=pos.x,y=pos.y,z=pos.z}).name
+	local node_nickname
+	local name_table = string.split(node_name, ":")
+	if #name_table > 1 then 
+		node_nickname = name_table[2]
+	else 
+		node_nickname = name_table[1]
+	end	
+	return {node_name, string.upper(node_nickname)}
+end
+
 function npc.actions.cmd.PLACE(self, args)
 	local pos = args.pos
 	local node = args.node
