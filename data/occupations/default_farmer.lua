@@ -10,8 +10,7 @@
 local dugNodeData = npc.getFacingNodeInfo(self, 3)
 local dugPosition = dugNodeData[1]
 local dugNodeName = dugNodeData[2]
-local dugNodeNickname = dugNodeData[3]
-
+local dugNodeNickname = dugNodeData[3] 
 local farmer_def = {
     dialogues = {},
     textures = {},
@@ -31,33 +30,36 @@ local farmer_def = {
                 check = true,
                 range = 2,
                 random_execution_times = true,
-                min_count = 10,
-                max_count = 12,
-                nodes = {"farming:cotton_3"},
+                min_count = 5,
+                max_count = 10,
+                nodes = {"farming:cotton_8"},
                 actions =
                 {
                     -- Actions for grown cotton - harvest and replant
-                    ["farming:cotton_3"] =
+                    ["farming:cotton_8"] =
                     {
                         [1] =
                         {
                             action = npc.actions.cmd.WALK_TO_POS,
                             args = {
-                                node = "farming:cotton_3",
-                                walkable = true
+                                node = "farming:cotton_8",
+                                walkable = {}
                             }
                         },
                         [2] =
                         {
                             action = npc.actions.cmd.DIG,
+                            args = {
+                                node = "farming:cotton_8",
+                                walkable = {}
+                            }
                         },
                         [3] =
                         {
-                            action = npc.actions.cmd.PLACE,
-                            args =
-                            {
-                                node = "farming:cotton_1"
-                            }
+                            if dugNodeNickname == "farming:cotton_8" then
+                                action = npc.actions.cmd.PLACE
+                                args = {node = "farming:seed_cotton 1"}
+                            end
                         }
                     }
 
@@ -67,8 +69,8 @@ local farmer_def = {
                     check = true,
                     range = 3,
                     random_execution_times = true,
-                    min_count = 16,
-                    max_count = 96,
+                    min_count = 1,
+                    max_count = 16,
                     nodes = {"farming:wheat_8"},
                     actions =
                     {
@@ -79,32 +81,32 @@ local farmer_def = {
                                 action = npc.actions.cmd.WALK_TO_POS,
                                 args = {
                                     node = "farming:wheat_8",
-                                    walkable = true
+                                    walkable = {}
+                                }
                             },
                             [2] =
                             {
                                 action = npc.actions.cmd.DIG,
+                                args = {
+                                    node = "farming:wheat_8",
+                                    walkable = {}
+                                }
                             },
                             [3] =
                             {
-                                action = npc.actions.cmd.PLACE,
-                                args =
-                                {
-                                    node = "farming:wheat_1"
-                                }
+                                if dugNodeNickname == "farming:wheat_8" then
+                                    action = npc.actions.cmd.PLACE,
+                                    args = {node = "farming:seed_wheat 1"}
+                                end
                             }
                        }
                   },
-                none_actions =
-                {
+                none_actions = {
                     -- Walk a single step in a random direction
-                    [1] = {
                         action = npc.actions.cmd.WALK_STEP,
-                        args =
-                        {
+                        args = {
                             dir = "random"
                         }
-                    }
                 }
             }
         }
