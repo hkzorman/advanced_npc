@@ -7,6 +7,11 @@
 -- work on its crops during the morning, and sell some of them on the
 -- afternoon.
 
+local dugNodeData = npc.getFacingNodeInfo(self, 3)
+local dugPosition = dugNodeData[1]
+local dugNodeName = dugNodeData[2]
+local dugNodeNickname = dugNodeData[3]
+
 local farmer_def = {
     dialogues = {},
     textures = {},
