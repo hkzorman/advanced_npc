@@ -564,7 +564,7 @@ function npc.generate_trade_list_from_inventory(self)
 end
 
 function npc.set_trading_status(self, status)
-	minetest.log("Trader_data: "..dump(self.trader_data))
+	--minetest.log("Trader_data: "..dump(self.trader_data))
 	-- Set status
 	self.trader_data.trader_status = status
 	-- Re-generate trade offers

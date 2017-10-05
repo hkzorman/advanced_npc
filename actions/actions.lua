@@ -664,19 +664,42 @@ local function get_pos_argument(self, pos, use_access_node)
 			return pos
 		elseif pos.place_type ~= nil then
 			-- Received table in the following format: 
-			-- {place_type = "", index = 1, use_access_node = false}
+			-- {
+			-- 		place_category = "",
+			-- 		place_type = "",
+			-- 		index = 1,
+			-- 		use_access_node = false|true,
+			-- 		try_alternative_if_used = true|false
+			-- }
 			local index = pos.index or 1
 			local use_access_node = pos.use_access_node or false
+			local try_alternative_if_used = pos.try_alternative_if_used or false
 			local places = npc.places.get_by_type(self, pos.place_type)
+			--minetest.log("Place type: "..dump(pos.place_type))
+			--minetest.log("Places: "..dump(places))
 			-- Check index is valid on the places map
 			if #places >= index then
+				local place = places[index]
+				-- Check if place is used, and if it is, find alternative if required
+				if try_alternative_if_used == true then
+					place = npc.places.find_unused_place(self, pos.place_category, pos.place_type, place)
+
+					--minetest.log("Mark as used? "..dump(pos.mark_target_as_used))
+					if pos.mark_target_as_used == true then
+						--minetest.log("Marking as used: "..minetest.pos_to_string(place.pos))
+						npc.places.mark_place_used(place.pos, npc.places.USE_STATE.USED)
+					end
+
+					npc.places.add_shared_accessible_place(
+						self, {owner="", node_pos=place.pos}, npc.places.PLACE_TYPE.CALCULATED.TARGET, true, {})
+				end
 				-- Check if access node is desired
 				if use_access_node == true then
 					-- Return actual node pos
-					return places[index].access_node, places[index].pos
+					return place.access_node, place.pos
 				else
 					-- Return node pos that allows access to node
-					return places[index].pos
+					return place.pos
 				end
 			end
 		end
@@ -722,6 +745,7 @@ function npc.actions.use_furnace(self, args)
 		return
 	end
 
+	local enable_usage_marking = args.enable_usage_marking or true
 	local item = args.item
 	local freeze = args.freeze
 	-- Define which items are usable as fuels. The NPC
@@ -773,6 +797,12 @@ function npc.actions.use_furnace(self, args)
 				-- considering that fuel items are ordered in a way where cheaper, less
 				-- useless items come first, saving possible valuable items.
 				return cook_result.time - fuel_time
+			end
+
+			-- Set furnace as used if flag is enabled
+			if enable_usage_marking then
+				-- Set place as used
+				npc.places.mark_place_used(pos, npc.places.USE_STATE.USED)
 			end
 
 			-- Calculate how much fuel is needed
@@ -832,6 +862,12 @@ function npc.actions.use_furnace(self, args)
 
 			npc.log("DEBUG", "Inventory: "..dump(self.inventory))
 
+			-- Set furnace as unused if flag is enabled
+			if enable_usage_marking then
+				-- Set place as used
+				npc.places.mark_place_used(pos, npc.places.USE_STATE.NOT_USED)
+			end
+
 			return true
 		end
 	end
@@ -848,6 +884,7 @@ function npc.actions.use_bed(self, args)
 		return
 	end
 	local action = args.action
+	local enable_usage_marking = args.enable_usage_marking or true
 	local node = minetest.get_node(pos)
 	--minetest.log(dump(node))
 	local dir = minetest.facedir_to_dir(node.param2)
@@ -863,6 +900,10 @@ function npc.actions.use_bed(self, args)
 		npc.add_action(self, npc.actions.cmd.SIT, {pos=bed_pos, dir=(node.param2 + 2) % 4})
 		-- Lay down 
 		npc.add_action(self, npc.actions.cmd.LAY, {})
+		if enable_usage_marking then
+			-- Set place as used
+			npc.places.mark_place_used(pos, npc.places.USE_STATE.USED)
+		end
 	else
 		-- Calculate position to get up
 		-- Error here due to ignore. Need to come up with better solution
@@ -906,9 +947,12 @@ function npc.actions.use_bed(self, args)
 			end
 
 		end
-
 		-- Stand out of bed
 		npc.add_action(self, npc.actions.cmd.STAND, {pos=pos_out_of_bed, dir=dir})
+		if enable_usage_marking then
+			-- Set place as unused
+			npc.places.mark_place_used(pos, npc.places.USE_STATE.NOT_USED)
+		end
 	end
 end
 
@@ -921,6 +965,7 @@ function npc.actions.use_sittable(self, args)
 		return
 	end
 	local action = args.action
+	local enable_usage_marking = args.enable_usage_marking or true
 	local node = minetest.get_node(pos)
 
 	if action == npc.actions.const.sittable.SIT then
@@ -932,6 +977,10 @@ function npc.actions.use_sittable(self, args)
 		local sit_pos = npc.actions.nodes.sittable[node.name].get_sit_pos(pos, node.param2)
 		-- Sit down on bench/chair/stairs
 		npc.add_action(self, npc.actions.cmd.SIT, {pos=sit_pos, dir=(node.param2 + 2) % 4})
+		if enable_usage_marking then
+			-- Set place as used
+			npc.places.mark_place_used(pos, npc.places.USE_STATE.USED)
+		end
 	else
 		-- Find empty areas around chair
 		local dir = node.param2 + 2 % 4
@@ -951,6 +1000,11 @@ function npc.actions.use_sittable(self, args)
 		end
 		-- Stand
 		npc.add_action(self, npc.actions.cmd.STAND, {pos=pos_out_of_sittable, dir=dir})
+		minetest.log("Setting sittable at "..minetest.pos_to_string(pos).." as not used")
+		if enable_usage_marking then
+			-- Set place as unused
+			npc.places.mark_place_used(pos, npc.places.USE_STATE.NOT_USED)
+		end
 	end
 end
 

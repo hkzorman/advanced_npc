@@ -55,17 +55,25 @@ local basic_def = {
         -- Schedule entry for 12 midday
         [12] = {
             -- Walk to a sittable node
-            [1] = {task = npc.actions.cmd.WALK_TO_POS, args = {
-                end_pos = {place_type=npc.places.PLACE_TYPE.SITTABLE.PRIMARY, use_access_node=true},
-                walkable = {"cottages:bench"}
-            },
+            [1] = {task = npc.actions.cmd.WALK_TO_POS,
+                args = {
+                    end_pos = {
+                        place_category=npc.places.PLACE_TYPE.CATEGORIES.SITTABLE,
+                        place_type=npc.places.PLACE_TYPE.SITTABLE.PRIMARY,
+                        use_access_node=true,
+                        try_alternative_if_used=true,
+                        mark_target_as_used = true
+                    },
+                    walkable = {"cottages:bench"}
+                },
                 chance = 75
             },
             -- Sit on the node
-            [2] = {task = npc.actions.cmd.USE_SITTABLE, args = {
-                pos = npc.places.PLACE_TYPE.SITTABLE.PRIMARY,
-                action = npc.actions.const.sittable.SIT
-            },
+            [2] = {task = npc.actions.cmd.USE_SITTABLE,
+                args = {
+                    pos = npc.places.PLACE_TYPE.CALCULATED.TARGET,
+                    action = npc.actions.const.sittable.SIT
+                },
                 depends = {1}
             },
             -- Stay put into place
@@ -83,10 +91,10 @@ local basic_def = {
             },
             -- Get up from sit
             [5] = {action = npc.actions.cmd.USE_SITTABLE, args = {
-                pos = npc.places.PLACE_TYPE.SITTABLE.PRIMARY,
+                pos = npc.places.PLACE_TYPE.CALCULATED.TARGET,
                 action = npc.actions.const.sittable.GET_UP
             },
-                depends = {4}
+                --depends = {4}
             }
         },
         -- Schedule entry for 1 in the afternoon
@@ -142,10 +150,11 @@ local basic_def = {
             }
             },
             -- Use bed
-            [2] = {task = npc.actions.cmd.USE_BED, args = {
-                pos = npc.places.PLACE_TYPE.BED.PRIMARY,
-                action = npc.actions.const.beds.LAY
-            }
+            [2] = {task = npc.actions.cmd.USE_BED,
+                args = {
+                    pos = npc.places.PLACE_TYPE.BED.PRIMARY,
+                    action = npc.actions.const.beds.LAY
+                }
             },
             -- Stay put on bed
             [3] = {action = npc.actions.cmd.FREEZE, args = {freeze = true}}

@@ -63,6 +63,17 @@ npc.places.nodes = {
 
 
 npc.places.PLACE_TYPE = {
+	CATEGORIES = {
+		BED = "BED",
+		SITTABLE = "SITTABLE",
+		FURNACE = "FURNACE",
+		STORAGE = "STORAGE",
+		OPENABLE = "OPENABLE",
+		SCHEDULE = "SCHEDULE",
+		CALCULATED = "CALCULATED",
+		WORKPLACE = "WORKPLACE",
+		OTHER = "OTHER"
+	},
 	BED = {
 		PRIMARY = "bed_primary"
 	},
@@ -84,6 +95,9 @@ npc.places.PLACE_TYPE = {
 	SCHEDULE = {
 		TARGET = "schedule_target_pos"
 	},
+	CALCULATED = {
+		TARGET = "calculated_target_pos"
+	},
 	WORKPLACE = {
 		PRIMARY = "workplace_primary",
 		TOOL = "workplace_tool"
@@ -92,14 +106,60 @@ npc.places.PLACE_TYPE = {
 		HOME_PLOTMARKER = "home_plotmarker",
 		HOME_INSIDE = "home_inside",
 		HOME_OUTSIDE = "home_outside"
-	}
+	},
+	is_primary = function(place_type)
+		local p1,p2 = string.find(place_type, "primary")
+		return p1 ~= nil
+	end,
+	-- Only works for place types where there is a "primary" and a "shared"
+	get_alternative = function(place_category, place_type)
+		local result = {}
+		local place_types = npc.places.PLACE_TYPE[place_category]
+		-- Determine search type
+		local search_shared = false
+		if npc.places.PLACE_TYPE.is_primary(place_type) then
+			search_shared = true
+		end
+		for key,place_type in pairs(place_types) do
+			if search_shared == true then
+				if npc.places.PLACE_TYPE.is_primary(place_type) == false then
+					return place_type
+				end
+			else
+				if npc.places.PLACE_TYPE.is_primary(place_type) == true then
+					return place_type
+				end
+			end
+		end
+	end
+}
+
+npc.places.USE_STATE = {
+	USED = "true",
+	NOT_USED = "false"
 }
 
 function npc.places.add_shared(self, place_name, place_type, pos, access_node)
+	-- Set metadata of node
+	local meta = minetest.get_meta(pos)
+	if not meta:get_string("advanced_npc:used") then
+		meta:set_string("advanced_npc:used", npc.places.USE_STATE.NOT_USED)
+	end
+	meta:set_string("advanced_npc:owner", "")
+	-- This avoid lags
+	meta:mark_as_private({"advanced_npc:used", "advanced_npc:owner"})
 	self.places_map[place_name] = {type=place_type, pos=pos, access_node=access_node or pos, status="shared"}
 end
 
 function npc.places.add_owned(self, place_name, place_type, pos, access_node)
+	-- Set metadata of node
+	local meta = minetest.get_meta(pos)
+	if not meta:get_string("advanced_npc:used") then
+		meta:set_string("advanced_npc:used", npc.places.USE_STATE.NOT_USED)
+	end
+	meta:set_string("advanced_npc:owner", self.npc_id)
+	-- This avoid lags
+	meta:mark_as_private({"advanced_npc:used", "advanced_npc:owner"})
 	self.places_map[place_name] = {type=place_type, pos=pos, access_node=access_node or pos, status="owned"}
 end
 
@@ -159,6 +219,48 @@ function npc.places.add_shared_accessible_place(self, nodes, place_type, overrid
 				nodes.node_pos, empty_nodes[1].pos)
 		end
 	end
+end
+
+function npc.places.mark_place_used(pos, value)
+	local meta = minetest.get_meta(pos)
+	local used = meta:get_string("advanced_npc:used")
+	if value == used then
+		npc.log("WARNING", "Attempted to set 'used' property of node at "
+				..minetest.pos_to_string(pos).." to the same value: '"..dump(value).."'")
+		return false
+	else
+		meta:set_string("advanced_npc:used", value)
+		npc.log("DEBUG", "'Used' value at pos "..minetest.pos_to_string(pos)..": "..dump(meta:get_string("advanced_npc:used")))
+		return true
+	end
+end
+
+-- This function is to find an alternative place if the original is
+-- not usable. If the original place is a "primary" place, it will
+-- try to find a "shared" place. If it is a "shared" place, it will try
+-- to find a "primary" place. If none is found, it retuns the given type.
+function npc.places.find_unused_place(self, place_category, place_type, original_place)
+	local result = {}
+	-- Check if node is being used
+	local meta = minetest.get_meta(original_place.pos)
+	local used = meta:get_string("advanced_npc:used")
+	if used == npc.places.USE_STATE.USED then
+		-- Node is being used, try to find alternative
+		local alternative_place_type = npc.places.PLACE_TYPE.get_alternative(place_category, place_type)
+		--minetest.log("Alternative place type: "..dump(alternative_place_type))
+		local alternative_places = npc.places.get_by_type(self, alternative_place_type)
+		--minetest.log("Alternatives: "..dump(alternative_places))
+		for i = 1, #alternative_places do
+			meta = minetest.get_meta(alternative_places[i].pos)
+			local used = meta:get_string("advanced_npc:used")
+			if used == npc.places.USE_STATE.NOT_USED then
+				return alternative_places[i]
+			end
+		end
+	else
+		result = original_place
+	end
+	return result
 end
 
 function npc.places.get_by_type(self, place_type, exact_match)
