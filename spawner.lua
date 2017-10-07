@@ -509,7 +509,7 @@ function npc.spawner.assign_places(self, entrance, node_data, pos)
 
     -- Assign beds
     if #node_data.bed_type > 0 then
-        -- Assign a specific sittable node to a NPC.
+        -- Assign a specific bed node to a NPC.
         npc.places.add_owned_accessible_place(self, node_data.bed_type,
             npc.places.PLACE_TYPE.BED.PRIMARY)
         -- Store changes to node_data
@@ -1081,11 +1081,49 @@ minetest.register_chatcommand("restore_plotmarkers", {
             meta:set_int("plot_nr", plot_nr)
             meta:set_string("infotext", infotext)
             -- Clear NPC stats, NPC data and node data
+            -- Clear node_data metadata
+            local node_data = minetest.deserialize(meta:get_string("node_data"))
+            npc.places.clear_metadata_usable_nodes_in_area(node_data)
+
             meta:set_string("node_data", nil)
             meta:set_string("npcs", nil)
             meta:set_string("npc_stats", nil)
             meta:set_string("replaced", "false")
         end
         minetest.chat_send_player(name, "Finished replacement of "..dump(#nodes).." auto-spawners successfully")
+    end
+})
+
+minetest.register_chatcommand("restore_area", {
+    description = "",
+    privs = {server = true},
+    func = function(name, param)
+        local args = npc.utils.split(param, " ")
+        minetest.log("Params: "..dump(args))
+        if #args < 2 then
+            minetest.chat_send_player("Please specify horizontal and vertical radius.")
+            return
+        end
+        local radius = args[1]
+        local y_adj = args[2]
+        -- Get player position
+        local pos = {}
+        for _,player in pairs(minetest.get_connected_players()) do
+            if player:get_player_name() == name then
+                pos = player:get_pos()
+                break
+            end
+        end
+        -- Search for nodes
+        -- Calculate positions
+        local start_pos = {x=pos.x-radius, y=pos.y-y_adj, z=pos.z-radius }
+        local end_pos = {x=pos.x+radius, y=pos.y+y_adj, z=pos.z+radius }
+
+        -- Scan for usable nodes
+        local node_data = npc.places.scan_area_for_usable_nodes(start_pos, end_pos)
+        local removed_count = npc.places.clear_metadata_usable_nodes_in_area(node_data)
+
+        minetest.chat_send_player(name, "Restored "..dump(removed_count).." nodes in area from "
+                ..minetest.pos_to_string(start_pos).." to "..minetest.pos_to_string(end_pos))
     end
 })

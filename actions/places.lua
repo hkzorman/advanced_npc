@@ -166,7 +166,9 @@ end
 function npc.places.add_owned_accessible_place(self, nodes, place_type, walkables)
 	for i = 1, #nodes do
 		-- Check if node has owner
-		if nodes[i].owner == "" then
+		local owner = minetest.get_meta(nodes[i].node_pos):get_string("advanced_npc:owner")
+		--minetest.log("Condition: "..dump(owner == ""))
+		if owner == "" then
 			-- If node has no owner, check if it is accessible
 			local empty_nodes = npc.places.find_orthogonal_accessible_node(
 				nodes[i].node_pos, nil, 0, true, walkables)
@@ -556,6 +558,38 @@ function npc.places.scan_area_for_usable_nodes(pos1, pos2)
 	return result
 end
 
+-- Helper function to clear metadata in an array of nodes
+-- Metadata that will be cleared is:
+--  advanced_npc:used
+--  advanced_npc:owner
+local function clear_metadata(nodes)
+	local c = 0
+	for i = 1, #nodes do
+		local meta = minetest.get_meta(nodes[i].node_pos)
+		meta:set_string("advanced_npc:owner", "")
+		meta:set_string("advanced_npc:used", npc.places.USE_STATE.NOT_USED)
+		c = c + 1
+	end
+	return c
+end
+
+function npc.places.clear_metadata_usable_nodes_in_area(node_data)
+	local count = 0
+	count = count + clear_metadata(node_data.bed_type)
+	count = count + clear_metadata(node_data.sittable_type)
+	count = count + clear_metadata(node_data.furnace_type)
+	count = count + clear_metadata(node_data.storage_type)
+	count = count + clear_metadata(node_data.openable_type)
+	-- Clear workplace nodes
+	for i = 1, #node_data.workplace_type do
+		local meta = minetest.get_meta(node_data.workplace_type[i].node_pos)
+		meta:set_string("work_data", nil)
+		count = count + 1
+	end
+	return count
+end
+
+
 -- Specialized function to find doors that are an entrance to a building.
 -- The definition of an entrance is:
 --   The openable node with the shortest path to the plotmarker node
@@ -578,7 +612,6 @@ function npc.places.find_entrance_from_openable_nodes(all_openable_nodes, marker
 			table.insert(openable_nodes, all_openable_nodes[i])
 		end
 	end
-
 
 	for i = 1, #openable_nodes do
 
