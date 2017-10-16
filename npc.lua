@@ -1300,7 +1300,6 @@ mobs:register_mob("advanced_npc:npc", {
 		{"npc_male12.png"},
 		{"npc_male13.png"},
 		{"npc_male14.png"},
-		{"npc_male15.png"},
 		{"npc_female1.png"}, -- female by nuttmeg20
 		{"npc_female2.png"},
 		{"npc_female3.png"},
