@@ -1419,6 +1419,16 @@ mobs:register_mob("advanced_npc:npc", {
 		punch_start = 200,
 		punch_end = 219,
 	},
+	after_activate = function(self, staticdata, def, dtime)
+		-- Reset animation
+		if self.actions and self.actions.move_state then
+			if self.actions.move_state.is_sitting == true then
+				npc.actions.sit(self, {pos=self.object:getpos()})
+			elseif self.actions.move_state.is_laying == true then
+				npc.actions.lay(self, {pos=self.object:getpos()})
+			end
+		end
+	end,
 	on_rightclick = function(self, clicker)
 		-- Check if right-click interaction is enabled
 		if self.enable_rightclick_interaction == true then
@@ -1627,142 +1637,6 @@ mobs:register_mob("advanced_npc:npc", {
 		return self.freeze
 	end
 })
-
-function npc.activate(self, staticdata, def, dtime)
-	--minetest.log("Def: "..dump(def))
-	-- remove monsters in peaceful mode, or when no data
-	if (self.type == "monster" and peaceful_only) then
-
-		self.object:remove()
-
-		return
-	end
-
-	-- load entity variables
-	local tmp = minetest.deserialize(staticdata)
-
-	if tmp then
-		for _,stat in pairs(tmp) do
-			self[_] = stat
-		end
-	end
-
-	-- select random texture, set model and size
-	if not self.base_texture then
-
-		-- compatiblity with old simple mobs textures
-		if type(def.textures[1]) == "string" then
-			def.textures = {def.textures}
-		end
-
-		self.base_texture = def.textures[math.random(1, #def.textures)]
-		self.base_mesh = def.mesh
-		self.base_size = self.visual_size
-		self.base_colbox = self.collisionbox
-	end
-
-	-- set texture, model and size
-	local textures = self.base_texture
-	local mesh = self.base_mesh
-	local vis_size = self.base_size
-	local colbox = self.base_colbox
-
-	-- specific texture if gotten
-	if self.gotten == true
-			and def.gotten_texture then
-		textures = def.gotten_texture
-	end
-
-	-- specific mesh if gotten
-	if self.gotten == true
-			and def.gotten_mesh then
-		mesh = def.gotten_mesh
-	end
-
-	-- set child objects to half size
-	if self.child == true then
-
-		vis_size = {
-			x = self.base_size.x * .5,
-			y = self.base_size.y * .5,
-		}
-
-		if def.child_texture then
-			textures = def.child_texture[1]
-		end
-
-		colbox = {
-			self.base_colbox[1] * .5,
-			self.base_colbox[2] * .5,
-			self.base_colbox[3] * .5,
-			self.base_colbox[4] * .5,
-			self.base_colbox[5] * .5,
-			self.base_colbox[6] * .5
-		}
-	end
-
-	if self.health == 0 then
-		self.health = math.random (self.hp_min, self.hp_max)
-	end
-
-	-- rnd: pathfinding init
-	self.path = {}
-	self.path.way = {} -- path to follow, table of positions
-	self.path.lastpos = {x = 0, y = 0, z = 0}
-	self.path.stuck = false
-	self.path.following = false -- currently following path?
-	self.path.stuck_timer = 0 -- if stuck for too long search for path
-	-- end init
-
-	self.object:set_armor_groups({immortal = 1, fleshy = self.armor})
-	self.old_y = self.object:get_pos().y
-	self.old_health = self.health
-	self.sounds.distance = self.sounds.distance or 10
-	self.textures = textures
-	self.mesh = mesh
-	self.collisionbox = colbox
-	self.visual_size = vis_size
-	self.standing_in = ""
-
-	-- check existing nametag
-	if not self.nametag then
-		self.nametag = def.nametag
-	end
-
-	-- set anything changed above
-	self.object:set_properties(self)
-
-	-- Reset animation
-	if self.actions and self.actions.move_state then
-		if self.actions.move_state.is_sitting == true then
-			npc.actions.sit(self, {pos=self.object:getpos()})
-		elseif self.actions.move_state.is_laying == true then
-			npc.actions.lay(self, {pos=self.object:getpos()})
-		end
-	end
-
-	-- run on_spawn function if found
-	if self.on_spawn and not self.on_spawn_run then
-		if self.on_spawn(self) then
-			self.on_spawn_run = true --  if true, set flag to run once only
-		end
-	end
-
-	minetest.log("Executed good activate")
-end
-
-function npc.add_initiate_animation_state()
-	local def = minetest.registered_entities["advanced_npc:npc"]
-	def.textures = def.texture_list
-	--minetest.log("Def: "..dump(def))
-	def.on_activate = function(self, staticdata, dtime)
-		return npc.activate(self, staticdata, def, dtime)
-	end
-end
-
-
--- Run the fix
-npc.add_initiate_animation_state()
 
 -- Spawn
 -- mobs:spawn({
