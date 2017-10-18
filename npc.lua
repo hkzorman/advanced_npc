@@ -285,6 +285,10 @@ function npc.initialize(entity, pos, is_lua_entity, npc_stats, occupation_name)
 	-- Avoid NPC to be removed by mobs_redo API
 	ent.remove_ok = false
 
+	-- Flag that enables/disables right-click interaction - good for moments where NPC
+	-- can't be disturbed
+	ent.enable_rightclick_interaction = true
+
 	-- Determine sex and age
 	-- If there's no previous NPC data, sex and age will be randomly chosen.
 	--   - Sex: Female or male will have each 50% of spawning
@@ -454,6 +458,13 @@ function npc.initialize(entity, pos, is_lua_entity, npc_stats, occupation_name)
 			-- Action executed while on lock
 			interrupted_action = {}
 		},
+		-- Variables that allows preserving the movement state and NPC animation
+		move_state = {
+			-- Whether a NPC is sitted or not
+			is_sitting = false,
+			-- Whether a NPC is laying or not
+			is_laying = false
+		},
 		-- Walking variables -- required for implementing accurate movement code
 		walking = {
 			-- Defines whether NPC is walking to specific position or not
@@ -464,7 +475,7 @@ function npc.initialize(entity, pos, is_lua_entity, npc_stats, occupation_name)
 			-- This is NOT the end of the path, but the next position in the path
 			-- relative to the last position
 			target_pos = {}
-		}
+		},
 	}
 
 	-- This flag is checked on every step. If it is true, the rest of
@@ -806,6 +817,12 @@ function npc.lock_actions(self)
 	if self.actions.action_timer_lock == true then
 		return
 	end
+	-- Check if NPC is in unmovable state
+	if self.actions.move_state
+			and (self.actions.move_state.is_sitting == true or self.actions.move_state.is_laying == true) then
+		-- Can't lock actions since NPC is in a non-movable state
+		return
+	end
 
 	local pos = self.object:getpos()
 
@@ -843,6 +860,12 @@ function npc.lock_actions(self)
 end
 
 function npc.unlock_actions(self)
+	-- Check if the NPC is sitting or laying states
+	if self.actions.move_state
+			and (self.actions.move_state.is_sitting == true or self.actions.move_state.is_laying == true) then
+		-- Can't unlock actions since NPC is in a non-movable state
+		return
+	end
 	-- Allow timers to execute
 	self.actions.action_timer_lock = false
 	-- Restore the value of self.freeze
@@ -1264,6 +1287,51 @@ function npc.schedule_check(self)
 end
 
 ---------------------------------------------------------------------------------------
+-- NPC Lua object functions
+---------------------------------------------------------------------------------------
+-- The following functions make up the definitions of on_rightclick(), do_custom()
+-- and other functions that are assigned to the Lua entity definition
+function npc.rightclick_interaction(self, clicker)
+	-- Rotate NPC toward its clicker
+	npc.dialogue.rotate_npc_to_player(self)
+
+	-- Get information from clicker
+	local item = clicker:get_wielded_item()
+	local name = clicker:get_player_name()
+
+	npc.log("DEBUG", "Right-clicked NPC: "..dump(self))
+
+	-- Receive gift or start chat. If player has no item in hand
+	-- then it is going to start chat directly
+	--minetest.log("self.can_have_relationship: "..dump(self.can_have_relationship)..", self.can_receive_gifts: "..dump(self.can_receive_gifts)..", table: "..dump(item:to_table()))
+	if self.can_have_relationship
+			and self.can_receive_gifts
+			and item:to_table() ~= nil then
+		-- Get item name
+		local item = minetest.registered_items[item:get_name()]
+		local item_name = item.description
+
+		-- Show dialogue to confirm that player is giving item as gift
+		npc.dialogue.show_yes_no_dialogue(
+			self,
+			"Do you want to give "..item_name.." to "..self.npc_name.."?",
+			npc.dialogue.POSITIVE_GIFT_ANSWER_PREFIX..item_name,
+			function()
+				npc.relationships.receive_gift(self, clicker)
+			end,
+			npc.dialogue.NEGATIVE_ANSWER_LABEL,
+			function()
+				npc.start_dialogue(self, clicker, true)
+			end,
+			name
+		)
+	else
+		npc.start_dialogue(self, clicker, true)
+	end
+end
+
+
+---------------------------------------------------------------------------------------
 -- NPC Definition
 ---------------------------------------------------------------------------------------
 mobs:register_mob("advanced_npc:npc", {
@@ -1319,7 +1387,7 @@ mobs:register_mob("advanced_npc:npc", {
 	makes_footstep_sound = true,
 	sounds = {},
 	-- Added walk chance
-	walk_chance = 30,
+	walk_chance = 20,
 	-- Added stepheight
 	stepheight = 0.6,
 	walk_velocity = 1,
@@ -1352,42 +1420,9 @@ mobs:register_mob("advanced_npc:npc", {
 		punch_end = 219,
 	},
 	on_rightclick = function(self, clicker)
-
-		-- Rotate NPC toward its clicker
-		npc.dialogue.rotate_npc_to_player(self)
-
-		-- Get information from clicker
-		local item = clicker:get_wielded_item()
-		local name = clicker:get_player_name()
-
-		npc.log("DEBUG", "Right-clicked NPC: "..dump(self))
-
-		-- Receive gift or start chat. If player has no item in hand
-		-- then it is going to start chat directly
-		--minetest.log("self.can_have_relationship: "..dump(self.can_have_relationship)..", self.can_receive_gifts: "..dump(self.can_receive_gifts)..", table: "..dump(item:to_table()))
-		if self.can_have_relationship
-				and self.can_receive_gifts
-				and item:to_table() ~= nil then
-			-- Get item name
-			local item = minetest.registered_items[item:get_name()]
-			local item_name = item.description
-
-			-- Show dialogue to confirm that player is giving item as gift
-			npc.dialogue.show_yes_no_dialogue(
-				self,
-				"Do you want to give "..item_name.." to "..self.npc_name.."?",
-				npc.dialogue.POSITIVE_GIFT_ANSWER_PREFIX..item_name,
-				function()
-					npc.relationships.receive_gift(self, clicker)
-				end,
-				npc.dialogue.NEGATIVE_ANSWER_LABEL,
-				function()
-					npc.start_dialogue(self, clicker, true)
-				end,
-				name
-			)
-		else
-			npc.start_dialogue(self, clicker, true)
+		-- Check if right-click interaction is enabled
+		if self.enable_rightclick_interaction == true then
+			npc.rightclick_interaction(self, clicker)
 		end
 	end,
 	do_custom = function(self, dtime)
@@ -1592,6 +1627,142 @@ mobs:register_mob("advanced_npc:npc", {
 		return self.freeze
 	end
 })
+
+function npc.activate(self, staticdata, def, dtime)
+	--minetest.log("Def: "..dump(def))
+	-- remove monsters in peaceful mode, or when no data
+	if (self.type == "monster" and peaceful_only) then
+
+		self.object:remove()
+
+		return
+	end
+
+	-- load entity variables
+	local tmp = minetest.deserialize(staticdata)
+
+	if tmp then
+		for _,stat in pairs(tmp) do
+			self[_] = stat
+		end
+	end
+
+	-- select random texture, set model and size
+	if not self.base_texture then
+
+		-- compatiblity with old simple mobs textures
+		if type(def.textures[1]) == "string" then
+			def.textures = {def.textures}
+		end
+
+		self.base_texture = def.textures[math.random(1, #def.textures)]
+		self.base_mesh = def.mesh
+		self.base_size = self.visual_size
+		self.base_colbox = self.collisionbox
+	end
+
+	-- set texture, model and size
+	local textures = self.base_texture
+	local mesh = self.base_mesh
+	local vis_size = self.base_size
+	local colbox = self.base_colbox
+
+	-- specific texture if gotten
+	if self.gotten == true
+			and def.gotten_texture then
+		textures = def.gotten_texture
+	end
+
+	-- specific mesh if gotten
+	if self.gotten == true
+			and def.gotten_mesh then
+		mesh = def.gotten_mesh
+	end
+
+	-- set child objects to half size
+	if self.child == true then
+
+		vis_size = {
+			x = self.base_size.x * .5,
+			y = self.base_size.y * .5,
+		}
+
+		if def.child_texture then
+			textures = def.child_texture[1]
+		end
+
+		colbox = {
+			self.base_colbox[1] * .5,
+			self.base_colbox[2] * .5,
+			self.base_colbox[3] * .5,
+			self.base_colbox[4] * .5,
+			self.base_colbox[5] * .5,
+			self.base_colbox[6] * .5
+		}
+	end
+
+	if self.health == 0 then
+		self.health = math.random (self.hp_min, self.hp_max)
+	end
+
+	-- rnd: pathfinding init
+	self.path = {}
+	self.path.way = {} -- path to follow, table of positions
+	self.path.lastpos = {x = 0, y = 0, z = 0}
+	self.path.stuck = false
+	self.path.following = false -- currently following path?
+	self.path.stuck_timer = 0 -- if stuck for too long search for path
+	-- end init
+
+	self.object:set_armor_groups({immortal = 1, fleshy = self.armor})
+	self.old_y = self.object:get_pos().y
+	self.old_health = self.health
+	self.sounds.distance = self.sounds.distance or 10
+	self.textures = textures
+	self.mesh = mesh
+	self.collisionbox = colbox
+	self.visual_size = vis_size
+	self.standing_in = ""
+
+	-- check existing nametag
+	if not self.nametag then
+		self.nametag = def.nametag
+	end
+
+	-- set anything changed above
+	self.object:set_properties(self)
+
+	-- Reset animation
+	if self.actions and self.actions.move_state then
+		if self.actions.move_state.is_sitting == true then
+			npc.actions.sit(self, {pos=self.object:getpos()})
+		elseif self.actions.move_state.is_laying == true then
+			npc.actions.lay(self, {pos=self.object:getpos()})
+		end
+	end
+
+	-- run on_spawn function if found
+	if self.on_spawn and not self.on_spawn_run then
+		if self.on_spawn(self) then
+			self.on_spawn_run = true --  if true, set flag to run once only
+		end
+	end
+
+	minetest.log("Executed good activate")
+end
+
+function npc.add_initiate_animation_state()
+	local def = minetest.registered_entities["advanced_npc:npc"]
+	def.textures = def.texture_list
+	--minetest.log("Def: "..dump(def))
+	def.on_activate = function(self, staticdata, dtime)
+		return npc.activate(self, staticdata, def, dtime)
+	end
+end
+
+
+-- Run the fix
+npc.add_initiate_animation_state()
 
 -- Spawn
 -- mobs:spawn({

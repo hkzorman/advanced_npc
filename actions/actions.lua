@@ -199,8 +199,13 @@ end
 -- and the NPC is allowed to roam freely.
 function npc.actions.freeze(self, args)
 	local freeze_mobs_api = args.freeze
-	--minetest.log("Received: "..dump(freeze_mobs_api))
-	--minetest.log("Returning: "..dump(not(freeze_mobs_api)))
+	local disable_rightclick = args.disable_rightclick
+	if disable_rightclick ~= nil then
+		npc.log("INFO", "Enabling interactions for NPC "..self.npc_name..": "..dump(not(disable_rightclick)))
+		self.enable_rightclick_interaction = not(disable_rightclick)
+	end
+--	minetest.log("Received: "..dump(freeze_mobs_api))
+--	minetest.log("Returning: "..dump(not(freeze_mobs_api)))
 	return not(freeze_mobs_api)
 end
 
@@ -904,6 +909,7 @@ function npc.actions.use_bed(self, args)
 			-- Set place as used
 			npc.places.mark_place_used(pos, npc.places.USE_STATE.USED)
 		end
+		self.actions.move_state.is_laying = true
 	else
 		-- Calculate position to get up
 		-- Error here due to ignore. Need to come up with better solution
@@ -953,6 +959,7 @@ function npc.actions.use_bed(self, args)
 			-- Set place as unused
 			npc.places.mark_place_used(pos, npc.places.USE_STATE.NOT_USED)
 		end
+		self.actions.move_state.is_laying = false
 	end
 end
 
@@ -981,6 +988,7 @@ function npc.actions.use_sittable(self, args)
 			-- Set place as used
 			npc.places.mark_place_used(pos, npc.places.USE_STATE.USED)
 		end
+		self.actions.move_state.is_sitting = true
 	else
 		-- Find empty areas around chair
 		local dir = node.param2 + 2 % 4
@@ -1005,6 +1013,7 @@ function npc.actions.use_sittable(self, args)
 			-- Set place as unused
 			npc.places.mark_place_used(pos, npc.places.USE_STATE.NOT_USED)
 		end
+		self.actions.move_state.is_sitting = false
 	end
 end
 

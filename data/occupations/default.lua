@@ -31,16 +31,18 @@ local basic_def = {
             }
             },
             -- Walk to home inside
-            [2] = {task = npc.actions.cmd.WALK_TO_POS, args = {
-                end_pos = npc.places.PLACE_TYPE.OTHER.HOME_INSIDE,
-                walkable = {}
-            },
+            [2] = {
+                task = npc.actions.cmd.WALK_TO_POS,
+                args = {
+                    end_pos = npc.places.PLACE_TYPE.OTHER.HOME_INSIDE,
+                    walkable = {}
+                },
                 chance = 75
             },
             -- Allow mobs_redo wandering
-            [3] = {action = npc.actions.cmd.FREEZE, args = {freeze = false}}
+            [3] = {action = npc.actions.cmd.FREEZE, args = {freeze = false, disable_rightclick = false}}
         },
-        -- Schedule entry for 7 in the morning
+        -- Schedule entry for 8 in the morning
         [8] = {
             -- Walk to outside of home
             [1] = {task = npc.actions.cmd.WALK_TO_POS, args = {
@@ -157,7 +159,7 @@ local basic_def = {
                 }
             },
             -- Stay put on bed
-            [3] = {action = npc.actions.cmd.FREEZE, args = {freeze = true}}
+            [3] = {action = npc.actions.cmd.FREEZE, args = {freeze = true, disable_rightclick = true}}
         }
     }
 }
