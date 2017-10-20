@@ -1311,7 +1311,13 @@ function npc.after_activate(self)
 		if self.yaw_before_interaction then
 			self.object:setyaw(self.yaw_before_interaction)
 		end
-	end
+    else
+        -- Temporary code - adds the new state variables
+        self.actions.move_state = {
+            is_sitting = false,
+            is_laying = false
+        }
+    end
 end
 
 -- This function is executed on right-click
