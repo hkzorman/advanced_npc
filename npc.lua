@@ -817,12 +817,6 @@ function npc.lock_actions(self)
 	if self.actions.action_timer_lock == true then
 		return
 	end
-	-- Check if NPC is in unmovable state
-	if self.actions.move_state
-			and (self.actions.move_state.is_sitting == true or self.actions.move_state.is_laying == true) then
-		-- Can't lock actions since NPC is in a non-movable state
-		return
-	end
 
 	local pos = self.object:getpos()
 
@@ -837,8 +831,12 @@ function npc.lock_actions(self)
 		end
 		pos.y = self.object:getpos().y
 	end
-	-- Stop NPC
-	npc.actions.execute(self, npc.actions.cmd.STAND, {pos=pos})
+	-- Check if NPC is in unmovable state
+	if self.actions.move_state
+			and self.actions.move_state.is_sitting == false and self.actions.move_state.is_laying == false then
+		-- Stop NPC
+		npc.actions.execute(self, npc.actions.cmd.STAND, {pos=pos})
+	end
 	-- Avoid all timer execution
 	self.actions.action_timer_lock = true
 	-- Reset timer so that it has some time after interaction is done
@@ -860,14 +858,23 @@ function npc.lock_actions(self)
 end
 
 function npc.unlock_actions(self)
+
+	if self.yaw_before_interaction ~= nil then
+		minetest.after(1, function(ent, yaw)
+			ent.object:setyaw(yaw)
+		end, self, self.yaw_before_interaction)
+		self.yaw_before_interaction = nil
+	end
+
+	-- Allow timers to execute
+	self.actions.action_timer_lock = false
+
 	-- Check if the NPC is sitting or laying states
 	if self.actions.move_state
 			and (self.actions.move_state.is_sitting == true or self.actions.move_state.is_laying == true) then
-		-- Can't unlock actions since NPC is in a non-movable state
 		return
 	end
-	-- Allow timers to execute
-	self.actions.action_timer_lock = false
+
 	-- Restore the value of self.freeze
 	self.freeze = self.actions.state_before_lock.freeze
 
@@ -1291,7 +1298,27 @@ end
 ---------------------------------------------------------------------------------------
 -- The following functions make up the definitions of on_rightclick(), do_custom()
 -- and other functions that are assigned to the Lua entity definition
+-- This function is executed each time the NPC is loaded
+function npc.after_activate(self)
+	-- Reset animation
+	if self.actions and self.actions.move_state then
+		if self.actions.move_state.is_sitting == true then
+			npc.actions.execute(self, npc.actions.cmd.SIT, {pos=self.object:getpos()})
+		elseif self.actions.move_state.is_laying == true then
+			npc.actions.execute(self, npc.actions.cmd.LAY, {pos=self.object:getpos()})
+		end
+		-- Reset yaw if available
+		if self.yaw_before_interaction then
+			self.object:setyaw(self.yaw_before_interaction)
+		end
+	end
+end
+
+-- This function is executed on right-click
 function npc.rightclick_interaction(self, clicker)
+	-- Store original yaw
+	self.yaw_before_interaction = self.object:getyaw()
+
 	-- Rotate NPC toward its clicker
 	npc.dialogue.rotate_npc_to_player(self)
 
@@ -1328,6 +1355,208 @@ function npc.rightclick_interaction(self, clicker)
 	else
 		npc.start_dialogue(self, clicker, true)
 	end
+end
+
+function npc.step(self, dtime)
+	if self.initialized == nil then
+		-- Initialize NPC if spawned using the spawn egg built in from
+		-- mobs_redo. This functionality will be removed in the future in
+		-- favor of a better manual spawning method with customization
+		npc.log("WARNING", "Initializing NPC from entity step. This message should only be appearing if an NPC is being spawned from inventory with egg!")
+		npc.initialize(self, self.object:getpos(), true)
+		self.tamed = false
+		self.owner = nil
+	else
+		-- NPC is initialized, check other variables
+		-- Check child texture issues
+		if self.is_child then
+			-- Check texture
+			npc.texture_check.timer = npc.texture_check.timer + dtime
+			if npc.texture_check.timer > npc.texture_check.interval then
+				-- Reset timer
+				npc.texture_check.timer = 0
+				-- Set hornytimer to zero every 60 seconds so that children
+				-- don't grow automatically
+				self.hornytimer = 0
+				-- Set correct textures
+				self.texture = {self.selected_texture}
+				self.base_texture = {self.selected_texture}
+				self.object:set_properties(self)
+				npc.log("WARNING", "Corrected textures on NPC child "..dump(self.npc_name))
+				-- Set interval to large interval so this code isn't called frequently
+				npc.texture_check.interval = 60
+			end
+		end
+	end
+
+	-- Timer function for casual traders to reset their trade offers
+	self.trader_data.change_offers_timer = self.trader_data.change_offers_timer + dtime
+	-- Check if time has come to change offers
+	if self.trader_data.trader_status == npc.trade.CASUAL and
+			self.trader_data.change_offers_timer >= self.trader_data.change_offers_timer_interval then
+		-- Reset timer
+		self.trader_data.change_offers_timer = 0
+		-- Re-select casual trade offers
+		npc.trade.generate_trade_offers_by_status(self)
+	end
+
+	-- Timer function for gifts
+	for i = 1, #self.relationships do
+		local relationship = self.relationships[i]
+		-- Gift timer check
+		if relationship.gift_timer_value < relationship.gift_interval then
+			relationship.gift_timer_value = relationship.gift_timer_value + dtime
+		elseif relationship.talk_timer_value < relationship.gift_interval then
+			-- Relationship talk timer - only allows players to increase relationship
+			-- by talking on the same intervals as gifts
+			relationship.talk_timer_value = relationship.talk_timer_value + dtime
+		else
+			-- Relationship decrease timer
+			if relationship.relationship_decrease_timer_value
+					< relationship.relationship_decrease_interval then
+				relationship.relationship_decrease_timer_value =
+				relationship.relationship_decrease_timer_value + dtime
+			else
+				-- Check if married to decrease half
+				if relationship.phase == "phase6" then
+					-- Avoid going below the marriage phase limit
+					if (relationship.points - 0.5) >=
+							npc.relationships.RELATIONSHIP_PHASE["phase5"].limit then
+						relationship.points = relationship.points - 0.5
+					end
+				else
+					relationship.points = relationship.points - 1
+				end
+				relationship.relationship_decrease_timer_value = 0
+				--minetest.log(dump(self))
+			end
+		end
+	end
+
+	-- Action queue timer
+	-- Check if actions and timers aren't locked
+	if self.actions.action_timer_lock == false then
+		-- Increment action timer
+		self.actions.action_timer = self.actions.action_timer + dtime
+		if self.actions.action_timer >= self.actions.action_interval then
+			-- Reset action timer
+			self.actions.action_timer = 0
+			-- Check if NPC is walking
+			if self.actions.walking.is_walking == true then
+				-- Move NPC to expected position to ensure not getting lost
+				local pos = self.actions.walking.target_pos
+				self.object:moveto({x=pos.x, y=pos.y, z=pos.z})
+			end
+			-- Execute action
+			self.freeze = npc.execute_action(self)
+			-- Check if there are still remaining actions in the queue
+			if self.freeze == nil and table.getn(self.actions.queue) > 0 then
+				self.freeze = false
+			end
+		end
+	end
+
+	-- Schedule timer
+	-- Check if schedules are enabled
+	if self.schedules.enabled == true then
+		-- Get time of day
+		local time = get_time_in_hours()
+		-- Check if time is an hour
+		if ((time % 1) < dtime) and self.schedules.lock == false then
+			-- Activate lock to avoid more than one entry to this code
+			self.schedules.lock = true
+			-- Get integer part of time
+			time = (time) - (time % 1)
+			-- Check if there is a schedule entry for this time
+			-- Note: Currently only one schedule is supported, for day 0
+			npc.log("DEBUG_SCHEDULE", "Time: "..dump(time))
+			local schedule = self.schedules.generic[0]
+			if schedule ~= nil then
+				-- Check if schedule for this time exists
+				if schedule[time] ~= nil then
+					npc.log("DEBUG_SCHEDULE", "Adding actions to action queue")
+					-- Add to action queue all actions on schedule
+					for i = 1, #schedule[time] do
+						-- Check if schedule has a check function
+						if schedule[time][i].check then
+							-- Add parameters for check function and run for first time
+							npc.log("DEBUG", "NPC "..dump(self.npc_id).." is starting check on "..minetest.pos_to_string(self.object:getpos()))
+							local check_params = schedule[time][i]
+							-- Calculates how many times check will be executed
+							local execution_times = check_params.count
+							if check_params.random_execution_times then
+								execution_times = math.random(check_params.min_count, check_params.max_count)
+							end
+							-- Set current parameters
+							self.schedules.current_check_params = {
+								range = check_params.range,
+								walkable_nodes = check_params.walkable_nodes,
+								nodes = check_params.nodes,
+								actions = check_params.actions,
+								none_actions = check_params.none_actions,
+								prefer_last_acted_upon_node = check_params.prefer_last_acted_upon_node or false,
+								last_node_acted_upon = "",
+								execution_count = 0,
+								execution_times = execution_times
+							}
+							-- Enqueue the schedule check
+							npc.add_schedule_check(self)
+						else
+							npc.log("DEBUG_SCHEDULE", "Executing schedule entry for NPC "..dump(self.npc_id)..": "
+									..dump(schedule[time][i]))
+							-- Run usual schedule entry
+							-- Check chance
+							local execution_chance = math.random(1, 100)
+							if not schedule[time][i].chance or
+									(schedule[time][i].chance and execution_chance <= schedule[time][i].chance) then
+								-- Check if entry has dependency on other entry
+								local dependencies_met = nil
+								if schedule[time][i].depends then
+									dependencies_met = npc.utils.array_is_subset_of_array(
+										self.schedules.temp_executed_queue,
+										schedule[time][i].depends)
+								end
+
+								-- Check for dependencies being met
+								if dependencies_met == nil or dependencies_met == true then
+									-- Add tasks
+									if schedule[time][i].task ~= nil then
+										-- Add task
+										npc.add_task(self, schedule[time][i].task, schedule[time][i].args)
+									elseif schedule[time][i].action ~= nil then
+										-- Add action
+										npc.add_action(self, schedule[time][i].action, schedule[time][i].args)
+									elseif schedule[time][i].property ~= nil then
+										-- Change NPC property
+										npc.schedule_change_property(self, schedule[time][i].property, schedule[time][i].args)
+									end
+									-- Backward compatibility check
+									if self.schedules.temp_executed_queue then
+										-- Add into execution queue to meet dependency
+										table.insert(self.schedules.temp_executed_queue, i)
+									end
+								end
+							else
+								-- TODO: Change to debug
+								npc.log("DEBUG", "Skipping schedule entry for time "..dump(time)..": "..dump(schedule[time][i]))
+							end
+						end
+					end
+					-- Clear execution queue
+					self.schedules.temp_executed_queue = {}
+					npc.log("DEBUG", "New action queue: "..dump(self.actions.queue))
+				end
+			end
+		else
+			-- Check if lock can be released
+			if (time % 1) > dtime + 0.1 then
+				-- Release lock
+				self.schedules.lock = false
+			end
+		end
+	end
+
+	return self.freeze
 end
 
 
@@ -1420,14 +1649,7 @@ mobs:register_mob("advanced_npc:npc", {
 		punch_end = 219,
 	},
 	after_activate = function(self, staticdata, def, dtime)
-		-- Reset animation
-		if self.actions and self.actions.move_state then
-			if self.actions.move_state.is_sitting == true then
-				npc.actions.sit(self, {pos=self.object:getpos()})
-			elseif self.actions.move_state.is_laying == true then
-				npc.actions.lay(self, {pos=self.object:getpos()})
-			end
-		end
+		npc.after_activate(self)
 	end,
 	on_rightclick = function(self, clicker)
 		-- Check if right-click interaction is enabled
@@ -1436,219 +1658,9 @@ mobs:register_mob("advanced_npc:npc", {
 		end
 	end,
 	do_custom = function(self, dtime)
-		if self.initialized == nil then
-			-- Initialize NPC if spawned using the spawn egg built in from
-			-- mobs_redo. This functionality will be removed in the future in
-			-- favor of a better manual spawning method with customization
-			npc.log("WARNING", "Initializing NPC from entity step. This message should only be appearing if an NPC is being spawned from inventory with egg!")
-			npc.initialize(self, self.object:getpos(), true)
-			self.tamed = false
-			self.owner = nil
-		else
-			-- NPC is initialized, check other variables
-			-- Check child texture issues
-			if self.is_child then
-				-- Check texture
-				npc.texture_check.timer = npc.texture_check.timer + dtime
-				if npc.texture_check.timer > npc.texture_check.interval then
-					-- Reset timer
-					npc.texture_check.timer = 0
-					-- Set hornytimer to zero every 60 seconds so that children
-					-- don't grow automatically
-					self.hornytimer = 0
-					-- Set correct textures
-					self.texture = {self.selected_texture}
-					self.base_texture = {self.selected_texture}
-					self.object:set_properties(self)
-					npc.log("WARNING", "Corrected textures on NPC child "..dump(self.npc_name))
-					-- Set interval to large interval so this code isn't called frequently
-					npc.texture_check.interval = 60
-				end
-			end
-		end
-
-		-- Timer function for casual traders to reset their trade offers
-		self.trader_data.change_offers_timer = self.trader_data.change_offers_timer + dtime
-		-- Check if time has come to change offers
-		if self.trader_data.trader_status == npc.trade.CASUAL and
-				self.trader_data.change_offers_timer >= self.trader_data.change_offers_timer_interval then
-			-- Reset timer
-			self.trader_data.change_offers_timer = 0
-			-- Re-select casual trade offers
-			npc.trade.generate_trade_offers_by_status(self)
-		end
-
-		-- Timer function for gifts
-		for i = 1, #self.relationships do
-			local relationship = self.relationships[i]
-			-- Gift timer check
-			if relationship.gift_timer_value < relationship.gift_interval then
-				relationship.gift_timer_value = relationship.gift_timer_value + dtime
-			elseif relationship.talk_timer_value < relationship.gift_interval then
-				-- Relationship talk timer - only allows players to increase relationship
-				-- by talking on the same intervals as gifts
-				relationship.talk_timer_value = relationship.talk_timer_value + dtime
-			else
-				-- Relationship decrease timer
-				if relationship.relationship_decrease_timer_value
-						< relationship.relationship_decrease_interval then
-					relationship.relationship_decrease_timer_value =
-					relationship.relationship_decrease_timer_value + dtime
-				else
-					-- Check if married to decrease half
-					if relationship.phase == "phase6" then
-						-- Avoid going below the marriage phase limit
-						if (relationship.points - 0.5) >=
-								npc.relationships.RELATIONSHIP_PHASE["phase5"].limit then
-							relationship.points = relationship.points - 0.5
-						end
-					else
-						relationship.points = relationship.points - 1
-					end
-					relationship.relationship_decrease_timer_value = 0
-					--minetest.log(dump(self))
-				end
-			end
-		end
-
-		-- Action queue timer
-		-- Check if actions and timers aren't locked
-		if self.actions.action_timer_lock == false then
-			-- Increment action timer
-			self.actions.action_timer = self.actions.action_timer + dtime
-			if self.actions.action_timer >= self.actions.action_interval then
-				-- Reset action timer
-				self.actions.action_timer = 0
-				-- Check if NPC is walking
-				if self.actions.walking.is_walking == true then
-					-- Move NPC to expected position to ensure not getting lost
-					local pos = self.actions.walking.target_pos
-					self.object:moveto({x=pos.x, y=pos.y, z=pos.z})
-				end
-				-- Execute action
-				self.freeze = npc.execute_action(self)
-				-- Check if there are still remaining actions in the queue
-				if self.freeze == nil and table.getn(self.actions.queue) > 0 then
-					self.freeze = false
-				end
-			end
-		end
-
-		-- Schedule timer
-		-- Check if schedules are enabled
-		if self.schedules.enabled == true then
-			-- Get time of day
-			local time = get_time_in_hours()
-			-- Check if time is an hour
-			if ((time % 1) < dtime) and self.schedules.lock == false then
-				-- Activate lock to avoid more than one entry to this code
-				self.schedules.lock = true
-				-- Get integer part of time
-				time = (time) - (time % 1)
-				-- Check if there is a schedule entry for this time
-				-- Note: Currently only one schedule is supported, for day 0
-				npc.log("DEBUG_SCHEDULE", "Time: "..dump(time))
-				local schedule = self.schedules.generic[0]
-				if schedule ~= nil then
-					-- Check if schedule for this time exists
-					if schedule[time] ~= nil then
-						npc.log("DEBUG_SCHEDULE", "Adding actions to action queue")
-						-- Add to action queue all actions on schedule
-						for i = 1, #schedule[time] do
-							-- Check if schedule has a check function
-							if schedule[time][i].check then
-								-- Add parameters for check function and run for first time
-									npc.log("DEBUG", "NPC "..dump(self.npc_id).." is starting check on "..minetest.pos_to_string(self.object:getpos()))
-								local check_params = schedule[time][i]
-								-- Calculates how many times check will be executed
-								local execution_times = check_params.count
-								if check_params.random_execution_times then
-									execution_times = math.random(check_params.min_count, check_params.max_count)
-								end
-								-- Set current parameters
-								self.schedules.current_check_params = {
-									range = check_params.range,
-									walkable_nodes = check_params.walkable_nodes,
-									nodes = check_params.nodes,
-									actions = check_params.actions,
-									none_actions = check_params.none_actions,
-									prefer_last_acted_upon_node = check_params.prefer_last_acted_upon_node or false,
-									last_node_acted_upon = "",
-									execution_count = 0,
-									execution_times = execution_times
-								}
-								-- Enqueue the schedule check
-								npc.add_schedule_check(self)
-							else
-								npc.log("DEBUG_SCHEDULE", "Executing schedule entry for NPC "..dump(self.npc_id)..": "
-										..dump(schedule[time][i]))
-								-- Run usual schedule entry
-								-- Check chance
-								local execution_chance = math.random(1, 100)
-								if not schedule[time][i].chance or
-										(schedule[time][i].chance and execution_chance <= schedule[time][i].chance) then
-									-- Check if entry has dependency on other entry
-									local dependencies_met = nil
-									if schedule[time][i].depends then
-										dependencies_met = npc.utils.array_is_subset_of_array(
-											self.schedules.temp_executed_queue,
-											schedule[time][i].depends)
-									end
-
-									-- Check for dependencies being met
-									if dependencies_met == nil or dependencies_met == true then
-										-- Add tasks
-										if schedule[time][i].task ~= nil then
-											-- Add task
-											npc.add_task(self, schedule[time][i].task, schedule[time][i].args)
-										elseif schedule[time][i].action ~= nil then
-											-- Add action
-											npc.add_action(self, schedule[time][i].action, schedule[time][i].args)
-										elseif schedule[time][i].property ~= nil then
-											-- Change NPC property
-											npc.schedule_change_property(self, schedule[time][i].property, schedule[time][i].args)
-										end
-										-- Backward compatibility check
-										if self.schedules.temp_executed_queue then
-											-- Add into execution queue to meet dependency
-											table.insert(self.schedules.temp_executed_queue, i)
-										end
-									end
-								else
-									-- TODO: Change to debug
-									npc.log("DEBUG", "Skipping schedule entry for time "..dump(time)..": "..dump(schedule[time][i]))
-								end
-							end
-						end
-						-- Clear execution queue
-						self.schedules.temp_executed_queue = {}
-						npc.log("DEBUG", "New action queue: "..dump(self.actions.queue))
-					end
-				end
-			else
-				-- Check if lock can be released
-				if (time % 1) > dtime + 0.1 then
-					-- Release lock
-					self.schedules.lock = false
-				end
-			end
-		end
-
-		return self.freeze
+		return npc.step(self, dtime)
 	end
 })
-
--- Spawn
--- mobs:spawn({
---   name = "advanced_npc:npc",
---   nodes = {"advanced_npc:plotmarker_auto_spawner", "mg_villages:plotmarker"},
---   min_light = 3,
---   active_object_count = 1,
---   interval = 5,
---   chance = 1,
---   --max_height = 0,
---   on_spawn = npc.initialize
--- })
 
 -------------------------------------------------------------------------
 -- Item definitions

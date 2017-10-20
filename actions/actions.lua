@@ -368,14 +368,19 @@ end
 -- contains also for diagonals, but remaining in the orthogonal domain is preferrable.
 function npc.actions.rotate(self, args)
 	local dir = args.dir
+	local yaw = args.yaw or 0
 	local start_pos = args.start_pos
 	local end_pos = args.end_pos
 	-- Calculate dir if positions are given
 	if start_pos and end_pos and not dir then
 		dir = npc.actions.get_direction(start_pos, end_pos)
 	end
+	-- Only yaw was given
+	if yaw and not dir and not start_pos and not end_pos then
+		self.object:setyaw(yaw)
+		return
+	end
 
-	local yaw = 0
 	self.rotate = 0
 	if dir == npc.direction.north then
 		yaw = 0
@@ -990,6 +995,10 @@ function npc.actions.use_sittable(self, args)
 		end
 		self.actions.move_state.is_sitting = true
 	else
+		if self.actions.move_state.is_sitting == false then
+			npc.log("DEBUG_ACTION", "NPC "..self.npc_name.." attempted to get up from sit when it is not sitting.")
+			return
+		end
 		-- Find empty areas around chair
 		local dir = node.param2 + 2 % 4
 		-- Default it to the current position in case it can't find empty

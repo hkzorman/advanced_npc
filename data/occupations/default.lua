@@ -79,49 +79,47 @@ local basic_def = {
                 depends = {1}
             },
             -- Stay put into place
-            [3] = {action = npc.actions.cmd.SET_INTERVAL, args = {
-                freeze = true,
-                interval = 35
-            },
+            [3] = {
+                action = npc.actions.cmd.FREEZE, args = {freeze = true},
                 depends = {2}
-            },
-            [4] = {action = npc.actions.cmd.SET_INTERVAL, args = {
-                freeze = true,
-                interval = npc.actions.default_interval
-            },
-                depends = {3}
-            },
-            -- Get up from sit
-            [5] = {action = npc.actions.cmd.USE_SITTABLE, args = {
-                pos = npc.places.PLACE_TYPE.CALCULATED.TARGET,
-                action = npc.actions.const.sittable.GET_UP
-            },
-                --depends = {4}
             }
         },
         -- Schedule entry for 1 in the afternoon
         [13] = {
-            -- Give NPC money to buy from player
-            [1] = {property = npc.schedule_properties.put_multiple_items, args = {
-                itemlist = {
-                    {name="default:iron_lump", random=true, min=2, max=4}
-                }
+            -- Get up from sit
+            [1] = {
+                action = npc.actions.cmd.USE_SITTABLE, args = {
+                    pos = npc.places.PLACE_TYPE.CALCULATED.TARGET,
+                    action = npc.actions.const.sittable.GET_UP
+                },
             },
+            -- Give NPC money to buy from player
+            [2] = {
+                property = npc.schedule_properties.put_multiple_items,
+                args = {
+                    itemlist = {
+                        {name="default:iron_lump", random=true, min=2, max=4}
+                    }
+                },
                 chance = 75
             },
             -- Change trader status to "casual trader"
-            [2] = {property = npc.schedule_properties.trader_status, args = {
-                status = npc.trade.CASUAL
-            },
+            [3] = {
+                property = npc.schedule_properties.trader_status,
+                args = {
+                    status = npc.trade.CASUAL
+                },
                 chance = 75
             },
-            [3] = {property = npc.schedule_properties.can_receive_gifts, args = {
-                can_receive_gifts = false
-            },
+            [4] = {
+                property = npc.schedule_properties.can_receive_gifts,
+                args = {
+                    can_receive_gifts = false
+                },
                 depends = {1}
             },
             -- Allow mobs_redo wandering
-            [4] = {action = npc.actions.cmd.FREEZE, args = {freeze = false}}
+            [5] = {action = npc.actions.cmd.FREEZE, args = {freeze = false}}
         },
         -- Schedule entry for 6 in the evening
         [18] = {
