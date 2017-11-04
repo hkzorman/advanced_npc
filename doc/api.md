@@ -7,12 +7,12 @@ IMPORTANT: This WIP & unfinished file contains the definitions of current advanc
 
 Introduction
 ------------
-You can consult this document for help on API of behaviors for the NPCs.  
+You can consult this document for help on API of behaviors for the NPCs. 
 The goal is to be able to have NPCs that have the same functionality as normal players.
 The NPCs make Sokomine's mg_villages in Minetest alive although they can
 be manually spawned outside the village and work as good as new. 
 Here is some information about the API methods and systems.
-* More information on advanced_npc methods in doc/actions_and_methods.txt
+* More information on advanced_npc methods in [actions_and_methods.md](doc/actions_and_methods.md)
 * npc.lua also uses methods and functions from the dependency: mobs_redo <https://github.com/tenplus1/mobs_redo>
 
 
@@ -96,7 +96,7 @@ Example
         action = npc.actions.const.beds.GET_UP
     })
 
-See more in `actions_and_tasks.txt` documentation.
+See more in [actions_and_methods.md](doc/actions_and_methods.md) documentation.
 
 
 Schedules

@@ -3,7 +3,7 @@ Advanced_NPC Alpha-2 (DEV)
 ==========================
 
 IMPORTANT: In this documentation is only the explanation of the particular operation of each predefined 
-action and task. Read reference documentation for details about API operation at `api.md`.
+action and task. Read reference documentation for details about API operation at [api.md](doc/api.md).
 
 Action (`add_action`)
 ---------------------
