@@ -12,7 +12,7 @@ The goal is to be able to have NPCs that have the same functionality as normal p
 The NPCs make Sokomine's mg_villages in Minetest alive although they can
 be manually spawned outside the village and work as good as new. 
 Here is some information about the API methods and systems.
-* More information on advanced_npc methods in [actions_and_methods.md](doc/actions_and_methods.md)
+* More information on advanced_npc methods in [actions_and_tasks.md](actions_and_tasks.md)
 * npc.lua also uses methods and functions from the dependency: mobs_redo <https://github.com/tenplus1/mobs_redo>
 
 
@@ -96,7 +96,7 @@ Example
         action = npc.actions.const.beds.GET_UP
     })
 
-See more in [actions_and_methods.md](doc/actions_and_methods.md) documentation.
+See more in [actions_and_tasks.md](actions_and_tasks.md) documentation.
 
 
 Schedules
