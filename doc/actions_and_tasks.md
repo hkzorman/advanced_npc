@@ -8,9 +8,6 @@ action and task. Read reference documentation for details about API operation at
 Action (`add_action`)
 ---------------------
 
-Definition tables
------------------
-
 #### `SET_INTERVAL` 
 Set the interval at which the `action` are executed.
 
