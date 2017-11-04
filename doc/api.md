@@ -3,7 +3,7 @@ Advanced_NPC API Reference Alpha-2 (DEV)
 * More information at <https://github.com/hkzorman/advanced_npc/wiki>
 
 IMPORTANT: This WIP & unfinished file contains the definitions of current advanced_npc functions
-(Some documentation is lacking, so please bear in mind that this WIP file is just to enhance it.)
+(Some documentation is lacking, so please bear in mind that this WIP file is just to enhance it)
 
 Introduction
 ------------
@@ -42,8 +42,8 @@ Or after add in the world
 
 NPC Steps
 ---------
-The API works with NPC steps, then then `on_step` callback need 
-run the `npc.on_step(luaentity)`. This function process the NPC actions 
+The API works with NPC steps, then `on_step` callback need run the 
+`npc.on_step(luaentity)`. This function process the NPC actions 
 and return the freeze state, which is used for stop mobs_redo behavior.
 
 Example:
@@ -58,9 +58,9 @@ Here is a recommended code.
 
     do_custom = function(self, dtime)
     	
-    	-- Here is my "do_custom" code
+        -- Here is my "do_custom" code
     	
-    	-- Process the NPC action and return freeze state
+        -- Process the NPC action and return freeze state
         return npc.on_step(self)
     end
 
@@ -163,12 +163,14 @@ Definition tables
 Examples: 
 
 Syntax example 1:
+
     npc.dialogue.register_dialogue({
         text = "Hello.", -- "Hello." will be said by the NPC upon rightclick and displayed in the messages section.
         tags = {"unisex", "phase1"} -- The flags that define the conditions of who and what can say the text.
     })
 
 Syntax example 2:
+
     npc.dialogue.register_dialogue({
         text = "Hello again."
         -- The tags object is excluded, meaning that any NPC can say "Hello again." upon rightclick under no condition.
