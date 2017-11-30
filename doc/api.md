@@ -117,19 +117,34 @@ the interruption is finished.
 
 ### Schedule commands
 Schedule commands are an array of actions and tasks that the NPC.
-Exist 4 possible commands.
+Exist 4 possible commands:
 
 * action
+```
     {
         action = action, -- Is a constant defined in `npc.actions.cmd`
         args = {} -- action arguments
     }
+```
 * task
+```
     {
         task = task, -- Is a constant defined in `npc.actions.cmd`
         args = {} -- task arguments
     }
-
+```
+* Property change
+```
+    {
+        ???
+    }
+```
+* Schedule query/check
+```
+    {
+        schedule query/check definition
+    }
+```
 ### Schedule time
 Only integer value 0 until 23
 * 0: 0/24000 - 999
@@ -169,7 +184,7 @@ Only integer value 0 until 23
         [1] = {
             task = npc.actions.cmd.USE_BED, 
             args = {
-                pos = npc.places.PLACE_TYPE.BED.PRIMARY,
+                pos = "bed_primary",
                 action = npc.actions.const.beds.GET_UP
            }
         },
@@ -204,7 +219,7 @@ Places are separated into different types.
 
 ### Place types
 Current place types
-* `bed_primary`
+* `bed_primary` : the bed of a NPC 
 * `sit_primary`
 * `sit_shared`
 * `furnace_primary`
@@ -212,7 +227,7 @@ Current place types
 * `storage_primary`
 * `storage_shared`
 * `home_entrance_door`
-* `schedule_target_pos`
+* `schedule_target_pos` : used in the schedule actions
 * `calculated_target_pos`
 * `workplace_primary`
 * `workplace_tool`
@@ -221,12 +236,12 @@ Current place types
 * `home_outside`
 
 ### Methods
-* `npc.places.add_owned(luaentity, place_name, place_type, pos, access_node)` : Add owned place.
+* `npc.places.add_owned(luaentity, place_name, place_type, pos, access_pos)` : Add owned place.
   `luaentity` npc owner.
   `place_name` a specific place name.
   `place_type` place typing. 
   `pos` is a position of a node to be owned.
-  `access_pos` is a position of a node to be accessed.
+  `access_pos` is the coordinate where npc must be to initiate the access.
   Place is added for the NPC.
 * `npc.places.add_shared(luaentity, place_name, place_type, pos, access_node)` : Add shared place
 
@@ -275,6 +290,8 @@ Definition tables
               to have one of the given textures. Also, ensure they have sex
               as well in the filename so they can be chosen appropriately.
             ^ If left empty, it can spawn with any texture. ]]
+            
+        walkable_nodes = {}, -- Walkable nodes
         
         building_types = {}, --[[
             ^ An array of string where each string is the type of building
@@ -319,14 +336,14 @@ Definition tables
             ^ Example:
             {
                 [1] = {
-                    [1] = action = npc.action.cmd.freeze, args={freeze=true}
+                    [1] = schedule command
                 },
                 [13] = {
-                    [1] = action = npc.action.cmd.freeze, args={freeze=false},
-                    [2] = action = npc.action.cmd.freeze, args={freeze=true}
+                    [1] = schedule command,
+                    [2] = schedule command
                 },
                 [23] = {
-                    [1] = action=npc.action.cmd.freeze, args={freeze=false}
+                    [1] = schedule command
                 }
             }
               The numbers, [1], [13] and [23] are the times when the entries
@@ -345,6 +362,49 @@ Definition tables
         tags = {"tag1", "tag2"} --[[ 
         ^ The flags or marks of the dialogue text. 
         ^ The object can be excluded. ]]
+    }
+
+### Schedule query/check definition (schedule command) 
+
+    {
+        check = true, -- Indicates that this is a schedule query/check
+        
+        range = 2, -- Range of checked area in blocks.
+        
+        count = 20, -- How many checks will be performed.
+        
+        random_execution_times = true, --[[
+            ^ Randomizes the number of checks that will be performed.
+            ^ min_count and max_count is required ]]
+        
+        min_count = 20, -- minimum of checks
+        max_count = 25, -- maximum of checks
+        
+        nodes = {"itemstring1", "itemstring2"}, --[[ 
+            ^ Nodes to be found for the actions.
+            ^ When a node is found, it is add in the npc place map 
+              with the place name "schedule_target_pos"
+        
+        prefer_last_acted_upon_node = true, -- If prefer to act on nodes already acted upon
+        
+        walkable_nodes = {"itemstring1", "itemstring2"}, -- Walkable nodes
+        
+        actions = { --[[
+            ^ Table where index is a itemstring of the node to be found, 
+              and value is an array of actions and tasks to be performed 
+              when found the node. ]]
+       	
+            ["itemstring1"] = {            
+               [1] = action or task in schedule command format,
+               [2] = action or task in schedule command format,
+               [3] = action or task in schedule command format
+            },
+            ["itemstring2"] = {            
+               [1] = action or task in schedule command format,
+               [2] = action or task in schedule command format
+            }
+        },
+        
     }
 
 Examples: 
