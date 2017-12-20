@@ -117,7 +117,7 @@ the interruption is finished.
 
 ### Schedule commands
 Schedule commands are an array of actions and tasks that the NPC.
-Exist 4 possible commands:
+There are 4 possible commands:
 
 * action
 ```
