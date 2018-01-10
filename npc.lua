@@ -893,6 +893,7 @@ end
 --------------------------------------------
 -- These functions manage the execution context, where variables are
 -- stored, whether internal (loops) or user-created.
+-- The execution context is cleared at the end of each script.
 npc.execution_context = {}
 
 -- This function adds a value to the execution context.
