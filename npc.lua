@@ -899,7 +899,7 @@ npc.execution_context = {}
 -- This function adds a value to the execution context.
 -- Readonly defaults to false. Returns false if failed due to
 -- key-name conflict, or returns true if successful
-function npc.execution_context.add(self, key, value, readonly)
+function npc.execution_context.put(self, key, value, readonly)
 	-- Check if variable exists
 	if self.actions.execution_context[key] ~= nil then
 		npc.log("ERROR", "Attempt to create new variable with name "..key.." failed"..

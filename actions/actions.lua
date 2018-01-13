@@ -1,17 +1,128 @@
--- Commands code for Advanced NPC by Zorman2000
+-- Commands API code for Advanced NPC by Zorman2000
 ---------------------------------------------------------------------------------------
--- Command functionality
+-- Commands API functionality
 ---------------------------------------------------------------------------------------
--- The NPCs will be able to perform six fundamental commands that will allow
--- for them to perform any other kind of interaction in the world. These
--- fundamental commands are: place a node, dig a node, put items on an inventory,
--- take items from an inventory, find a node closeby (radius 3) and
--- walk a step on specific direction. These commands will be set on an command queue.
--- The queue will have the specific steps, in order, for the NPC to be able to do
--- something (example, go to a specific place and put a chest there). The
--- fundamental commands are added to the command queue to make a complete task for the NPC.
+--
+-- Description:
+------------------------------------------------------------------------------------------
+-- The Commands API is a Bash Script-like execution environment for Minetest entities.
+-- There are the following fundamental constructs:
+--   - commands: execute a specific action (e.g. dig a node, search for nodes, etc.)
+--   - variables: stores information temporarily (e.g. results of node search)
+--   - control statements: if/else and loops
+--
+-- All of these is done using the Lua programming language, and a few custom
+-- expressions where Lua can't help.
+--
+-- The fundamental concept is to use the three constructs together in the form of
+-- a script to allow NPCs (and any Minetest entity) to perform complex actions,
+-- like walking from one place to the other, operating furnaces, etc. In this sense,
+-- this "commands" API can be considered a domain-specific language (DSL), that is
+-- defined using Lua language structures.
+--
+-- Basic definitions:
+------------------------------------------------------------------------------------------
+-- A `variable` is any value that can be accessed using a specific key, or name.
+-- In the context of the commands API, there is an `execution` context where
+-- variables can be stored into, read and deleted from. The execution context
+-- is nothing but a map of key-value pairs, with the key being the variable name.
+-- Some rules regarding variables:
+--   - A variable can be read-write or read-only. Read-only variables cannot be
+--     updated, but can be deleted.
+--   - A variable cannot be overwritten by another variable of the same name.
+--   - The scope of variables is global *within* a script. The execution context
+--     is cleared after a script finishes executing. For more info about scripts,
+--     see below.
+--   - The Lua entity variables, referring to any `self.*` value isn't available
+--     as a variable. This is to keep the NPC integrity from a security perspective.
+--     However, as some values are very useful and often needed (such as
+--     `self.object:getpos()`), some variables are exposed. These are referred to
+--     as *internal* variables. They are read-only.
+--
+-- A 'command' is a Lua function, with only two parameters: `self`, the Lua entity,
+-- and `args`, a Lua table containing all arguments required for the command. The
+-- control statements (if/else, loop) and variable set/read are defined as commands
+-- as well. The arguments are not strictly controlled, with the following exceptions:
+--   - A `variable expression string` is special string that allows a variable
+--     to be passed as an argument to a command. The reason why a function can't
+--     be used for this is because the execution context, where variables are
+--     stored, lives in the entity itself (the `self` object), to which there's no
+--     access when a script is defined as a Lua array.
+--     The special string has a specific format: "<var_type>:<var_key>" where the
+--     accepted values for `<var_type>` are:
+--       - `var`, referring to a variable from the execution context, and,
+--       - `ivar`, referring to an internal variable (an exposed self.* variable)
+--   - A `function expression table` is a Lua table that contains a executable
+--     Lua function and the arguments to be executed. The function is executed
+--     at the proper moment when passed as an argument to a command, instead of
+--     executing immediately while defining a script.
+--     The function expression table has the following format:
+--     {
+--        func: <Lua function>,
+--        args: <Lua table of arguments for the function>
+--     }
+--   - A `boolean expression table` is a Lua table that is reconstructed into a
+--     Lua boolean expression. The reason for this to exist is similar to the
+--     above explanation, and is that, at the moment a script is defined as a
+--     Lua array, any function or variable passed as a boolean expression will
+--     evaluate, making the value effectively a constant. That would render
+--     loops and if/else statements useless.
+--     The boolean expression table has the following format:
+--     {
+--        left_side: <any_value|function expression table|variable expression string>,
+--        operator: <string>,
+--        right_side: <any value|function expression table|variable expression string>,
+--     }
+--   `operator` and `right_side` are optional: a single function in `left_side` is
+--   enough as long as it evaluates to a `boolean` value. The `operator` argument
+--   accepts the following values:
+--     - `equals`
+--     - `not_equals`
+--     - `greater_than`
+--     - `greater_than_equals`
+--     - `less_than`
+--     - `less_than_equals`
+--   `right_side` is required if `operator` is defined.
+--
+-- A `script` is an ordered sequence of commands to be executed, and is defined
+-- using a Lua array, where each element is a Lua function corresponding to a
+-- command. Scripts are intended to be implemented by users of the API, and as
+-- such it is possible to register a script for other mods to use. For example,
+-- a script can be used by a mod that creates a music player node so that NPCs
+-- can also be able to use it.
+-- Scripts can also be executed at certain times during a Minetest day thanks
+-- to the schedules functionality.
+--
+-- Execution:
+------------------------------------------------------------------------------------------
+-- The execution of commands is performed on a timer basis, per NPC, with a default
+-- interval value of one second. This interval can be changed by a command itself,
+-- however it is the recommended interval is one second to avoid lag caused by many NPCs
+-- executing commands.
+-- Commands has to be enqueued in order to execute. Enqueuing commands directly isn't
+-- recommended, and instead it should be done through a script. Nonetheless, the API
+-- for enqueuing commands and scripts is the following:
+--   - npc.enqueue_command(command_name, args)
+--   - npc.enqueue_script(script_name, args)
+--
+-- The control statement commands (if/else, loops) and variable set/read commands
+-- will execute the next command in queue immediately after finishing instead of
+-- waiting for the timer interval.
+--
+-- There is an `execution context` which contains all the variables that are defined
+-- using the variable set commands. Also, it contains values specific to the loops,
+-- like the number of times it has executed. The execution context lives in the NPC
+-- `self` object, and therefore, has to be carefully used, or otherwise it can create
+-- huge memory usage. In order to avoid this, variables can be deleted from the execution
+-- context using a specific command (`npc.commands.del_var(key)`). Also, as basic
+-- memory management routine, the `execution context` is cleared after the end of
+-- executing a script.
+-- To keep global variables, use the npc.command.get/set_flag() API which is not
+-- deleted after execution.
+------------------------------------------------------------------------------------------
 
 npc.commands = {}
+--local registered_commands = {}
 
 npc.commands.default_interval = 1
 
@@ -185,9 +296,128 @@ end
 -- TODO: Thanks to executor function, all the functions for Commands and Tasks
 -- should be made into private API
 
+
 ---------------------------------------------------------------------------------------
 -- Commands
 ---------------------------------------------------------------------------------------
+-- Expression Helper functions
+-- These functions provides validation and evaluation logic for the three custom
+-- arguments supported:
+--  - variable expression string
+--  - function expression table
+--  - boolean expression table
+npc.commands.expr = {}
+
+npc.commands.expr.boolean_operators = {
+    EQUALS = "equals",
+    NOT_EQUALS = "not_equals",
+    GREATER_THAN = "greater_than",
+    GREATER_THAN_EQUALS = "greater_than_equals",
+    LESS_THAN = "less_than",
+    LESS_THAN_EQUALS = "less_than_equals"
+}
+
+local function get_variable_arg(arg)
+    if type(arg) == "string" then
+        local var_exp = string.split(arg, ":")
+        if var_exp[1] == "var" or var_exp[1] == "ivar" then
+            return arg, true
+        end
+    end
+    return arg, false
+end
+
+local function evaluate_variable_arg(self, var_arg)
+    local var_exp = string.split(var_arg, ":")
+    if var_exp[1] == "var" then
+        return npc.commands.get_var(self, {key=var_exp[2]})
+    elseif var_exp[1] == "ivar" then
+        return npc.commands.get_internal_var(self, {key=var_exp[2]})
+    end
+end
+
+local function get_function_arg(arg)
+    if type(arg) == "table" then
+        -- Check if this is a function expression table. If it
+        -- is and is well defined, return it.
+        if arg.func and arg.args then
+            return arg, true
+        end
+    end
+    return arg, false
+end
+
+local function evaluate_function_arg(func_arg)
+    return func_arg.func(unpack(func_arg.args))
+end
+
+local function get_boolean_arg(arg)
+    if type(arg) == "table" then
+        if (arg.left_side and not(arg.operator and arg.right_side))
+                or (arg.left_side and arg.operator and arg.right_side) then
+            return arg, true
+        end
+        return arg, false
+    end
+end
+
+local function evaluate_boolean_arg(bool_arg)
+    local left_side = npc.commands.expr.evaluate_argument(bool_arg.left_side)
+    local right_side, operator
+    if bool_arg.right_side then
+        right_side = npc.commands.expr.evaluate_argument(bool_arg.right_side)
+        operator = bool_arg.operator
+    end
+    if right_side then
+        if operator == npc.commands.expr.boolean_operators.EQUALS then
+            return left_side == right_side
+        elseif operator == npc.commands.expr.boolean_operators.NOT_EQUALS then
+            return left_side ~= right_side
+        elseif operator == npc.commands.expr.boolean_operators.GREATER_THAN then
+            return left_side > right_side
+        elseif operator == npc.commands.expr.boolean_operators.GREATER_THAN_EQUALS then
+            return left_side >= right_side
+        elseif operator == npc.commands.expr.boolean_operators.LESS_THAN then
+            return left_side < right_side
+        elseif operator == npc.commands.expr.boolean_operators.LESS_THAN_EQUALS then
+            return left_side <= right_side
+        end
+    else
+        return left_side
+    end
+end
+
+-- This function identifies the type of argument we are dealing with.
+function npc.commands.expr.get_argument_type(arg)
+    local _, check = get_function_arg(arg)
+    if check then
+        return "function_expression"
+    else
+        _, check = get_variable_arg(arg)
+        if check then
+            return "variable_expression"
+        else
+            _, check = get_boolean_arg(arg)
+            if check then
+                return "boolean_expression"
+            end
+        end
+    end
+    return type(arg)
+end
+
+function npc.commands.expr.evaluate_argument(arg)
+    local argument_type = npc.commands.expr.get_argument_type(arg)
+    if argument_type == "function_expression" then
+        return evaluate_function_arg(arg)
+    elseif argument_type == "variable_expression" then
+        return evaluate_variable_arg(arg)
+    elseif argument_type == "boolean_expression" then
+        return evaluate_boolean_arg(arg)
+    else
+        return arg
+    end
+end
 
 --------------------------
 -- Declarative commands --
@@ -202,7 +432,14 @@ end
 --   - value: variable value
 -- Returns: Nothing
 function npc.commands.set_var(self, args)
-
+    if args.key then
+        local result = npc.execution_context.get(self, args.key)
+        if result then
+            npc.execution_context.set(self, args.key, args.value)
+        else
+            npc.execution_context.put(self, args.key, args.value, false)
+        end
+    end
 end
 
 -- This command returns the value of a variable in the execution context.
@@ -210,8 +447,10 @@ end
 -- Arguments:
 --   - key: variable name
 -- Returns: variable value if found, nil otherwise
-function npc.commands.get_var(self, args) 
-    
+function npc.commands.get_var(self, args)
+    if args.key then
+        return npc.execution_context.get(self, args.key)
+    end
 end
 
 -- This command returns the value of an internal NPC variable.
@@ -229,6 +468,18 @@ function npc.commands.get_internal_var(self, args)
         elseif key == npc.commands.internal_values.STANDING_IN then
             return self.standing_in
         end
+    end
+end
+
+-- This command deletes a variable from the execution context.
+-- If the deletion is successful, it returns the value of the deleted
+-- variable. If not, it returns nil
+-- Arguments:
+--   - key: key-name of the variable to be deleted
+function npc.commands.del_var(self, args)
+    local key = args.key
+    if key then
+        return npc.execution_context.remove(self, key)
     end
 end
 
@@ -265,8 +516,9 @@ end
 -- depending on the evaluation of a certain condition. This is the typical
 -- if-else statement of a programming language. If-else can be nested.
 -- Arguments:
---   - `condition`: Lua boolean expression, any expression or value that evaluates
---     to either `true` or `false`.
+--   - `condition`: accepts two values:
+--     - `boolean`: Lua boolean expression, any expression that evaluates to `true` or `false`.
+--     - `table`: A boolean expression table.
 --   - `true_commands`: an array of commands to be executed when the condition
 --     evaluates to `true`
 --   - `false_commands`: an array of commands to be executed when the condition
@@ -319,9 +571,9 @@ end
 
 
 
--------------------------
+--------------------------
 -- Interaction commands --
--------------------------
+--------------------------
 -- This command digs the node at the given position
 -- If 'add_to_inventory' is true, it will put the digged node in the NPC
 -- inventory.
