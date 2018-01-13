@@ -476,6 +476,8 @@ function npc.initialize(entity, pos, is_lua_entity, npc_stats, occupation_name)
 			-- relative to the last position
 			target_pos = {}
 		},
+		-- Execution context - map of user-declared variables when executing scripts
+		execution_context = {}
 	}
 
 	-- This flag is checked on every step. If it is true, the rest of
@@ -884,6 +886,68 @@ function npc.unlock_actions(self)
 	end
 
 	npc.log("DEBUG_ACTION", "Unlocked NPC "..dump(self.npc_id).." actions")
+end
+
+--------------------------------------------
+-- Execution context management functions --
+--------------------------------------------
+-- These functions manage the execution context, where variables are
+-- stored, whether internal (loops) or user-created.
+-- The execution context is cleared at the end of each script.
+npc.execution_context = {}
+
+-- This function adds a value to the execution context.
+-- Readonly defaults to false. Returns false if failed due to
+-- key-name conflict, or returns true if successful
+function npc.execution_context.put(self, key, value, readonly)
+	-- Check if variable exists
+	if self.actions.execution_context[key] ~= nil then
+		npc.log("ERROR", "Attempt to create new variable with name "..key.." failed"..
+			"due to variable already existing: "..dump(self.actions.execution_context[key]))
+		return false
+	end
+	self.actions.execution_context[key] = {value = value, readonly = readonly}
+	return true		
+end
+
+-- Returns the value of a given key. If not found returns nil.
+function npc.execution_context.get(self, key)
+	local result = self.actions.execution_context[key]
+	if result == nil then
+		return nil
+	else
+		return result.value
+	end
+end
+
+-- This function updates a value in the execution context.
+-- Returns false if the value is read-only or if key isn't found.
+-- Returns true if able to update value
+function npc.execution_context.set(self, key, new_value)
+	local var = self.actions.execution_context[key]
+	if var == nil then
+		return false
+	else
+		if var.readonly == true then
+			npc.log("ERROR", "Attempt to set value of readonly variable: "..key)
+			return false
+		end
+		var.value = new_value
+	end
+	return true
+end
+
+-- This function removes a variable from the execution context.
+-- If the key doesn't exist, returns nil, otherwise, returns
+-- the value removed.
+function npc.execution_context.remove(self, key)
+	local result = self.actions.execution_context[key]
+	if result == nil then
+		return nil
+	else
+		self.actions.execution_context[key] = nil
+		return result
+	end
 end
 
 ---------------------------------------------------------------------------------------
