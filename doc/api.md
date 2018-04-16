@@ -80,22 +80,22 @@ to the user in the following two methods for a NPCs:
 * `npc.add_task(luaentity, task, {task definition})`: Add task into NPC actions queue
 
 For both of the above, `action`/`task` is a constant defined in 
-`npc.actions.cmd`, and `{task/action definition}` is a Lua table specific arguments 
+`npc.commands.cmd`, and `{task/action definition}` is a Lua table specific arguments 
 to each `action`/`task`.
 
 Example
 
-    npc.add_task(self, npc.actions.cmd.USE_BED, {
+    npc.add_task(self, npc.commands.cmd.USE_BED, {
         pos = {x=0,y=0,z=0},
-        action = npc.actions.const.beds.LAY
+        action = npc.commands.const.beds.LAY
     })
-    npc.add_action(self, npc.actions.cmd.SET_INTERVAL, {
+    npc.add_action(self, npc.commands.cmd.SET_INTERVAL, {
         interval = 10,
         freeze = true,
     })
-    npc.add_task(self, npc.actions.cmd.USE_BED, {
+    npc.add_task(self, npc.commands.cmd.USE_BED, {
         pos = {x=0,y=0,z=0},
-        action = npc.actions.const.beds.GET_UP
+        action = npc.commands.const.beds.GET_UP
     })
 
 See more in [actions_and_tasks.md](actions_and_tasks.md) documentation.
@@ -122,14 +122,14 @@ There are 4 possible commands:
 * action
 ```
     {
-        action = action, -- Is a constant defined in `npc.actions.cmd`
+        action = action, -- Is a constant defined in `npc.commands.cmd`
         args = {} -- action arguments
     }
 ```
 * task
 ```
     {
-        task = task, -- Is a constant defined in `npc.actions.cmd`
+        task = task, -- Is a constant defined in `npc.commands.cmd`
         args = {} -- task arguments
     }
 ```
@@ -182,15 +182,15 @@ Only integer value 0 until 23
     npc.add_schedule_entry(self, "generic", 0, 7, nil, {
         -- Get out of bed
         [1] = {
-            task = npc.actions.cmd.USE_BED, 
+            task = npc.commands.cmd.USE_BED, 
             args = {
                 pos = "bed_primary",
-                action = npc.actions.const.beds.GET_UP
+                action = npc.commands.const.beds.GET_UP
            }
         },
         -- Allow mobs_redo wandering
         [2] = {
-            action = npc.actions.cmd.FREEZE, 
+            action = npc.commands.cmd.FREEZE, 
             args = {
             	freeze = false
             }
@@ -236,14 +236,14 @@ Current place types
 * `home_outside`
 
 ### Methods
-* `npc.places.add_owned(luaentity, place_name, place_type, pos, access_pos)` : Add owned place.
+* `npc.locations.add_owned(luaentity, place_name, place_type, pos, access_pos)` : Add owned place.
   `luaentity` npc owner.
   `place_name` a specific place name.
   `place_type` place typing. 
   `pos` is a position of a node to be owned.
   `access_pos` is the coordinate where npc must be to initiate the access.
   Place is added for the NPC.
-* `npc.places.add_shared(luaentity, place_name, place_type, pos, access_node)` : Add shared place
+* `npc.locations.add_shared(luaentity, place_name, place_type, pos, access_node)` : Add shared place
 
 
 Dialogues

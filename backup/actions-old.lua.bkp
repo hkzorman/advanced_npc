@@ -11,9 +11,9 @@
 -- something (example, go to a specific place and put a chest there). The 
 -- fundamental actions are added to the action queue to make a complete task for the NPC.
 
-npc.actions = {}
+npc.commands = {}
 
-function npc.actions.rotate(args)
+function npc.commands.rotate(args)
   local self = args.self
   local dir = args.dir
   local yaw = 0
@@ -33,7 +33,7 @@ end
 -- This function will make the NPC walk one step on a 
 -- specifc direction. One step means one node. It returns 
 -- true if it can move on that direction, and false if there is an obstacle
-function npc.actions.walk_step(args)
+function npc.commands.walk_step(args)
   local self = args.self
   local dir = args.dir
   local vel = {}
@@ -47,12 +47,12 @@ function npc.actions.walk_step(args)
     vel = {x=-1, y=0, z=0}
   end
   set_animation(self, "walk")
-  npc.actions.rotate({self=self, dir=dir})
+  npc.commands.rotate({self=self, dir=dir})
   self.object:setvelocity(vel)
 end
 
 -- This action makes the NPC stand and remain like that
-function npc.actions.stand(args)
+function npc.commands.stand(args)
   local self = args.self
   -- Stop NPC
   self.object:setvelocity({x=0, y=0, z=0})
@@ -61,7 +61,7 @@ function npc.actions.stand(args)
 end
 
 -- This action makes the NPC sit on the node where it is
-function npc.actions.sit(args)
+function npc.commands.sit(args)
   local self = args.self
   -- Stop NPC
   self.object:setvelocity({x=0, y=0, z=0})
@@ -73,7 +73,7 @@ function npc.actions.sit(args)
 end
 
 -- This action makes the NPC lay on the node where it is
-function npc.actions.lay(args)
+function npc.commands.lay(args)
   local self = args.self
   -- Stop NPC
   self.object:setvelocity({x=0, y=0, z=0})
@@ -88,7 +88,7 @@ end
 -- This function is a convenience function to make it easy to put
 -- and get items from another inventory (be it a player inv or 
 -- a node inv)
-function npc.actions.put_item_on_external_inventory(args)
+function npc.commands.put_item_on_external_inventory(args)
   local self = args.self
   local player = args.player
   local pos = args.pos
@@ -126,7 +126,7 @@ function npc.actions.put_item_on_external_inventory(args)
   return false
 end
 
-function npc.actions.take_item_from_external_inventory(args)
+function npc.commands.take_item_from_external_inventory(args)
   local self = args.self
   local player = args.player
   local pos = args.pos
@@ -166,7 +166,7 @@ end
 -- with the fuel items the NPC will take whatever was cooked and whatever
 -- remained to cook. The function received the position of the furnace
 -- to use, and the item to cook in furnace. Item is an itemstring
-function npc.actions.use_furnace(self, pos, item)
+function npc.commands.use_furnace(self, pos, item)
   -- Check if any item in the NPC inventory serve as fuel
   -- For now, just use some specific items as fuel
   local fuels = {"default:leaves", "default:tree"}
@@ -186,7 +186,7 @@ function npc.actions.use_furnace(self, pos, item)
          count = npc.get_item_count(fuel_item.item_string)
       }
       minetest.log("Adding fuel action")
-      npc.add_action(self, npc.actions.put_item_on_external_inventory, args)
+      npc.add_action(self, npc.commands.put_item_on_external_inventory, args)
       -- Put the item that we want to cook on the furnace
       args = {
          self = self,
@@ -198,7 +198,7 @@ function npc.actions.use_furnace(self, pos, item)
          is_furnace = true
       }
       minetest.log("Adding src action")
-      npc.add_action(self, npc.actions.put_item_on_external_inventory, args)
+      npc.add_action(self, npc.commands.put_item_on_external_inventory, args)
 
       return true
     end
@@ -208,22 +208,22 @@ function npc.actions.use_furnace(self, pos, item)
 end
 
 
-function npc.actions.walk_to_pos(self, end_pos)
+function npc.commands.walk_to_pos(self, end_pos)
 
   local start_pos = self.object:getpos()
 
   minetest.log("Starting pos: "..dump(start_pos))
 
   -- Use Minetest built-in pathfinding algorithm, A*
-  local path = npc.actions.find_path({x=start_pos.x, y=start_pos.y-1, z=start_pos.z}, end_pos)
+  local path = npc.commands.find_path({x=start_pos.x, y=start_pos.y-1, z=start_pos.z}, end_pos)
 
   if path ~= nil then
     minetest.log("Found path to node: "..dump(end_pos))
     for i = 1, #path do
       minetest.log("Path: (i) "..dump(path[i])..": Path i+1 "..dump(path[i+1]))
-      local dir = npc.actions.get_direction(path[i].pos, path[i+1].pos)
+      local dir = npc.commands.get_direction(path[i].pos, path[i+1].pos)
       -- Add walk action to action queue
-      npc.add_action(self, npc.actions.walk_step, {self = self, dir = dir})
+      npc.add_action(self, npc.commands.walk_step, {self = self, dir = dir})
       if i+1 == #path then
         break
       end
@@ -231,7 +231,7 @@ function npc.actions.walk_to_pos(self, end_pos)
   end
 
   -- Add stand animation at end
-  npc.add_action(self, npc.actions.stand, {self = self})
+  npc.add_action(self, npc.commands.stand, {self = self})
 
 end
 
@@ -257,7 +257,7 @@ local function get_unit_dir_vector_based_on_diff(v)
   end
 end
 
-function npc.actions.get_direction(v1, v2)
+function npc.commands.get_direction(v1, v2)
   local dir = vector.subtract(v2, v1)
   if dir.x ~= 0 then
     if dir.x > 0 then
@@ -464,6 +464,6 @@ local function find_path_recursive(start_pos, end_pos, path_nodes, last_dir, las
 
 end
 
-function npc.actions.find_path(start_pos, end_pos)
+function npc.commands.find_path(start_pos, end_pos)
   return find_path_recursive(start_pos, end_pos, {}, nil, nil)
 end

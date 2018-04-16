@@ -70,7 +70,7 @@ npc.dialogue.register_dialogue({
               			action_type = "function",
               			action = function(self, player)
                 			-- Take item 
-                			if npc.actions.execute(self, npc.actions.cmd.TAKE_ITEM, {
+                			if npc.commands.execute(self, npc.commands.cmd.TAKE_ITEM, {
                   				player=player:get_player_name(), 
                   				pos=nil, 
                   				inv_list="main", 

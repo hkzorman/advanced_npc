@@ -39,10 +39,10 @@ Sequence of actions that allows the NPC to use a bed.
         
         action = action, --[[ 
             ^ Whether to get up or lay on bed
-            ^ Defined in npc.actions.const.beds.action
+            ^ Defined in npc.commands.const.beds.action
             ^ Available options:
-              * npc.actions.const.beds.LAY : lay
-              * npc.actions.const.beds.GET_UP : get up
+              * npc.commands.const.beds.LAY : lay
+              * npc.commands.const.beds.GET_UP : get up
     }
 
 #### `WALK_TO_POS`

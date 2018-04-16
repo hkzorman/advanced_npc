@@ -6,7 +6,7 @@
 -- can actually be prefixes.
 
 -- This table will contain the registered nodes
-npc.actions.nodes = {
+npc.programs.instr.nodes = {
   doors = {},
   beds = {},
   sittable = {}
@@ -19,7 +19,7 @@ npc.actions.nodes = {
 -- Functionality for default beds.
 -- Since other mods may be used in the same way as the default beds, 
 -- this one is a global registration
-npc.actions.nodes.default_bed_registration = {
+npc.programs.instr.nodes.default_bed_registration = {
   get_lay_pos = function(pos, dir)
     return {x = pos.x + dir.x / 2, y = pos.y + 1, z = pos.z + dir.z / 2}
   end,
@@ -82,18 +82,18 @@ local cottages_bench_registration = {
 -- Registry of bed nodes
 ---------------------------------------------------------------------------------------
 -- Default beds.
-npc.actions.nodes.beds["beds:bed_bottom"] = npc.actions.nodes.default_bed_registration
-npc.actions.nodes.beds["beds:fancy_bed_bottom"] = npc.actions.nodes.default_bed_registration
+npc.programs.instr.nodes.beds["beds:bed_bottom"] = npc.programs.instr.nodes.default_bed_registration
+npc.programs.instr.nodes.beds["beds:fancy_bed_bottom"] = npc.programs.instr.nodes.default_bed_registration
 
 -- Cottages beds
-npc.actions.nodes.beds["cottages:bed_foot"] = cottages_bed_registration
-npc.actions.nodes.beds["cottages:sleeping_mat"] = cottages_mat_registration
-npc.actions.nodes.beds["cottages:straw_mat"] = cottages_mat_registration
+npc.programs.instr.nodes.beds["cottages:bed_foot"] = cottages_bed_registration
+npc.programs.instr.nodes.beds["cottages:sleeping_mat"] = cottages_mat_registration
+npc.programs.instr.nodes.beds["cottages:straw_mat"] = cottages_mat_registration
 
 ---------------------------------------------------------------------------------------
 -- Registry of sittable nodes
 ---------------------------------------------------------------------------------------
 -- Normal wooden stairs
-npc.actions.nodes.sittable["stairs:stair_wood"] = sittable_stair_registration
+npc.programs.instr.nodes.sittable["stairs:stair_wood"] = sittable_stair_registration
 -- Cottages bench
-npc.actions.nodes.sittable["cottages:bench"] = cottages_bench_registration
+npc.programs.instr.nodes.sittable["cottages:bench"] = cottages_bench_registration
