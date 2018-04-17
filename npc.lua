@@ -1118,6 +1118,9 @@ end
 --   - If the instruction queue is not empty, continue
 function npc.exec.process_scheduler(self)
 	npc.log("INFO", "Current process queue size: "..dump(#self.execution.process_queue))
+	for i = 1, #self.execution.process_queue do
+		minetest.log("["..dump(self.execution.process_queue[i].program_name).."]")
+	end
 	-- Check current process
 	local current_process = self.execution.process_queue[1]
 	--npc.log("INFO", "Hi, current process next: "..dump(next(current_process)))
@@ -1159,16 +1162,15 @@ function npc.exec.process_scheduler(self)
 				else
 					-- Changed state process check - an old state process could be enqueued,
 					-- but the state process was changed. If this is is true, ignore old
-					-- entry in the process queue
-					if self.execution.state_process_changed == true then
+					-- entry in the process queue.
+					local next_enqueued_process = self.execution.process_queue[2]
+					if self.execution.state_process_changed == true
+						and next_enqueued_process.id ~= current_process.id
+							and next_enqueued_process.is_state_process == true then
 						-- Assume every enqueued state process is old and discard
-						local next_enqueued_process = self.execution.process_queue[2]
-                        if next_enqueued_process.id ~= current_process.id then
---						if next_enqueued_process.is_state_process == true then
-							table.remove(self.execution.process_queue, 2)
-							-- Change flag back
-							self.execution.state_process_changed = false
-						end
+						table.remove(self.execution.process_queue, 2)
+						-- Change flag back
+						self.execution.state_process_changed = false
 					else
 						-- Next process is not a state process, interrupt current state process
 						npc.log("Current process queue size: "..dump(#self.execution.process_queue))

@@ -31,15 +31,15 @@ npc.programs.register("advanced_npc:internal_property_change", function(self, ar
         local property = properties[i].property
         local args = properties[i].args
         if property == npc.programs.internal_properties.change_trader_status then
-            npc.programs.instr.execute("advanced_npc:trade:change_trader_status", args)
+            npc.programs.instr.execute(self, "advanced_npc:trade:change_trader_status", args)
         elseif property == npc.programs.internal_properties.set_trade_list then
-            npc.programs.instr.execute("advanced_npc:trade:set_trade_list", args)
+            npc.programs.instr.execute(self, "advanced_npc:trade:set_trade_list", args)
         elseif property == npc.programs.internal_properties.put_item then
-            npc.programs.instr.execute("advanced_npc:inventory_put", args)
+            npc.programs.instr.execute(self, "advanced_npc:inventory_put", args)
         elseif property == npc.programs.internal_properties.put_multiple_items then
-            npc.programs.instr.execute("advanced_npc:inventory_put_multiple", args)
+            npc.programs.instr.execute(self, "advanced_npc:inventory_put_multiple", args)
         elseif property == npc.programs.internal_properties.take_item then
-            npc.programs.instr.execute("advanced_npc:inventory_take", args)
+            npc.programs.instr.execute(self, "advanced_npc:inventory_take", args)
         elseif property == npc.programs.internal_properties.can_receive_gifts then
             local value = args.can_receive_gifts
             -- Set status

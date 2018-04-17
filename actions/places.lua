@@ -12,6 +12,22 @@
 
 npc.locations = {}
 local _locations = {
+	categories = {
+		workplace = {
+			location = "location",
+			tool = "tool"
+		},
+		home_entrance = {
+			door = "door",
+			inside = "inside",
+			outside = "outside"
+		},
+		room_entrance = {
+			door = "door",
+			inside = "inside",
+			outside = "outside"
+		}
+	},
 	register = {}
 }
 
@@ -21,6 +37,29 @@ function npc.locations.register_node(node_name, category)
 	end
 	_locations.register[category][#_locations.register[category] + 1] = node_name
 end
+
+function npc.locations.register_category(category_name)
+	if _locations.categories[category_name] == nil then
+		_locations.categories[category_name] = {}
+	else
+		npc.log("WARNING", "Attempt to register location category "..dump(category_name)..": already exists.")
+	end
+end
+
+function npc.locations.register_sub_category(category_name, sub_category_name)
+	if _locations.categories[category_name] == nil then
+		npc.log("WARNING", "Attempt to register sub-category "..dump(sub_category_name).." in non-existing category "
+				..dump(category_name))
+	else
+		if _locations.categories[category_name][sub_category_name] ~= nil then
+			npc.log("WARNING", "Attempt to register sub-category "..dump(sub_category_name).." on category "
+					..dump(category_name))
+		else
+			_locations.categories[category_name][sub_category_name] = sub_category_name
+		end
+	end
+end
+
 --
 --
 --npc.locations.register_node("beds:fancy_bed_bottom", npc.locations.PLACE_TYPE.CATEGORIES.BED)
@@ -621,10 +660,16 @@ local function get_decorated_path(start_pos, end_pos)
 end
 
 function npc.locations.find_building_entrance(bed_nodes, marker_pos)
+	-- Exit if no bed nodes given
+	if bed_nodes == nil or (bed_nodes and #bed_nodes == 0) then
+		return
+	end
+
+	-- Initialize positions
 	local start_pos = bed_nodes[1].node_pos
 	local end_pos = {x=marker_pos.x, y=marker_pos.y, z=marker_pos.z}
 
-	minetest.log("Trying to find path from "..minetest.pos_to_string(start_pos).." to "..minetest.pos_to_string(end_pos))
+	npc.log("INFO", "Trying to find path from "..minetest.pos_to_string(start_pos).." to "..minetest.pos_to_string(end_pos))
 
 	-- Find path from the bed node to the plotmarker
 	local decorated_path = get_decorated_path(start_pos, end_pos)

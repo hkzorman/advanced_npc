@@ -495,12 +495,6 @@ function npc.spawner.assign_places(self, entrance, node_data, pos)
             npc.locations.PLACE_TYPE.OTHER.HOME_PLOTMARKER, pos)
     end
 
-    minetest.log("Entrance: "..dump(entrance))
-    minetest.log("Entrance.door: "..dump(entrance.door))
-    minetest.log("Entrance.door: "..dump(entrance.inside))
-    minetest.log("Entrance.door: "..dump(entrance.outside))
-    minetest.log("Conditions: "..dump(entrance ~= nil and entrance.door ~= nil and entrance.inside ~= nil and entrance.outside ~= nil))
-
     -- Assign building entrance door
     if entrance ~= nil and entrance.door ~= nil and entrance.inside ~= nil and entrance.outside ~= nil then
         npc.locations.add_shared(self, npc.locations.PLACE_TYPE.OPENABLE.HOME_ENTRANCE_DOOR, npc.locations.PLACE_TYPE.OPENABLE.HOME_ENTRANCE_DOOR, entrance.door)
@@ -518,16 +512,18 @@ function npc.spawner.assign_places(self, entrance, node_data, pos)
     end
 
     -- Assign rooms
-    local bedroom_entrance = npc.locations.find_bedroom_entrance(assigned_bed, pos)
-    minetest.log("Entrance: "..dump(bedroom_entrance))
-    if bedroom_entrance ~= nil
-            and bedroom_entrance.door ~= nil
-            and bedroom_entrance.inside ~= nil
-            and bedroom_entrance.outside ~= nil then
-        npc.locations.add_shared(self, npc.locations.PLACE_TYPE.ROOM.ROOM_DOOR, npc.locations.PLACE_TYPE.ROOM.ROOM_DOOR, bedroom_entrance.door)
-        -- Assign these places to NPC
-        npc.locations.add_shared(self, npc.locations.PLACE_TYPE.ROOM.ROOM_INSIDE, npc.locations.PLACE_TYPE.ROOM.ROOM_INSIDE, bedroom_entrance.inside)
-        npc.locations.add_shared(self, npc.locations.PLACE_TYPE.ROOM.ROOM_OUTSIDE, npc.locations.PLACE_TYPE.ROOM.ROOM_OUTSIDE, bedroom_entrance.outside)
+    if assigned_bed then
+        local bedroom_entrance = npc.locations.find_bedroom_entrance(assigned_bed, pos)
+        --minetest.log("Entrance: "..dump(bedroom_entrance))
+        if bedroom_entrance ~= nil
+                and bedroom_entrance.door ~= nil
+                and bedroom_entrance.inside ~= nil
+                and bedroom_entrance.outside ~= nil then
+            npc.locations.add_shared(self, npc.locations.PLACE_TYPE.ROOM.ROOM_DOOR, npc.locations.PLACE_TYPE.ROOM.ROOM_DOOR, bedroom_entrance.door)
+            -- Assign these places to NPC
+            npc.locations.add_shared(self, npc.locations.PLACE_TYPE.ROOM.ROOM_INSIDE, npc.locations.PLACE_TYPE.ROOM.ROOM_INSIDE, bedroom_entrance.inside)
+            npc.locations.add_shared(self, npc.locations.PLACE_TYPE.ROOM.ROOM_OUTSIDE, npc.locations.PLACE_TYPE.ROOM.ROOM_OUTSIDE, bedroom_entrance.outside)
+        end
     end
 
     -- Assign sits
