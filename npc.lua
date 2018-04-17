@@ -1129,6 +1129,9 @@ function npc.exec.process_scheduler(self)
 		if current_process.state == npc.exec.proc.state.EXECUTING then
 			-- Do not interrupt process while the process is enqueuing instructions
 			return
+		elseif current_process.state == npc.exec.proc.state.INACTIVE then
+			-- Execute process
+			npc.exec.execute_process(self)
 		elseif current_process.state == npc.exec.proc.state.READY then
 			-- Change state to running
 			current_process.state = npc.exec.proc.state.RUNNING
@@ -1221,11 +1224,13 @@ function npc.exec.process_scheduler(self)
 			end
 		end
 	else
-		npc.log("INFO", "NPC "..dump(self.npc_name).." is executing: "..dump(self.execution.state_process.program_name))
-		-- Process queue is empty, enqueue state process
-		self.execution.process_queue[#self.execution.process_queue + 1] = self.execution.state_process
-		-- Execute state process
-		npc.exec.execute_process(self)
+		-- Process queue is empty, enqueue state process if it is defined
+		if next(self.execution.state_process) ~= nil then
+			npc.log("INFO", "NPC "..dump(self.npc_name).." is executing: "..dump(self.execution.state_process.program_name))
+			self.execution.process_queue[#self.execution.process_queue + 1] = self.execution.state_process
+			-- Execute state process
+			npc.exec.execute_process(self)
+		end
 	end
 end
 
@@ -1851,7 +1856,7 @@ end
 --		-- place with "schedule_target_pos" place type
 --		npc.log("DEBUG_SCHEDULE", "Found "..dump(node.name).." at pos: "..minetest.pos_to_string(node_pos))
 --		npc.locations.add_shared_accessible_place(
---			self, {owner="", node_pos=node_pos}, npc.locations.PLACE_TYPE.SCHEDULE.TARGET, true, walkable_nodes)
+--			self, {owner="", node_pos=node_pos}, npc.locations.data.SCHEDULE.TARGET, true, walkable_nodes)
 --		-- Get actions related to node and enqueue them
 --		for i = 1, #actions[node.name] do
 --			local args = {}
