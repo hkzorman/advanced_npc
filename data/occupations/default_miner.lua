@@ -12,7 +12,7 @@
 --			[1] = {
 --				task = npc.commands.cmd.WALK_TO_POS,
 --				args = {
---					end_pos = npc.locations.PLACE_TYPE.OTHER.HOME_OUTSIDE,
+--					end_pos = npc.locations.data.OTHER.HOME_OUTSIDE,
 --					walkable = {}
 --				}
 --			},

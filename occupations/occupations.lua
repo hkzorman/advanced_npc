@@ -119,13 +119,13 @@ npc.occupations.basic_def = {
 --		[7] = {
 --			-- Get out of bed
 --			[1] = {task = npc.commands.cmd.USE_BED, args = {
---				pos = npc.locations.PLACE_TYPE.BED.PRIMARY,
+--				pos = npc.locations.data.bed.primary,
 --				action = npc.commands.const.beds.GET_UP
 --			}
 --			},
 --			-- Walk to home inside
 --			[2] = {task = npc.commands.cmd.WALK_TO_POS, args = {
---				end_pos = npc.locations.PLACE_TYPE.OTHER.HOME_INSIDE,
+--				end_pos = npc.locations.data.OTHER.HOME_INSIDE,
 --				walkable = {}
 --			},
 --				chance = 75
@@ -137,7 +137,7 @@ npc.occupations.basic_def = {
 --		[8] = {
 --			-- Walk to outside of home
 --			[1] = {task = npc.commands.cmd.WALK_TO_POS, args = {
---				end_pos = npc.locations.PLACE_TYPE.OTHER.HOME_OUTSIDE,
+--				end_pos = npc.locations.data.OTHER.HOME_OUTSIDE,
 --				walkable = {}
 --			},
 --				chance = 75
@@ -149,14 +149,14 @@ npc.occupations.basic_def = {
 --		[12] = {
 --			-- Walk to a sittable node
 --			[1] = {task = npc.commands.cmd.WALK_TO_POS, args = {
---				end_pos = {place_type=npc.locations.PLACE_TYPE.SITTABLE.PRIMARY, use_access_node=true},
+--				end_pos = {place_type=npc.locations.data.SITTABLE.PRIMARY, use_access_node=true},
 --				walkable = {"cottages:bench"}
 --			},
 --				chance = 75
 --			},
 --			-- Sit on the node
 --			[2] = {task = npc.commands.cmd.USE_SITTABLE, args = {
---				pos = npc.locations.PLACE_TYPE.SITTABLE.PRIMARY,
+--				pos = npc.locations.data.SITTABLE.PRIMARY,
 --				action = npc.commands.const.sittable.SIT
 --			},
 --				depends = {1}
@@ -176,7 +176,7 @@ npc.occupations.basic_def = {
 --			},
 --			-- Get up from sit
 --			[5] = {action = npc.commands.cmd.USE_SITTABLE, args = {
---				pos = npc.locations.PLACE_TYPE.SITTABLE.PRIMARY,
+--				pos = npc.locations.data.SITTABLE.PRIMARY,
 --				action = npc.commands.const.sittable.GET_UP
 --			},
 --				depends = {4}
@@ -220,7 +220,7 @@ npc.occupations.basic_def = {
 --			},
 --			-- Get inside home
 --			[3] = {task = npc.commands.cmd.WALK_TO_POS, args = {
---				end_pos = npc.locations.PLACE_TYPE.OTHER.HOME_INSIDE,
+--				end_pos = npc.locations.data.OTHER.HOME_INSIDE,
 --				walkable = {}
 --			}
 --			},
@@ -230,13 +230,13 @@ npc.occupations.basic_def = {
 --		-- Schedule entry for 10 in the evening
 --		[22] = {
 --			[1] = {task = npc.commands.cmd.WALK_TO_POS, args = {
---				end_pos = {place_type=npc.locations.PLACE_TYPE.BED.PRIMARY, use_access_node=true},
+--				end_pos = {place_type=npc.locations.data.bed.primary, use_access_node=true},
 --				walkable = {}
 --			}
 --			},
 --			-- Use bed
 --			[2] = {task = npc.commands.cmd.USE_BED, args = {
---				pos = npc.locations.PLACE_TYPE.BED.PRIMARY,
+--				pos = npc.locations.data.bed.primary,
 --				action = npc.commands.const.beds.LAY
 --			}
 --			},

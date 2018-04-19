@@ -66,14 +66,14 @@ local basic_def = {
     },
     -- Initialize schedule
     schedules_entries = {
-        -- Schedule entry for 7 in the morning
+        -- schedule entry for 7 in the morning
         [7] = {
             [1] = {
                 program_name = "advanced_npc:internal_property_change",
                 arguments = {
                     property = npc.programs.internal_properties.change_trader_status,
                     args = {
-                        status = npc.trade.NONE
+                        status = npc.trade.none
                     }
                 },
                 interrupt_options = {}
@@ -83,11 +83,11 @@ local basic_def = {
                 arguments = {},
                 interrupt_options = {}
             },
-            -- Walk to home inside
+            -- walk to home inside
             [3] = {
                 program_name = "advanced_npc:walk_to_pos",
                 arguments = {
-                    end_pos = npc.locations.PLACE_TYPE.OTHER.HOME_INSIDE,
+                    end_pos = npc.locations.data.other.home_inside,
                     walkable = {}
                 },
                 interrupt_options = {},
@@ -102,28 +102,28 @@ local basic_def = {
                 is_state_program = true
             }
         },
-        -- Schedule entry for 10 in the morning
+        -- schedule entry for 10 in the morning
         [10] = {
-            -- Walk to outside of home
+            -- walk to outside of home
             [1] = {
                 program_name = "advanced_npc:walk_to_pos",
                 arguments = {
-                    end_pos = npc.locations.PLACE_TYPE.OTHER.HOME_OUTSIDE,
+                    end_pos = npc.locations.data.other.home_outside,
                     walkable = {}
                 },
                 interrupt_options = {},
                 chance = 75
             }
         },
-        -- Schedule entry for 12 midday
+        -- schedule entry for 12 midday
         [12] = {
-            -- Walk to a sittable node
+            -- walk to a sittable node
             [1] = {
                 program_name = "advanced_npc:walk_to_pos",
                 arguments = {
                     end_pos = {
-                        place_category = npc.locations.PLACE_TYPE.CATEGORIES.SITTABLE,
-                        place_type = npc.locations.PLACE_TYPE.SITTABLE.PRIMARY,
+                        place_category = npc.locations.data.categories.sittable,
+                        place_type = npc.locations.data.sittable.primary,
                         use_access_node = true,
                         try_alternative_if_used = true,
                         mark_target_as_used = true
@@ -133,17 +133,17 @@ local basic_def = {
                 chance = 75,
                 interrupt_options = {},
             },
-            -- Sit on the node
+            -- sit on the node
             [2] = {
                 program_name = "advanced_npc:use_sittable",
                 arguments = {
-                    pos = npc.locations.PLACE_TYPE.CALCULATED.TARGET,
-                    action = npc.programs.const.node_ops.sittable.SIT
+                    pos = npc.locations.data.calculated.target,
+                    action = npc.programs.const.node_ops.sittable.sit
                 },
                 depends = {1},
                 interrupt_options = {}
             },
-            -- Stay put
+            -- stay put
             [3] = {
                 program_name = "advanced_npc:idle",
                 arguments = {
@@ -154,18 +154,18 @@ local basic_def = {
                 is_state_program = true
             }
         },
-        -- Schedule entry for 1 in the afternoon
+        -- schedule entry for 1 in the afternoon
         [13] = {
-            -- Get up from sit
+            -- get up from sit
             [1] = {
                 program_name = "advanced_npc:use_sittable",
                 arguments = {
-                    pos = npc.locations.PLACE_TYPE.CALCULATED.TARGET,
-                    action = npc.programs.const.node_ops.sittable.GET_UP
+                    pos = npc.locations.data.calculated.target,
+                    action = npc.programs.const.node_ops.sittable.get_up
                 },
                 interrupt_options = {}
             },
-            -- Give NPC money to buy from player
+            -- give npc money to buy from player
             [2] = {
                 program_name = "advanced_npc:internal_property_change",
                 arguments = {
@@ -179,13 +179,13 @@ local basic_def = {
                 interrupt_options = {},
                 chance = 75
             },
-            -- Change trader status to "casual trader"
+            -- change trader status to "casual trader"
             [3] = {
                 program_name = "advanced_npc:internal_property_change",
                 arguments = {
                     property = npc.schedule_properties.change_trader_status,
                     args = {
-                        status = npc.trade.CASUAL
+                        status = npc.trade.casual
                     },
                 },
                 interrupt_options = {},
@@ -203,16 +203,16 @@ local basic_def = {
                 depends = {3}
             },
         },
-        -- Schedule entry for 6 in the evening
+        -- schedule entry for 6 in the evening
         [18] = {
-            -- Change trader status to "none"
+            -- change trader status to "none"
             [1] = {
                 program_name = "advanced_npc:internal_property_change",
                 arguments = {
                     {
                         property = npc.schedule_properties.change_trader_status,
                         args = {
-                            status = npc.trade.NONE
+                            status = npc.trade.none
                         },
                     },
                     {
@@ -225,11 +225,11 @@ local basic_def = {
                 },
                 interrupt_options = {},
             },
-            -- Get inside home
+            -- get inside home
             [2] = {
                 program_name = "advanced_npc:walk_to_pos",
                 arguments = {
-                    end_pos = npc.locations.PLACE_TYPE.OTHER.HOME_INSIDE,
+                    end_pos = npc.locations.data.other.home_inside,
                     walkable = {}
                 },
                 interrupt_options = {},
@@ -239,18 +239,18 @@ local basic_def = {
             [1] = {
                 program_name = "advanced_npc:walk_to_pos",
                 arguments = {
-                    end_pos = npc.locations.PLACE_TYPE.ROOM.ROOM_INSIDE,
+                    end_pos = npc.locations.data.other.room_inside,
                     walkable = {}
                 },
                 interrupt_options = {}
             }
         },
-        -- Schedule entry for 10 in the evening
+        -- schedule entry for 10 in the evening
         [22] = {
             [1] = {
                 program_name = "advanced_npc:walk_to_pos",
                 arguments = {
-                    end_pos = {place_type=npc.locations.PLACE_TYPE.BED.PRIMARY, use_access_node=true},
+                    end_pos = {place_type=npc.locations.data.bed.primary, use_access_node=true},
                     walkable = {}
                 },
                 interrupt_options = {}
@@ -258,8 +258,8 @@ local basic_def = {
             [2] = {
                 program_name = "advanced_npc:use_bed",
                 arguments = {
-                    pos = npc.locations.PLACE_TYPE.BED.PRIMARY,
-                    action = npc.programs.const.node_ops.beds.LAY
+                    pos = npc.locations.data.bed.primary,
+                    action = npc.programs.const.node_ops.beds.lay
                 },
                 interrupt_options = {
                     allow_rightclick = false
@@ -286,7 +286,7 @@ local basic_def = {
 --    npc.exec.proc.enqueue(self, "advanced_npc:interrupt", {
 --        new_program = "advanced_npc:walk_to_pos",
 --        new_args = {
---            end_pos = {place_type=npc.locations.PLACE_TYPE.BED.PRIMARY, use_access_node=true},
+--            end_pos = {place_type=npc.locations.data.bed.primary, use_access_node=true},
 --            walkable = {}
 --        },
 --        interrupt_options = {}
@@ -295,7 +295,7 @@ local basic_def = {
 --    npc.exec.proc.enqueue(self, "advanced_npc:interrupt", {
 --        new_program = "advanced_npc:use_bed",
 --        new_args = {
---            pos = npc.locations.PLACE_TYPE.BED.PRIMARY,
+--            pos = npc.locations.data.bed.primary,
 --            action = npc.programs.const.node_ops.beds.LAY
 --        },
 --        interrupt_options = {
@@ -309,7 +309,7 @@ npc.programs.register("schedules:default:wake_up", function(self, args)
     npc.exec.proc.enqueue(self, "advanced_npc:interrupt", {
         new_program = "advanced_npc:use_bed",
         new_args = {
-            pos = npc.locations.PLACE_TYPE.BED.PRIMARY,
+            pos = npc.locations.data.bed.primary,
             action = npc.programs.const.node_ops.beds.GET_UP
         },
         interrupt_options = {

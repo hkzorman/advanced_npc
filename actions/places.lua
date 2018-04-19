@@ -10,89 +10,56 @@
 -- many sitting nodes, many beds, many tables, chests, etc. For now, by default,
 -- support for default MTG games and cottages mod is going to be provided.
 
+-- Public API
 npc.locations = {}
-local _locations = {
-	categories = {
-		workplace = {
-			location = "location",
-			tool = "tool"
-		},
-		home_entrance = {
-			door = "door",
-			inside = "inside",
-			outside = "outside"
-		},
-		room_entrance = {
-			door = "door",
-			inside = "inside",
-			outside = "outside"
-		}
-	},
-	register = {}
-}
 
-function npc.locations.register_node(node_name, category)
-	if _locations.register[category] == nil then
-		_locations.register[category] = {}
+-- Function to register nodes
+-- Categories are utilized to categorize nodes by type, example beds,
+-- furnaces, etc. Sub-categories give more particular categorization to
+-- beds in terms of how the NPC uses them
+function npc.locations.register_node(node_name, category, sub_category)
+	-- Check category, if it doesn't exists, create it
+	if npc.locations.data.categories[category] == nil then
+		-- Create category name
+		npc.locations.data.categories[category] = category
+		npc.locations.data[category] = {}
 	end
-	_locations.register[category][#_locations.register[category] + 1] = node_name
+	-- Check sub-category and create it if necessary
+	if npc.locations.data[category][sub_category] == nil then
+		-- Create sub category
+		npc.locations.data[category][sub_category] = sub_category
+	end
+	-- Add node
+	npc.locations.nodes[category][#npc.locations.nodes[category] + 1] = node_name
 end
 
-function npc.locations.register_category(category_name)
-	if _locations.categories[category_name] == nil then
-		_locations.categories[category_name] = {}
-	else
-		npc.log("WARNING", "Attempt to register location category "..dump(category_name)..": already exists.")
-	end
-end
-
-function npc.locations.register_sub_category(category_name, sub_category_name)
-	if _locations.categories[category_name] == nil then
-		npc.log("WARNING", "Attempt to register sub-category "..dump(sub_category_name).." in non-existing category "
-				..dump(category_name))
-	else
-		if _locations.categories[category_name][sub_category_name] ~= nil then
-			npc.log("WARNING", "Attempt to register sub-category "..dump(sub_category_name).." on category "
-					..dump(category_name))
-		else
-			_locations.categories[category_name][sub_category_name] = sub_category_name
-		end
-	end
-end
-
---
---
---npc.locations.register_node("beds:fancy_bed_bottom", npc.locations.PLACE_TYPE.CATEGORIES.BED)
---npc.locations.register_node("cottages:bed_foot", npc.locations.PLACE_TYPE.CATEGORIES.BED)
---npc.locations.register_node("cottages:straw_mat", npc.locations.PLACE_TYPE.CATEGORIES.BED)
---npc.locations.register_node("cottages:sleeping_mat", npc.locations.PLACE_TYPE.CATEGORIES.BED)
-
+-- Default set of registered nodes
 npc.locations.nodes = {
-	BED_TYPE = {
+	bed = {
 		"beds:bed_bottom",
 		"beds:fancy_bed_bottom",
 		"cottages:bed_foot",
 		"cottages:straw_mat",
 		"cottages:sleeping_mat"
 	},
-	SITTABLE_TYPE = {
+	sittable = {
 		"cottages:bench",
-		-- Currently commented out since some NPCs
+		-- currently commented out since some npcs
 		-- were sitting at stairs that are actually staircases
-		-- TODO: Register other stair types
+		-- TODO: register other stair types
 		--"stairs:stair_wood"
 	},
-	STORAGE_TYPE = {
+	storage = {
 		"default:chest",
 		"default:chest_locked",
 		"cottages:shelf"
 	},
-	FURNACE_TYPE = {
+	furnace = {
 		"default:furnace",
 		"default:furnace_active"
 	},
-	OPENABLE_TYPE = {
-		-- TODO: Register fences
+	openable = {
+		-- TODO: register fences
 		"doors:door_glass_a",
 		"doors:door_glass_b",
 		"doors:door_obsidian_a",
@@ -105,77 +72,66 @@ npc.locations.nodes = {
 		"cottages:gate_closed",
 		"cottages:half_door"
 	},
-	PLOTMARKER_TYPE = {
+	plotmarker = {
 		"mg_villages:plotmarker",
 		"advanced_npc:plotmarker"
 	},
-	WORKPLACE_TYPE = {
-		-- TODO: Do we have an advanced_npc workplace?
+	workplace = {
+		-- TODO: do we have an advanced_npc workplace?
 		"mg_villages:mob_workplace_marker",
 		"advanced_npc:workplace_marker"
 	}
 }
 
--- Plan for replacement:
--- npc.locations.nodes can be changed to _locations.register
--- The scan_area_for_usable_nodes() function can search for all categories
--- registered in npc.locations.categories. Then return a generic result.
--- Some categories are hardcoded: workplace, room and building entrance. However
--- things as sittable, furnace, etc. are generic. While bed could be part of this,
--- it is not, as bed is needed as well and it is important.
-
 -- Spawner function assign_places can also take a generic categories, and specially
 -- process the hardcoded ones.
-npc.locations.PLACE_TYPE = {
-	CATEGORIES = {
-		BED = "BED",
-		SITTABLE = "SITTABLE",
-		FURNACE = "FURNACE",
-		STORAGE = "STORAGE",
-		OPENABLE = "OPENABLE",
-		SCHEDULE = "SCHEDULE",
-		CALCULATED = "CALCULATED",
-		WORKPLACE = "WORKPLACE",
-		ROOM = "ROOM",
-		OTHER = "OTHER"
+npc.locations.data = {
+	categories = {
+		bed = "bed",
+		sittable = "sittable",
+		furnace = "furnace",
+		storage = "storage",
+		openable = "openable",
+		schedule = "schedule",
+		calculated = "calculated",
+		workplace = "workplace",
+		other = "other"
 	},
-	BED = {
-		PRIMARY = "bed_primary"
+	bed = {
+		primary = "bed_primary"
 	},
-	SITTABLE = {
-		PRIMARY = "sit_primary",
-		SHARED = "sit_shared"
+	sittable = {
+		primary = "sit_primary",
+		shared = "sit_shared"
 	},
-	FURNACE = {
-		PRIMARY = "furnace_primary",
-		SHARED = "furnace_shared"
+	furnace = {
+		primary = "furnace_primary",
+		shared = "furnace_shared"
 	},
-	STORAGE = {
-		PRIMARY = "storage_primary",
-		SHARED = "storage_shared"
+	storage = {
+		primary = "storage_primary",
+		shared = "storage_shared"
 	},
-	OPENABLE = {
-		HOME_ENTRANCE_DOOR = "home_entrance_door"
+	openable = {
+		home_entrance_door = "home_entrance_door",
+		room_entrance_door = "room_entrance_door"
 	},
-	SCHEDULE = {
-		TARGET = "schedule_target_pos"
+	schedule = {
+		target = "schedule_target_pos"
 	},
-	CALCULATED = {
-		TARGET = "calculated_target_pos"
+	calculated = {
+		target = "calculated_target_pos"
 	},
-	WORKPLACE = {
-		PRIMARY = "workplace_primary",
-		TOOL = "workplace_tool"
+	workplace = {
+		primary = "workplace_primary",
+		tool = "workplace_tool"
 	},
-	ROOM = {
-		ROOM_DOOR = "room_door",
-		ROOM_INSIDE = "room_inside",
-		ROOM_OUTSIDE = "room_outside"
-	},
-	OTHER = {
-		HOME_PLOTMARKER = "home_plotmarker",
-		HOME_INSIDE = "home_inside",
-		HOME_OUTSIDE = "home_outside"
+	other = {
+		home_plotmarker = "home_plotmarker",
+		home_inside = "home_inside",
+		home_outside = "home_outside",
+		room_inside = "room_inside",
+		room_outside = "room_outside"
 	},
 	is_primary = function(place_type)
 		local p1,p2 = string.find(place_type, "primary")
@@ -184,19 +140,19 @@ npc.locations.PLACE_TYPE = {
 	-- Only works for place types where there is a "primary" and a "shared"
 	get_alternative = function(place_category, place_type)
 		local result = {}
-		local place_types = npc.locations.PLACE_TYPE[place_category]
+		local place_types = npc.locations.data[place_category]
 		-- Determine search type
 		local search_shared = false
-		if npc.locations.PLACE_TYPE.is_primary(place_type) then
+		if npc.locations.data.is_primary(place_type) then
 			search_shared = true
 		end
 		for key,place_type in pairs(place_types) do
 			if search_shared == true then
-				if npc.locations.PLACE_TYPE.is_primary(place_type) == false then
+				if npc.locations.data.is_primary(place_type) == false then
 					return place_type
 				end
 			else
-				if npc.locations.PLACE_TYPE.is_primary(place_type) == true then
+				if npc.locations.data.is_primary(place_type) == true then
 					return place_type
 				end
 			end
@@ -318,7 +274,7 @@ function npc.locations.find_unused_place(self, place_category, place_type, origi
 	local used = meta:get_string("advanced_npc:used")
 	if used == npc.locations.USE_STATE.USED then
 		-- Node is being used, try to find alternative
-		local alternative_place_type = npc.locations.PLACE_TYPE.get_alternative(place_category, place_type)
+		local alternative_place_type = npc.locations.data.get_alternative(place_category, place_type)
 		--minetest.log("Alternative place type: "..dump(alternative_place_type))
 		local alternative_places = npc.locations.get_by_type(self, alternative_place_type)
 		--minetest.log("Alternatives: "..dump(alternative_places))
@@ -539,7 +495,7 @@ function npc.locations.find_plotmarkers(pos, radius, exclude_current_pos)
 	local start_pos = {x=pos.x - radius, y=pos.y - 1, z=pos.z - radius}
 	local end_pos = {x=pos.x + radius, y=pos.y + 1, z=pos.z + radius}
 	local nodes = minetest.find_nodes_in_area(start_pos, end_pos,
-		npc.locations.nodes.PLOTMARKER_TYPE)
+		npc.locations.nodes.PLOTMARKER)
 	-- Scan nodes
 	for i = 1, #nodes do
 		-- Check if current plotmarker is to be excluded from the list
@@ -578,6 +534,7 @@ end
 -- furnaces, storage (e.g. chests) and openable (e.g. doors).
 -- Returns a table with these classifications
 function npc.locations.scan_area_for_usable_nodes(pos1, pos2)
+	minetest.log("Bed Nodes: "..dump(npc.locations.nodes.bed))
 	local result = {
 		bed_type = {},
 		sittable_type = {},
@@ -588,11 +545,11 @@ function npc.locations.scan_area_for_usable_nodes(pos1, pos2)
 	}
 	local start_pos, end_pos = vector.sort(pos1, pos2)
 
-	result.bed_type = npc.locations.get_nodes_by_type(start_pos, end_pos, npc.locations.nodes.BED_TYPE)
-	result.sittable_type = npc.locations.get_nodes_by_type(start_pos, end_pos, npc.locations.nodes.SITTABLE_TYPE)
-	result.furnace_type = npc.locations.get_nodes_by_type(start_pos, end_pos, npc.locations.nodes.FURNACE_TYPE)
-	result.storage_type = npc.locations.get_nodes_by_type(start_pos, end_pos, npc.locations.nodes.STORAGE_TYPE)
-	result.openable_type = npc.locations.get_nodes_by_type(start_pos, end_pos, npc.locations.nodes.OPENABLE_TYPE)
+	result.bed_type = npc.locations.get_nodes_by_type(start_pos, end_pos, npc.locations.nodes.bed)
+	result.sittable_type = npc.locations.get_nodes_by_type(start_pos, end_pos, npc.locations.nodes.sittable)
+	result.furnace_type = npc.locations.get_nodes_by_type(start_pos, end_pos, npc.locations.nodes.furnace)
+	result.storage_type = npc.locations.get_nodes_by_type(start_pos, end_pos, npc.locations.nodes.storage)
+	result.openable_type = npc.locations.get_nodes_by_type(start_pos, end_pos, npc.locations.nodes.openable)
 
 	-- Find workplace nodes: if mg_villages:plotmarker is given as start pos, take it from there.
 	-- If not, search for them.
@@ -607,7 +564,7 @@ function npc.locations.scan_area_for_usable_nodes(pos1, pos2)
 		result.workplace_type = npc.locations.get_nodes_by_type(
 			{x=start_pos.x-20, y=start_pos.y, z=start_pos.z-20},
 			{x=end_pos.x+20, y=end_pos.y, z=end_pos.z+20},
-			npc.locations.nodes.WORKPLACE_TYPE)
+			npc.locations.nodes.WORKPLACE)
 		-- Find out building type and add it to the result
 		for i = 1, #result.workplace_type do
 			local meta = minetest.get_meta(result.workplace_type[i].node_pos)
@@ -682,9 +639,9 @@ function npc.locations.find_building_entrance(bed_nodes, marker_pos)
 		if decorated_path[i].type == npc.pathfinder.node_types.openable then
 			minetest.log("Hello there!!"..dump(decorated_path[i]))
 			local result = {
-				door = decorated_path[i].pos,
-				inside = decorated_path[i-1].pos,
-				outside = decorated_path[i+1].pos
+				door = vector.round(decorated_path[i].pos),
+				inside = vector.round(decorated_path[i-1].pos),
+				outside = vector.round(decorated_path[i+1].pos)
 			}
 			minetest.log("Returning: "..dump(result))
 			return result
@@ -697,11 +654,15 @@ function npc.locations.find_bedroom_entrance(bed_node, marker_pos)
 	local end_pos = {x=marker_pos.x, y=marker_pos.y, z=marker_pos.z }
 	-- Find path from the bed node to the plotmarker
 	local decorated_path = get_decorated_path(start_pos, end_pos)
-	minetest.log("Decorated path: "..dump(decorated_path))
+	--minetest.log("Decorated path: "..dump(decorated_path))
 	-- Find building entrance, traverse path forward and return first node that is openable
 	for i = 1, #decorated_path do
 		if decorated_path[i].type == npc.pathfinder.node_types.openable then
-			return {door = decorated_path[i].pos, inside = decorated_path[i-1].pos, outside = decorated_path[i+1].pos}
+			return {
+				door = vector.floor(decorated_path[i].pos),
+				inside = vector.floor(decorated_path[i-1].pos),
+				outside = vector.floor(decorated_path[i+1].pos)
+			}
 		end
 	end
 end

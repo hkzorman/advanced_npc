@@ -233,7 +233,7 @@ function npc.programs.helper.get_pos_argument(self, pos, use_access_node)
                         end
 
                         npc.locations.add_shared_accessible_place(
-                            self, {owner="", node_pos=place.pos}, npc.locations.PLACE_TYPE.CALCULATED.TARGET, true, {})
+                            self, {owner="", node_pos=place.pos}, npc.locations.data.calculated.target, true, {})
                     else
                         return nil
                     end

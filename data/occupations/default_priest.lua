@@ -133,7 +133,7 @@
 --            [1] = {
 --                task = npc.commands.cmd.USE_BED,
 --                args = {
---                    pos = npc.locations.PLACE_TYPE.BED.PRIMARY,
+--                    pos = npc.locations.data.bed.primary,
 --                    action = npc.commands.const.beds.GET_UP
 --                }
 --            },
@@ -142,7 +142,7 @@
 --                task = npc.commands.cmd.WALK_TO_POS,
 --                chance = 95,
 --                args = {
---                    end_pos = npc.locations.PLACE_TYPE.OTHER.HOME_INSIDE,
+--                    end_pos = npc.locations.data.OTHER.HOME_INSIDE,
 --                    walkable = {}
 --                }
 --            },
@@ -155,7 +155,7 @@
 --            {
 --                task = npc.commands.cmd.WALK_TO_POS,
 --                args = {
---                    end_pos = npc.locations.PLACE_TYPE.WORKPLACE.PRIMARY,
+--                    end_pos = npc.locations.data.WORKPLACE.PRIMARY,
 --                    walkable = {},
 --                    use_access_node = true
 --                }
@@ -184,7 +184,7 @@
 --            {
 --                task = npc.commands.cmd.WALK_TO_POS,
 --                args = {
---                    end_pos = npc.locations.PLACE_TYPE.OTHER.HOME_INSIDE,
+--                    end_pos = npc.locations.data.OTHER.HOME_INSIDE,
 --                    walkable = {}
 --                }
 --            }
@@ -193,7 +193,7 @@
 --            [1] = {
 --                task = npc.commands.cmd.WALK_TO_POS,
 --                args = {
---                    end_pos = {place_type=npc.locations.PLACE_TYPE.BED.PRIMARY, use_access_node=true},
+--                    end_pos = {place_type=npc.locations.data.bed.primary, use_access_node=true},
 --                    walkable = {}
 --                }
 --            },
@@ -201,7 +201,7 @@
 --            [2] = {
 --                task = npc.commands.cmd.USE_BED,
 --                args = {
---                    pos = npc.locations.PLACE_TYPE.BED.PRIMARY,
+--                    pos = npc.locations.data.bed.primary,
 --                    action = npc.commands.const.beds.LAY
 --                }
 --            },

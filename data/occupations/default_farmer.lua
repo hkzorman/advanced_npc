@@ -44,14 +44,14 @@
 --            -- Get out of bed
 --            [1] = {
 --                task = npc.commands.cmd.USE_BED, args = {
---                    pos = npc.locations.PLACE_TYPE.BED.PRIMARY,
+--                    pos = npc.locations.data.bed.primary,
 --                    action = npc.commands.const.beds.GET_UP
 --                }
 --            },
 --            -- Walk to home inside
 --            [2] = {
 --                task = npc.commands.cmd.WALK_TO_POS, args = {
---                    end_pos = npc.locations.PLACE_TYPE.OTHER.HOME_INSIDE,
+--                    end_pos = npc.locations.data.OTHER.HOME_INSIDE,
 --                    walkable = {}
 --                },
 --                chance = 75
@@ -64,7 +64,7 @@
 --            {
 --                task = npc.commands.cmd.WALK_TO_POS,
 --                args = {
---                    end_pos = npc.locations.PLACE_TYPE.WORKPLACE.PRIMARY,
+--                    end_pos = npc.locations.data.WORKPLACE.PRIMARY,
 --                    walkable = {}
 --                }
 --            },
@@ -87,7 +87,7 @@
 --                        {
 --                            task = npc.commands.cmd.WALK_TO_POS,
 --                            args = {
---                                end_pos = npc.locations.PLACE_TYPE.SCHEDULE.TARGET,
+--                                end_pos = npc.locations.data.SCHEDULE.TARGET,
 --                                walkable = farming_plants
 --                            }
 --                        },
@@ -124,7 +124,7 @@
 --                        {
 --                            task = npc.commands.cmd.WALK_TO_POS,
 --                            args = {
---                                end_pos = npc.locations.PLACE_TYPE.SCHEDULE.TARGET,
+--                                end_pos = npc.locations.data.SCHEDULE.TARGET,
 --                                walkable = farming_plants
 --                            }
 --                        },
@@ -161,7 +161,7 @@
 --                        {
 --                            task = npc.commands.cmd.WALK_TO_POS,
 --                            args = {
---                                end_pos = npc.locations.PLACE_TYPE.SCHEDULE.TARGET,
+--                                end_pos = npc.locations.data.SCHEDULE.TARGET,
 --                                walkable = farming_plants
 --                            }
 --                        },
@@ -198,7 +198,7 @@
 --                        {
 --                            task = npc.commands.cmd.WALK_TO_POS,
 --                            args = {
---                                end_pos = npc.locations.PLACE_TYPE.SCHEDULE.TARGET,
+--                                end_pos = npc.locations.data.SCHEDULE.TARGET,
 --                                walkable = farming_plants
 --                            }
 --                        },
@@ -235,7 +235,7 @@
 --                        {
 --                            task = npc.commands.cmd.WALK_TO_POS,
 --                            args = {
---                                end_pos = npc.locations.PLACE_TYPE.SCHEDULE.TARGET,
+--                                end_pos = npc.locations.data.SCHEDULE.TARGET,
 --                                walkable = farming_plants
 --                            }
 --                        },
@@ -272,7 +272,7 @@
 --                        {
 --                            task = npc.commands.cmd.WALK_TO_POS,
 --                            args = {
---                                end_pos = npc.locations.PLACE_TYPE.SCHEDULE.TARGET,
+--                                end_pos = npc.locations.data.SCHEDULE.TARGET,
 --                                walkable = farming_plants
 --                            }
 --                        },
@@ -309,7 +309,7 @@
 --                        {
 --                            task = npc.commands.cmd.WALK_TO_POS,
 --                            args = {
---                                end_pos = npc.locations.PLACE_TYPE.SCHEDULE.TARGET,
+--                                end_pos = npc.locations.data.SCHEDULE.TARGET,
 --                                walkable = farming_plants
 --                            }
 --                        },
@@ -346,7 +346,7 @@
 --                        {
 --                            task = npc.commands.cmd.WALK_TO_POS,
 --                            args = {
---                                end_pos = npc.locations.PLACE_TYPE.SCHEDULE.TARGET,
+--                                end_pos = npc.locations.data.SCHEDULE.TARGET,
 --                                walkable = farming_plants
 --                            }
 --                        },
@@ -383,7 +383,7 @@
 --                        {
 --                            task = npc.commands.cmd.WALK_TO_POS,
 --                            args = {
---                                end_pos = npc.locations.PLACE_TYPE.SCHEDULE.TARGET,
+--                                end_pos = npc.locations.data.SCHEDULE.TARGET,
 --                                walkable = farming_plants
 --                            }
 --                        },
@@ -436,7 +436,7 @@
 --            -- Walk to a sittable node
 --            [1] = {
 --                task = npc.commands.cmd.WALK_TO_POS, args = {
---                    end_pos = {place_type=npc.locations.PLACE_TYPE.SITTABLE.PRIMARY, use_access_node=true},
+--                    end_pos = {place_type=npc.locations.data.SITTABLE.PRIMARY, use_access_node=true},
 --                    walkable = {"cottages:bench"}
 --                },
 --                chance = 75
@@ -444,7 +444,7 @@
 --            -- Sit on the node
 --            [2] = {
 --                task = npc.commands.cmd.USE_SITTABLE, args = {
---                    pos = npc.locations.PLACE_TYPE.SITTABLE.PRIMARY,
+--                    pos = npc.locations.data.SITTABLE.PRIMARY,
 --                    action = npc.commands.const.sittable.SIT
 --                },
 --                depends = {1}
@@ -467,7 +467,7 @@
 --            -- Get up from sit
 --            [5] = {
 --                action = npc.commands.cmd.USE_SITTABLE, args = {
---                    pos = npc.locations.PLACE_TYPE.SITTABLE.PRIMARY,
+--                    pos = npc.locations.data.SITTABLE.PRIMARY,
 --                    action = npc.commands.const.sittable.GET_UP
 --                },
 --                depends = {4}
@@ -527,7 +527,7 @@
 --            -- Get inside home
 --            [3] = {
 --                task = npc.commands.cmd.WALK_TO_POS, args = {
---                    end_pos = npc.locations.PLACE_TYPE.BED.PRIMARY,
+--                    end_pos = npc.locations.data.bed.primary,
 --                    walkable = {}
 --                }
 --            },
@@ -537,14 +537,14 @@
 --        [22] = {
 --            [1] = {
 --                task = npc.commands.cmd.WALK_TO_POS, args = {
---                    end_pos = {place_type=npc.locations.PLACE_TYPE.BED.PRIMARY, use_access_node=true},
+--                    end_pos = {place_type=npc.locations.data.bed.primary, use_access_node=true},
 --                    walkable = {}
 --                }
 --            },
 --            -- Use bed
 --            [2] = {
 --                task = npc.commands.cmd.USE_BED, args = {
---                    pos = npc.locations.PLACE_TYPE.BED.PRIMARY,
+--                    pos = npc.locations.data.bed.primary,
 --                    action = npc.commands.const.beds.LAY
 --                }
 --            },
