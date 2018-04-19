@@ -787,6 +787,7 @@ npc.exec.proc.instr.state = {
 --   - allow_rightclick, boolean
 --   - allow_schedule, boolean
 function npc.exec.create_interrupt_options(interrupt_options)
+	local interrupt_options = interrupt_options or {}
 	if next(interrupt_options) ~= nil then
 		local allow_punch = interrupt_options.allow_punch
 		local allow_rightclick = interrupt_options.allow_rightclick
