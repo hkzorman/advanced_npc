@@ -622,30 +622,30 @@ function npc.locations.find_building_entrance(bed_nodes, marker_pos)
 		return
 	end
 
-	-- Initialize positions
-	local start_pos = bed_nodes[1].node_pos
-	local end_pos = {x=marker_pos.x, y=marker_pos.y, z=marker_pos.z}
+	-- Iterate through bed nodes to try and find an entrance
+	for i = 1, #bed_nodes do
 
-	npc.log("INFO", "Trying to find path from "..minetest.pos_to_string(start_pos).." to "..minetest.pos_to_string(end_pos))
+		-- Initialize positions
+		local start_pos = bed_nodes[i].node_pos
+		local end_pos = {x=marker_pos.x, y=marker_pos.y, z=marker_pos.z}
+		npc.log("INFO", "Trying to find path from "..minetest.pos_to_string(start_pos).." to "..minetest.pos_to_string(end_pos))
 
-	-- Find path from the bed node to the plotmarker
-	local decorated_path = get_decorated_path(start_pos, end_pos)
-	--minetest.log("Decorated path: "..dump(decorated_path)..", size="..dump(#decorated_path))
-	-- Find building entrance, traverse path backwards and return first node that is openable
+		-- Find path from the bed node to the plotmarker
+		local decorated_path = get_decorated_path(start_pos, end_pos)
 
-	for i = #decorated_path, 1, -1 do
-		minetest.log("Type: "..dump(decorated_path[i].type..", Openable: "..dump(npc.pathfinder.node_types.openable)))
-		minetest.log("Condition: "..dump(decorated_path[i].type == npc.pathfinder.node_types.openable))
-		if decorated_path[i].type == npc.pathfinder.node_types.openable then
-			minetest.log("Hello there!!"..dump(decorated_path[i]))
-			local result = {
-				door = vector.round(decorated_path[i].pos),
-				inside = vector.round(decorated_path[i-1].pos),
-				outside = vector.round(decorated_path[i+1].pos)
-			}
-			minetest.log("Returning: "..dump(result))
-			return result
+		-- Find building entrance, traverse path backwards and return first node that is openable
+		for j = #decorated_path, 1, -1 do
+			if decorated_path[j].type == npc.pathfinder.node_types.openable then
+				local result = {
+					door = vector.round(decorated_path[j].pos),
+					inside = vector.round(decorated_path[j-1].pos),
+					outside = vector.round(decorated_path[j+1].pos)
+				}
+				return result
+			end
 		end
+
+		npc.log("INFO", "Attempt "..dump(i).." of "..dump(#bed_nodes).." of finding entrance from bed failed.")
 	end
 end
 

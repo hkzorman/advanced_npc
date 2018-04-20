@@ -73,7 +73,7 @@ local basic_def = {
                 arguments = {
                     property = npc.programs.internal_properties.change_trader_status,
                     args = {
-                        status = npc.trade.none
+                        status = npc.trade.NONE
                     }
                 },
                 interrupt_options = {}
@@ -138,7 +138,7 @@ local basic_def = {
                 program_name = "advanced_npc:use_sittable",
                 arguments = {
                     pos = npc.locations.data.calculated.target,
-                    action = npc.programs.const.node_ops.sittable.sit
+                    action = npc.programs.const.node_ops.sittable.SIT
                 },
                 depends = {1},
                 interrupt_options = {}
@@ -161,7 +161,7 @@ local basic_def = {
                 program_name = "advanced_npc:use_sittable",
                 arguments = {
                     pos = npc.locations.data.calculated.target,
-                    action = npc.programs.const.node_ops.sittable.get_up
+                    action = npc.programs.const.node_ops.sittable.GET_UP
                 },
                 interrupt_options = {}
             },
@@ -185,7 +185,7 @@ local basic_def = {
                 arguments = {
                     property = npc.schedule_properties.change_trader_status,
                     args = {
-                        status = npc.trade.casual
+                        status = npc.trade.CASUAL
                     },
                 },
                 interrupt_options = {},
@@ -212,7 +212,7 @@ local basic_def = {
                     {
                         property = npc.schedule_properties.change_trader_status,
                         args = {
-                            status = npc.trade.none
+                            status = npc.trade.NONE
                         },
                     },
                     {
@@ -259,7 +259,7 @@ local basic_def = {
                 program_name = "advanced_npc:use_bed",
                 arguments = {
                     pos = npc.locations.data.bed.primary,
-                    action = npc.programs.const.node_ops.beds.lay
+                    action = npc.programs.const.node_ops.beds.LAY
                 },
                 interrupt_options = {
                     allow_rightclick = false
