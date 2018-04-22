@@ -117,13 +117,15 @@ npc.programs.instr.register("advanced_npc:dig", function(self, args)
 
         -- Play dig sound
         if play_sound == true then
-            minetest.sound_play(
-                minetest.registered_nodes[node.name].sounds.dug,
-                {
-                    max_hear_distance = 10,
-                    object = self.object
-                }
-            )
+            if minetest.registered_nodes[node.name].sounds then
+                minetest.sound_play(
+                    minetest.registered_nodes[node.name].sounds.dug,
+                    {
+                        max_hear_distance = 10,
+                        object = self.object
+                    }
+                )
+            end
         end
 
         -- Check if protection not enforced
@@ -163,6 +165,7 @@ npc.programs.instr.register("advanced_npc:dig", function(self, args)
                 npc.add_item_to_inventory(self, drop_itemname, 1)
             end
             -- Dig node
+            minetest.log("Setting air at pos: "..minetest.pos_to_string(pos))
             minetest.set_node(pos, {name="air"})
         end
     end

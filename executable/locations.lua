@@ -294,14 +294,14 @@ end
 function npc.locations.get_by_type(self, place_type, exact_match)
 	local result = {}
 	for _, place_entry in pairs(self.places_map) do
-		minetest.log("Looking for: "..dump(place_type)..", in: "..dump(place_entry.type))
+		--minetest.log("Looking for: "..dump(place_type)..", in: "..dump(place_entry.type))
 		local s, _ = string.find(place_entry.type, place_type)
 		if s ~= nil then
-			minetest.log("Found: "..dump(place_entry))
+			--minetest.log("Found: "..dump(place_entry))
 			result[#result + 1] = place_entry
 		end
 	end
-	minetest.log("Returning: "..dump(result))
+	--minetest.log("Returning: "..dump(result))
 	return result
 end
 
@@ -564,7 +564,7 @@ function npc.locations.scan_area_for_usable_nodes(pos1, pos2)
 		result.workplace_type = npc.locations.get_nodes_by_type(
 			{x=start_pos.x-20, y=start_pos.y, z=start_pos.z-20},
 			{x=end_pos.x+20, y=end_pos.y, z=end_pos.z+20},
-			npc.locations.nodes.WORKPLACE)
+			npc.locations.nodes.workplace)
 		-- Find out building type and add it to the result
 		for i = 1, #result.workplace_type do
 			local meta = minetest.get_meta(result.workplace_type[i].node_pos)
@@ -634,14 +634,16 @@ function npc.locations.find_building_entrance(bed_nodes, marker_pos)
 		local decorated_path = get_decorated_path(start_pos, end_pos)
 
 		-- Find building entrance, traverse path backwards and return first node that is openable
-		for j = #decorated_path, 1, -1 do
-			if decorated_path[j].type == npc.pathfinder.node_types.openable then
-				local result = {
-					door = vector.round(decorated_path[j].pos),
-					inside = vector.round(decorated_path[j-1].pos),
-					outside = vector.round(decorated_path[j+1].pos)
-				}
-				return result
+		if decorated_path then
+			for j = #decorated_path, 1, -1 do
+				if decorated_path[j].type == npc.pathfinder.node_types.openable then
+					local result = {
+						door = vector.round(decorated_path[j].pos),
+						inside = vector.round(decorated_path[j-1].pos),
+						outside = vector.round(decorated_path[j+1].pos)
+					}
+					return result
+				end
 			end
 		end
 

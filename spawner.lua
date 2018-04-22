@@ -89,7 +89,7 @@ spawner.spawn_eggs = {}
 --  - Sittable nodes
 -- It will return a table with all information gathered
 -- Playername should be provided if manual spawning
-function npc.spawner.scan_area_for_spawn(start_pos, end_pos, player_name)
+function npc.spawner.scan_area_for_spawn(start_pos, end_pos, player_name, spawn_pos)
     local result = {
         building_type = "",
         plot_info = {},
@@ -141,11 +141,14 @@ function npc.spawner.scan_area_for_spawn(start_pos, end_pos, player_name)
         if npc.spawner_marker.entrance_markers[player_name] then
             outside_pos = npc.spawner_marker.entrance_markers[player_name]
         end
+    elseif spawn_pos ~= nil then
+        -- A spawn egg was used, assume it was spawned outside the building
+        outside_pos = spawn_pos
     end
     -- Try to find entrance
     local entrance = npc.locations.find_building_entrance(usable_nodes.bed_type, outside_pos)
     if entrance then
-        npc.log("INFO", "Found building entrance at: "..minetest.pos_to_string(entrance.node_pos))
+        npc.log("INFO", "Found building entrance at: "..minetest.pos_to_string(entrance.door))
         -- Set building entrance
         result.entrance = entrance
     else
@@ -588,7 +591,7 @@ function npc.spawner.assign_places(self, entrance, node_data, pos)
                 local walkables = npc.occupations.registered_occupations[self.occupation_name].walkable_nodes
                 -- Found the node. Assign only this node to the NPC.
                 npc.locations.add_shared_accessible_place(self, {node_data.workplace_type[i]},
-                    npc.locations.data.WORKPLACE.PRIMARY, false, walkables)
+                    npc.locations.data.workplace.primary, false, walkables)
                 -- Edit metadata of this workplace node to not allow it for other NPCs
                 local meta = minetest.get_meta(node_data.workplace_type[i].node_pos)
                 local work_data = {
@@ -681,8 +684,6 @@ minetest.register_craftitem("advanced_npc:spawn_egg", {
     on_place = function(itemstack, user, pointed_thing)
         -- Store spawn pos
         spawner.spawn_pos[user:get_player_name()] = pointed_thing.above
-
-
 
         local occupation_names = npc.utils.get_map_keys(npc.occupations.registered_occupations)
 
@@ -782,8 +783,8 @@ minetest.register_on_player_receive_fields(function(player, formname, fields)
                     local end_pos = {x=pos.x+radius, y=pos.y+y_adj, z=pos.z+radius }
 
                     -- Scan for usable nodes
-                    local area_info = npc.spawner.scan_area_for_spawn(start_pos, end_pos, player:get_player_name())
-
+                    local area_info = npc.spawner.scan_area_for_spawn(start_pos, end_pos, player:get_player_name(), pos)
+                    minetest.log("Area info: "..dump(area_info))
                     -- Assign occupation
                     local occupation_data = npc.spawner.determine_npc_occupation(
                         fields.building_type or area_info.building_type,

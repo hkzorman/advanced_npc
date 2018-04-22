@@ -845,10 +845,13 @@ end
 
 -- This function creates a process for the given program, and
 -- places it into the process queue.
-function npc.exec.enqueue_program(self, program_name, arguments, interrupt_options)
+function npc.exec.enqueue_program(self, program_name, arguments, interrupt_options, is_state_program)
+	if is_state_program == nil then
+		is_state_program = false
+	end
 	-- Enqueue process
 	self.execution.process_queue[#self.execution.process_queue + 1] =
-		_exec.create_process_entry(program_name, arguments, interrupt_options, _exec.get_new_process_id(self))
+		_exec.create_process_entry(program_name, arguments, interrupt_options, is_state_program, _exec.get_new_process_id(self))
 
 end
 
@@ -1202,9 +1205,9 @@ function npc.exec.process_scheduler(self)
 					table.remove(self.execution.process_queue, 1)
 					-- Re-enqueue the interrupted process
 					--npc.log("INFO", "Hi, re-enqueuing interrupted process")
-                    minetest.log("Current queue: "..dump(self.execution.process_queue))
+                    --minetest.log("Current queue: "..dump(self.execution.process_queue))
 					self.execution.process_queue[#self.execution.process_queue + 1] = current_process.interrupted_process
-					minetest.log("Current queue after re-enqueue: "..dump(self.execution.process_queue))
+					--minetest.log("Current queue after re-enqueue: "..dump(self.execution.process_queue))
 					if #self.execution.process_queue > 1 then
 						-- Execute next process in queue
 						npc.exec.execute_process(self)
@@ -1264,7 +1267,7 @@ function _exec.proc.execute(self, entry)
 			current_process.current_instruction.pos = self.object:getpos()
 			current_process.current_instruction.state = npc.exec.proc.instr.state.EXECUTING
 			-- Execute current instruction
---			npc.log("INFO", "Executing: "..dump(entry.name))
+			npc.log("INFO", "  Executing instruction: "..dump(entry.name))
 			local result = npc.programs.instr.execute(self, entry.name, entry.args)
 			-- Check if var_name was given
 			if entry.var_name then
@@ -1732,67 +1735,6 @@ function npc.schedule.execution_routine(self, dtime)
 	end
 end
 
---function npc.schedule_change_property(self, property, args)
---	if property == npc.schedule_properties.trader_status then
---		-- Get status from args
---		local status = args.status
---		-- Set status to NPC
---		npc.set_trading_status(self, status)
---	elseif property == npc.schedule_properties.put_item then
---		local itemstring = args.itemstring
---		-- Add item
---		npc.add_item_to_inventory_itemstring(self, itemstring)
---	elseif property == npc.schedule_properties.put_multiple_items then
---		local itemlist = args.itemlist
---		for i = 1, #itemlist do
---			local itemlist_entry = itemlist[i]
---			local current_itemstring = itemlist[i].name
---			if itemlist_entry.random == true then
---				current_itemstring = current_itemstring
---						.." "..dump(math.random(itemlist_entry.min, itemlist_entry.max))
---			else
---				current_itemstring = current_itemstring.." "..tostring(itemlist_entry.count)
---			end
---			-- Add item to inventory
---			npc.add_item_to_inventory_itemstring(self, current_itemstring)
---		end
---	elseif property == npc.schedule_properties.take_item then
---		local itemstring = args.itemstring
---		-- Add item
---		npc.take_item_from_inventory_itemstring(self, itemstring)
---	elseif property == npc.schedule_properties.can_receive_gifts then
---		local value = args.can_receive_gifts
---		-- Set status
---		self.can_receive_gifts = value
---	elseif property == npc.schedule_properties.flag then
---		local action = args.action
---		if action == "set" then
---			-- Adds or overwrites an existing flag and sets it to the given value
---			self.flags[args.flag_name] = args.flag_value
---		elseif action == "reset" then
---			-- Sets value of flag to false or to 0
---			local flag_type = type(self.flags[args.flag_name])
---			if flag_type == "number" then
---				self.flags[args.flag_name] = 0
---			elseif flag_type == "boolean" then
---				self.flags[args.flag_name] = false
---			end
---		end
---	elseif property == npc.schedule_properties.enable_gift_item_hints then
---		self.gift_data.enable_gift_items_hints = args.value
---	elseif property == npc.schedule_properties.set_trade_list then
---		-- Insert items
---		for i = 1, #args.items do
---			-- Insert entry into trade list
---			self.trader_data.trade_list[args.items[i].name] = {
---				max_item_buy_count = args.items[i].buy,
---				max_item_sell_count = args.items[i].sell,
---				amount_to_keep = args.items[i].keep
---			}
---
---		end
--- 	end
---end
 --
 --function npc.enqueue_schedule_action(self, entry)
 --	if entry.task ~= nil then
@@ -1807,191 +1749,6 @@ end
 --	end
 --end
 --
----- Range: integer, radius in which nodes will be searched. Recommended radius is
-----		  between 1-3
----- Nodes: array of node names
----- Actions: map of node names to entries {action=<action_enum>, args={}}.
-----			Arguments can be empty - the check function will try to determine most
-----			arguments anyways (like pos and dir).
-----			Special node "any" will execute those actions on any node except the
-----			already specified ones.
----- None-action: array of entries {action=<action_enum>, args={}}.
-----				Will be executed when no node is found.
---function npc.schedule_check(self)
---	npc.log("DEBUG_SCHEDULE", "Prev Actions queue: "..dump(self.actions.queue))
---	local range = self.schedules.current_check_params.range
---	local walkable_nodes = self.schedules.current_check_params.walkable_nodes
---	local nodes = self.schedules.current_check_params.nodes
---	local actions = self.schedules.current_check_params.actions
---	local none_actions = self.schedules.current_check_params.none_actions
---	-- Get NPC position
---	local start_pos = self.object:getpos()
---	-- Search nodes
---	local found_nodes = npc.locations.find_node_nearby(start_pos, nodes, range)
---	-- Check if any node was found
---	npc.log("DEBUG_SCHEDULE", "Found nodes using radius: "..dump(found_nodes))
---	if found_nodes and #found_nodes > 0 then
---		local node_pos
---		local node
---		-- Check if there is preference to act on nodes already acted upon
---		if self.schedules.current_check_params.prefer_last_acted_upon_node == true then
---			-- Find a node other than the acted upon - try 3 times
---			for i = 1, #found_nodes do
---				node_pos = found_nodes[i]
---				-- Get node info
---				node = minetest.get_node(node_pos)
---				if node.name == self.schedules.current_check_params.last_node_acted_upon then
---					break
---				end
---			end
---		else
---			-- Pick a random node to act upon
---			node_pos = found_nodes[math.random(1, #found_nodes)]
---			-- Get node info
---			node = minetest.get_node(node_pos)
---		end
---		-- Save this node as the last acted upon
---		self.schedules.current_check_params.last_node_acted_upon = node.name
---		-- Set node as a place
---		-- Note: Code below isn't *adding* a node, but overwriting the
---		-- place with "schedule_target_pos" place type
---		npc.log("DEBUG_SCHEDULE", "Found "..dump(node.name).." at pos: "..minetest.pos_to_string(node_pos))
---		npc.locations.add_shared_accessible_place(
---			self, {owner="", node_pos=node_pos}, npc.locations.data.SCHEDULE.TARGET, true, walkable_nodes)
---		-- Get actions related to node and enqueue them
---		for i = 1, #actions[node.name] do
---			local args = {}
---			local action
---			-- Calculate arguments for the following supported actions:
---			--   - Dig
---			--   - Place
---			--   - Walk step
---			--   - Walk to position
---			--   - Use furnace
---			if actions[node.name][i].action == npc.commands.cmd.DIG then
---				-- Defaults: items will be added to inventory if not specified
---				-- otherwise, and protection will be respected, if not specified
---				-- otherwise
---				args = {
---					pos = node_pos,
---					add_to_inventory = actions[node.name][i].args.add_to_inventory or true,
---					bypass_protection = actions[node.name][i].args.bypass_protection or false
---				}
---				npc.add_action(self, actions[node.name][i].action, args)
---			elseif actions[node.name][i].action == npc.commands.cmd.PLACE then
---				-- Position: providing node_pos is because the currently planned
---				-- behavior for placing nodes is replacing digged nodes. A NPC farmer,
---				-- for instance, might dig a plant node and plant another one on the
---				-- same position.
---				-- Defaults: items will be taken from inventory if existing,
---				-- if not will be force-placed (item comes from thin air)
---				-- Protection will be respected
---				args = {
---					pos = actions[node.name][i].args.pos or node_pos,
---					source = actions[node.name][i].args.source or npc.commands.take_from_inventory_forced,
---					node = actions[node.name][i].args.node,
---					bypass_protection =  actions[node.name][i].args.bypass_protection or false
---				}
---				--minetest.log("Enqueue dig action with args: "..dump(args))
---				npc.add_action(self, actions[node.name][i].action, args)
---			elseif actions[node.name][i].action == npc.commands.cmd.ROTATE then
---				-- Set arguments
---				args = {
---					dir = actions[node.name][i].dir,
---					start_pos = actions[node.name][i].start_pos
---							or {x=start_pos.x, y=node_pos.y, z=start_pos.z},
---					end_pos = actions[node.name][i].end_pos or node_pos
---				}
---				-- Enqueue action
---				npc.add_action(self, actions[node.name][i].action, args)
---			elseif actions[node.name][i].action == npc.commands.cmd.WALK_STEP then
---				-- Defaults: direction is calculated from start node to node_pos.
---				-- Speed is default wandering speed. Target pos is node_pos
---				-- Calculate dir if dir is random
---				local dir = npc.commands.get_direction(start_pos, node_pos)
---				minetest.log("actions: "..dump(actions[node.name][i]))
---				if actions[node.name][i].args.dir == "random" then
---					dir = math.random(0,7)
---				elseif type(actions[node.name][i].args.dir) == "number" then
---					dir = actions[node.name][i].args.dir
---				end
---				args = {
---					dir = dir,
---					speed = actions[node.name][i].args.speed or npc.commands.one_nps_speed,
---					target_pos = actions[node.name][i].args.target_pos or node_pos
---				}
---				npc.add_action(self, actions[node.name][i].action, args)
---			elseif actions[node.name][i].task == npc.commands.cmd.WALK_TO_POS then
---				-- Optimize walking -- since distances can be really short,
---				-- a simple walk_step() action can do most of the times. For
---				-- this, however, we need to calculate direction
---				-- First of all, check distance
---				local distance = vector.distance(start_pos, node_pos)
---				if distance < 3 then
---					-- Will do walk_step based instead
---					if distance > 1 then
---						args = {
---							dir = npc.commands.get_direction(start_pos, node_pos),
---							speed = npc.commands.one_nps_speed
---						}
---						-- Enqueue walk step
---						npc.add_action(self, npc.commands.cmd.WALK_STEP, args)
---					end
---					-- Add standing action to look at node
---					npc.add_action(self, npc.commands.cmd.STAND,
---						{dir = npc.commands.get_direction(self.object:getpos(), node_pos)}
---					)
---				else
---					-- Set end pos to be node_pos
---					args = {
---						end_pos = actions[node.name][i].args.end_pos or node_pos,
---						walkable = actions[node.name][i].args.walkable or walkable_nodes or {}
---					}
---					-- Enqueue
---					npc.enqueue_script(self, actions[node.name][i].task, args)
---				end
---			elseif actions[node.name][i].task == npc.commands.cmd.USE_FURNACE then
---				-- Defaults: pos is node_pos. Freeze is true
---				args = {
---					pos = actions[node.name][i].args.pos or node_pos,
---					item = actions[node.name][i].args.item,
---					freeze = actions[node.name][i].args.freeze or true
---				}
---				npc.enqueue_script(self, actions[node.name][i].task, args)
---			else
---				-- Action or task that is not supported for value calculation
---				npc.enqueue_schedule_action(self, actions[node.name][i])
---			end
---		end
---		-- Increase execution count
---		self.schedules.current_check_params.execution_count =
---			self.schedules.current_check_params.execution_count + 1
---		-- Enqueue next schedule check
---		if self.schedules.current_check_params.execution_count
---				< self.schedules.current_check_params.execution_times then
---			npc.add_schedule_check(self)
---		end
---		npc.log("DEBUG_SCHEDULE", "Actions queue: "..dump(self.actions.queue))
---	else
---		-- No nodes found, enqueue none_actions
---		for i = 1, #none_actions do
---			-- Add start_pos to none_actions
---			none_actions[i].args["start_pos"] = start_pos
---			-- Enqueue actions
---			npc.add_action(self, none_actions[i].action, none_actions[i].args)
---		end
---		-- Increase execution count
---		self.schedules.current_check_params.execution_count =
---			self.schedules.current_check_params.execution_count + 1
---		-- Enqueue next schedule check
---		if self.schedules.current_check_params.execution_count
---				< self.schedules.current_check_params.execution_times then
---			npc.add_schedule_check(self)
---		end
---		-- No nodes found
---		npc.log("DEBUG_SCHEDULE", "Actions queue: "..dump(self.actions.queue))
---	end
---end
 
 ---------------------------------------------------------------------------------------
 -- NPC Lua object functions

@@ -121,7 +121,7 @@ end
 function npc.programs.helper.random_dir(start_pos, speed, dir_start, dir_end)
     --
     local bad_dirs = {}
-    minetest.log("Args: "..dump(start_pos)..", "..dump(speed)..","..dump(dir_start)..", "..dump(dir_end))
+    --minetest.log("Args: "..dump(start_pos)..", "..dump(speed)..","..dump(dir_start)..", "..dump(dir_end))
     -- Limit the number of tries - otherwise it could become an infinite loop
     for i = 1, 8 do
         local dir = math.random(dir_start, dir_end)
@@ -189,8 +189,8 @@ end
 -- Can receive a position argument in different formats
 -- TODO: Document formats
 function npc.programs.helper.get_pos_argument(self, pos, use_access_node)
-    minetest.log("Type of pos: "..dump(type(pos)))
-    minetest.log("Pos: "..dump(pos))
+--    minetest.log("Type of pos: "..dump(type(pos)))
+--    minetest.log("Pos: "..dump(pos))
     -- Check which type of position argument we received
     if type(pos) == "table" then
         --minetest.log("Received table pos: "..dump(pos))
@@ -249,8 +249,10 @@ function npc.programs.helper.get_pos_argument(self, pos, use_access_node)
             end
         end
     elseif type(pos) == "string" then
+        --npc.log("INFO", "Places map: "..dump(self.places_map))
         -- Received name of place, so we are going to look for the actual pos
         local places_pos = npc.locations.get_by_type(self, pos, false)
+        --npc.log("INFO", "FOUND: "..dump(places_pos))
         -- Return nil if no position found
         if places_pos == nil or #places_pos == 0 then
             return nil
