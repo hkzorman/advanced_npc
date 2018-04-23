@@ -876,7 +876,8 @@ function npc.exec.set_state_program(self, program_name, arguments, interrupt_opt
 			pos = {}
 		},
 		interrupt_options = npc.exec.create_interrupt_options(interrupt_options),
-		is_state_process = true
+		is_state_process = true,
+		state_process_id = os.time()
 	}
 end
 
@@ -967,17 +968,18 @@ function _exec.priority_enqueue(self, program_entries)
 					program_entries[i].program_name,
 					program_entries[i].arguments,
 					program_entries[i].interrupt_options)
+				-- Enqueue state process
+				table.insert(self.execution.process_queue, i + 1, self.execution.state_process)
+			else
+				-- Enqueue normal process
+				table.insert(
+					self.execution.process_queue, i + 1, _exec.create_process_entry(
+						program_entries[i].program_name,
+						program_entries[i].arguments,
+						program_entries[i].interrupt_options,
+						program_entries[i].is_state_program,
+						_exec.get_new_process_id(self)))
 			end
-
-			table.insert(
-				self.execution.process_queue, i + 1, _exec.create_process_entry(
-					program_entries[i].program_name,
-					program_entries[i].arguments,
-					program_entries[i].interrupt_options,
-					program_entries[i].is_state_program,
-                    _exec.get_new_process_id(self)
-                )
-			)
 		end
 		--minetest.log("Backup queue after all new: "..dump(#backup_queue))
 	else
@@ -989,15 +991,17 @@ function _exec.priority_enqueue(self, program_entries)
 					program_entries[i].program_name,
 					program_entries[i].arguments,
 					program_entries[i].interrupt_options)
+				-- Enqueue state process
+				self.execution.process_queue[#self.execution.process_queue + 1] = self.execution.state_process
+			else
+				-- Enqueue normal process
+				self.execution.process_queue[#self.execution.process_queue + 1] = _exec.create_process_entry(
+					program_entries[i].program_name,
+					program_entries[i].arguments,
+					program_entries[i].interrupt_options,
+					program_entries[i].is_state_program,
+					_exec.get_new_process_id(self))
 			end
-
-			self.execution.process_queue[#self.execution.process_queue + 1] = _exec.create_process_entry(
-				program_entries[i].program_name,
-				program_entries[i].arguments,
-				program_entries[i].interrupt_options,
-				program_entries[i].is_state_program,
-                _exec.get_new_process_id(self)
-            )
 		end
 	end
 end
@@ -1201,6 +1205,27 @@ function npc.exec.process_scheduler(self)
 				-- This is not a state process, check the interrupted process field
 				if next(current_process.interrupted_process) ~= nil then
 					minetest.log("There is an interrupted process: "..dump(current_process.interrupted_process.program_name))
+					minetest.log("------------------------------")
+					minetest.log("Is state process? "..dump(current_process.interrupted_process.is_state_process))
+					minetest.log("State process ID: "..dump(current_process.interrupted_process.state_process_id))
+					minetest.log("Valid state process ID: "..dump(self.execution.state_process.state_process_id))
+
+					if current_process.interrupted_process.is_state_process == true and
+						current_process.interrupted_process.state_process_id < self.execution.state_process.state_process_id then
+						-- Do nothing, just dequeue process
+						npc.log("INFO", "Found an old state process that was interrupted.\nWILL NOT be re-enqueued")
+						--
+						npc.log("INFO", "Process "..dump(self.execution.process_queue[1].program_name).." is finished executionand will be dequeued")
+						-- Dequeue process
+						table.remove(self.execution.process_queue, 1)
+						-- Check if there are more processes
+						if #self.execution.process_queue > 0 then
+							-- Execute new process
+							npc.exec.execute_process(self)
+						end
+						return
+					end
+
 					-- Dequeue process
 					table.remove(self.execution.process_queue, 1)
 					-- Re-enqueue the interrupted process
@@ -1216,7 +1241,7 @@ function npc.exec.process_scheduler(self)
 						_exec.restore_process(self)
 					end
 				else
-					npc.log("INFO", "Process "..dump(self.execution.process_queue[1]).." is finished execution")
+					npc.log("INFO", "Process "..dump(self.execution.process_queue[1].program_name).." is finished execution")
 					-- Dequeue process
 					table.remove(self.execution.process_queue, 1)
 					-- Check if there are more processes

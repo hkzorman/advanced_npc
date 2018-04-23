@@ -23,6 +23,10 @@ npc.programs.register("advanced_npc:use_sittable", function(self, args)
         if node.name == "ignore" then
             return
         end
+        if npc.programs.instr.nodes.sittable[node.name] == nil then
+            npc.log("WARNING", "Couldn't find node def for sittable node for node: "..dump(node.name))
+            return
+        end
         local sit_pos = npc.programs.instr.nodes.sittable[node.name].get_sit_pos(pos, node.param2)
         -- Sit down on bench/chair/stairs
         npc.programs.instr.execute(self, npc.programs.instr.default.SIT, {pos=sit_pos, dir=(node.param2 + 2) % 4})
@@ -56,5 +60,6 @@ npc.programs.register("advanced_npc:use_sittable", function(self, args)
             npc.locations.mark_place_used(pos, npc.locations.USE_STATE.NOT_USED)
         end
     end
+
 end)
 
