@@ -77,11 +77,12 @@ npc.programs.register("advanced_npc:walk_to_pos", function(self, args)
                     {dir = dir, speed = speed, target_pos = path[i+1].pos})
                 -- Add stand animation at end
                 if use_access_node == true then
-                    dir = npc.programs.helper.get_direction(end_pos, node_pos)
+                    --dir = npc.programs.helper.get_direction(end_pos, node_pos)
+                    dir = minetest.dir_to_yaw(vector.direction(end_pos, node_pos))
                 end
-                minetest.log("Dir: "..dump(dir))
+                --minetest.log("Dir: "..dump(dir))
                 -- Change dir if using access_node
-                npc.exec.proc.enqueue(self, npc.programs.instr.default.STAND, {dir = dir})
+                npc.exec.proc.enqueue(self, npc.programs.instr.default.STAND, {yaw = dir})
                 break
             end
             -- Get direction to move from path[i] to path[i+1]
@@ -131,7 +132,6 @@ npc.programs.register("advanced_npc:walk_to_pos", function(self, args)
 
                 door_opened = false
             end
-
         end
 
         -- Return the command interval to default interval of 1 second

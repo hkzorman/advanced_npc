@@ -168,7 +168,7 @@ local farmer_def = {
             {
                 program_name = "advanced_npc:node_query",
                 arguments = {
-                    range = 2,
+                    range = 3,
                     random_execution_times = true,
                     min_count = 20,
                     max_count = 25,
@@ -275,6 +275,13 @@ local farmer_def = {
                             arguments = {},
                             interrupt_options = {}
                         }
+                    },
+                    state_program_on_finished = {
+                        program_name = "advanced_npc:idle",
+                        arguments = {
+                            acknowledge_nearby_objs = true
+                        },
+                        interrupt_options = {}
                     }
                 },
                 interrupt_options = {},
@@ -407,29 +414,38 @@ local farmer_def = {
 --            [5] = {action = npc.commands.cmd.FREEZE, args = {freeze = false}}
 --        },
         -- Schedule entry for 6 in the evening
---        [18] = {
---            -- Change trader status to "none"
---            [1] = {
---                property = npc.schedule_properties.trader_status, args = {
---                    status = npc.trade.NONE
---                }
---            },
---            -- Enable gift receiving again
---            [2] = {
---                property = npc.schedule_properties.can_receive_gifts, args = {
---                    can_receive_gifts = true
---                }
---            },
---            -- Get inside home
---            [3] = {
---                task = npc.commands.cmd.WALK_TO_POS, args = {
---                    end_pos = npc.locations.data.bed.primary,
---                    walkable = {}
---                }
---            },
---            -- Allow mobs_redo wandering
---            [4] = {action = npc.commands.cmd.FREEZE, args = {freeze = false}}
---        },
+        -- schedule entry for 6 in the evening
+        [18] = {
+            -- change trader status to "none"
+            [1] = {
+                program_name = "advanced_npc:internal_property_change",
+                arguments = {
+                    {
+                        property = npc.schedule_properties.change_trader_status,
+                        args = {
+                            status = npc.trade.NONE
+                        },
+                    },
+                    {
+                        property = npc.schedule_properties.can_receive_gifts,
+                        args = {
+                            can_receive_gifts = true
+                        },
+                    }
+
+                },
+                interrupt_options = {},
+            },
+            -- get inside home
+            [2] = {
+                program_name = "advanced_npc:walk_to_pos",
+                arguments = {
+                    end_pos = npc.locations.data.other.home_inside,
+                    walkable = {}
+                },
+                interrupt_options = {},
+            }
+        },
         [22] = {
             [1] = {
                 program_name = "advanced_npc:walk_to_pos",

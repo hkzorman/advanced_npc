@@ -205,23 +205,26 @@ npc.programs.register("advanced_npc:node_query", function(self, args)
         --npc.log("DEBUG_SCHEDULE", "Actions queue: "..dump(self.actions.queue))
     end
 
-    -- Increase execution count
-    local execution_count = npc.exec.var.get(self, "execution_count")
-    if execution_count == nil then
-        execution_count = 0
-        npc.exec.var.put(self, "execution_count", execution_count)
-    end
-    execution_count = execution_count + 1
-    npc.exec.var.set(self, "execution_count", execution_count)
+    if times_to_execute or (randomize_execution_count and max_count and min_count) then
+        -- Increase execution count
+        local execution_count = npc.exec.var.get(self, "execution_count")
+        if execution_count == nil then
+            execution_count = 0
+            npc.exec.var.put(self, "execution_count", execution_count)
+        end
+        execution_count = execution_count + 1
+        npc.exec.var.set(self, "execution_count", execution_count)
 
-    -- Check if max number of executions was reached
-    if execution_count > times_to_execute then
-        npc.exec.set_state_program(self,
-            state_program_on_finished.program_name,
-            state_program_on_finished.arguments,
-            state_program_on_finished.interrupt_option)
+        -- Check if max number of executions was reached
+        if execution_count > times_to_execute then
+            if state_program_on_finished then
+                npc.exec.set_state_program(self,
+                    state_program_on_finished.program_name,
+                    state_program_on_finished.arguments,
+                    state_program_on_finished.interrupt_option)
+            end
+        end
     end
-
 end)
 
 
