@@ -169,9 +169,6 @@ local farmer_def = {
                 program_name = "advanced_npc:node_query",
                 arguments = {
                     range = 3,
-                    random_execution_times = true,
-                    min_count = 20,
-                    max_count = 25,
                     nodes = farming_plants,
                     prefer_last_acted_upon_node = true,
                     walkable_nodes = farming_plants,
@@ -275,13 +272,6 @@ local farmer_def = {
                             arguments = {},
                             interrupt_options = {}
                         }
-                    },
-                    state_program_on_finished = {
-                        program_name = "advanced_npc:idle",
-                        arguments = {
-                            acknowledge_nearby_objs = true
-                        },
-                        interrupt_options = {}
                     }
                 },
                 interrupt_options = {},
