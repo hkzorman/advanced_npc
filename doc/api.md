@@ -5,6 +5,20 @@ Advanced_NPC API Reference Alpha-2 (DEV)
 IMPORTANT: This WIP & unfinished file contains the definitions of current advanced_npc functions
 (Some documentation is lacking, so please bear in mind that this WIP file is just to enhance it)
 
+
+Summary
+-------
+* Introduction
+* Initialize NPC
+* NPC Steps
+* Programs
+* Schedules
+* Occupations
+* Locations
+* Dialogues
+* Definition tables
+
+
 Introduction
 ------------
 You can consult this document for help on API of behaviors for the NPCs. 
@@ -13,7 +27,6 @@ The NPCs make Sokomine's mg_villages in Minetest alive although they can
 be manually spawned outside the village and work as good as new. 
 Here is some information about the API methods and systems.
 * npc.lua also uses methods and functions from the dependency: mobs_redo <https://github.com/tenplus1/mobs_redo>
-
 
 Initialize NPC
 --------------
@@ -67,47 +80,120 @@ Here is a recommended code.
     end
 
 
-Actions and Tasks Queue
------------------------
-Actions are "atomic" executable actions the NPC can perform. Tasks are 
-sequences of actions that are common enough to be supported by default.
-Each action or task is wrapped on a Lua table which tells the action/task 
-to be executed and the arguments to be used. However, this is encapsulated 
-to the user in the following two methods for a NPCs:
+Programs
+--------
+The API follows an OS like model where "programs" are registered. Programs execute 
+"instructions" and when a program is run it is put into a process queue 
+(which is handled by a process scheduler that runs every 1 second). 
+There is also the ability to interrupt processes in which the process state is stored. 
+Also, processes have a variable storage if they need them.
+
+### Operation principle
+Note: The information in this subtopic should not be considered for external development, 
+only for knowledge about the principle of internal operation.
+A small clarification: a program is a single, executable Lua function. 
+A process is an instance of a program, with the following attributes:
+  * A state, which can be any of:
+    * inactive: process that was just enqueued
+    * executing: process' Lua function is being executed and not finished yet
+    * running: process finished execution, and may or may not have instructions on its queue
+    * paused: interrupted process
+    * ready: process was interrupted, and then restored, it is ready to run again
+    * waiting_user_input: happens when on_rightclick interaction occurs
+  * An instruction_queue, where instructions are enqueued and executed over time. 
+    In terms of OS, think of this as some kind of program counter
+  * An execution_context, which is the data space of the process. 
+    The execution context is a map of key-value pairs, 
+    supporting read-only values (can't be updated again).
+  * An interrupted_process, in case that this process interrupted a previous one, 
+    so that it can restored exactly as it was
+  * An instruction state, where the current instruction being executed is stored as well as its state 
+    (so it can be re-executed in case process is interrupted)
+
+The process definition is in private `_exec.create_process_entry()` function. This is like this so a process 
+is always complete and ensured to have all its attributes. You can create a process entry and enqueue 
+it into the NPC's process queue by using `npc.exec.enqueue_program()`.
+
+The exact process definition is this:
+
+   {
+        id = process_id,
+        program_name = program_name,
+        arguments = arguments,
+        state = npc.exec.proc.state.INACTIVE,
+        execution_context = {
+            data = {},
+            instr_interval = 1,
+            instr_timer = 0
+        },
+        instruction_queue = {},
+        current_instruction = {
+            entry = {},
+            state = npc.exec.proc.instr.state.INACTIVE,
+            pos = {}
+        },
+        interrupt_options = npc.exec.create_interrupt_options(interrupt_options),
+        interrupted_process = {},
+        is_state_process = is_state_program
+    }
+
+The state process have an additional attribute and is_state_process is set to true:
+
+    state_process_id = os.time()
+
+### Programs Registrarion
+Programs registration is really easy, it is just a Lua function.
+There are many examples of programs, but the general approach to writing one is:
+* If you are doing anything that needs to be done in the future 
+  (example, walking and then checking a node), run the initial instruction and enqueue 
+  the rest.
+* The correct way to run a program from a program is to use `advanced_npc:interrupt`
+* If you need to evaluate any value in the future (example, after movement), store 
+  it in a process variable (see the `npc.exec.var*` functions)
+* You can use instruction recursion to do loops.
+* If you are writing any state program, do not make it loop. It will loop for free 
+  (scheduler will execute again and again, so your variables are not lost)
+* And finally, if your process is simple, don't enqueue any instruction unless you 
+  want to have a certain pause between instruction execution for visual reasons 
+  (e.g NPC sitting to laying, everythig executed quickly will not look nice)
 
 ### Methods
-* `npc.add_action(luaentity, action, {action definition})`: Add action into NPC actions queue
-* `npc.add_task(luaentity, task, {task definition})`: Add task into NPC actions queue
+* `npc.programs.register(program_name, func)`: Register a program
+* `npc.programs.is_registered(program_name)`: Check if a program exists
+* `npc.programs.execute(luaentity, program_name, {program arguments})`: Execute a program for a NPC
+* `npc.programs.instr.register(name, func)`: Register a instruction
+* `npc.programs.instr.execute(self, name, args)`: Execute a instruction for a NPC
+* `npc.exec.enqueue_program(luaentity, program_name, {program arguments}, interrupt_options, is_state_program)`: Add program to schedule queue
 
-For both of the above, `action`/`task` is a constant defined in 
-`npc.commands.cmd`, and `{task/action definition}` is a Lua table specific arguments 
-to each `action`/`task`.
-
-Example
-
-    npc.add_task(self, npc.commands.cmd.USE_BED, {
-        pos = {x=0,y=0,z=0},
-        action = npc.commands.const.beds.LAY
-    })
-    npc.add_action(self, npc.commands.cmd.SET_INTERVAL, {
-        interval = 10,
-        freeze = true,
-    })
-    npc.add_task(self, npc.commands.cmd.USE_BED, {
-        pos = {x=0,y=0,z=0},
-        action = npc.commands.const.beds.GET_UP
+Example 1
+    
+    npc.programs.execute(self, "advanced_npc:walk_to_pos", {
+        end_pos = {x=0,y=0,z=0},
+        walkable = {}
     })
 
-See more in [actions_and_tasks.md](actions_and_tasks.md) documentation.
+See more about different programs and his arguments in [programs.md](programs.md) documentation.
+
+Example 2
+
+    -- Syntacic sugar to make a process wait for a specific interval
+    npc.programs.instr.register("advanced_npc:wait", function(self, args)
+        local wait_time = args.time
+        npc.programs.instr.execute(self, "advanced_npc:set_instruction_interval", {interval = wait_time - 1})
+        npc.exec.proc.enqueue(self, "advanced_npc:set_instruction_interval", {interval = 1})
+    end)
+
+See more about different instructions and his arguments in [instructions.md](instructions.md) documentation.
 
 
 Schedules
 ---------
 The interesting part of Advanced NPC is its ability to simulate realistic 
 behavior in NPCs. Realistic behavior is defined simply as being able to 
-perform tasks at a certain time of the day, like usually people do. This 
-allow the NPC to go to bed, sleep, get up from it, sit in benches, etc. 
-All of this is simulated through a structured code using action and tasks.
+perform tasks/programs at a certain time of the day, like usually people do. 
+This allow the NPC to go to bed, sleep, get up from it, sit in benches, etc. 
+All of this is simulated through a structured code using programs for action 
+and tasks.
 
 The implementation resembles a rough OS process scheduling algorithm where 
 only one process is allowed at a time. The processes or tasks are held in 
@@ -115,36 +201,6 @@ a queue, where they are executed one at a time in queue fashion.
 Interruptions are allowed, and the interrupted action is re-started once 
 the interruption is finished.
 
-### Schedule commands
-Schedule commands are an array of actions and tasks that the NPC.
-There are 4 possible commands:
-
-* action
-```
-    {
-        action = action, -- Is a constant defined in `npc.commands.cmd`
-        args = {} -- action arguments
-    }
-```
-* task
-```
-    {
-        task = task, -- Is a constant defined in `npc.commands.cmd`
-        args = {} -- task arguments
-    }
-```
-* Property change
-```
-    {
-        ???
-    }
-```
-* Schedule query/check
-```
-    {
-        schedule query/check definition
-    }
-```
 ### Schedule time
 Only integer value 0 until 23
 * 0: 0/24000 - 999
@@ -170,31 +226,31 @@ Only integer value 0 until 23
   If it already exists, function retuns nil
 
 ### Methods
-* `npc.create_schedule(luaentity, schedule_type, day)` : Create a schedule for a NPC
-* `npc.delete_schedule(luaentity, schedule_type, date)` : Delete a schedule for a NPC
-* `npc.add_schedule_entry(luaentity, schedule_type, date, time, check, commands)` : Add a schedule entry for a time
-* `npc.get_schedule_entry(luaentity, schedule_type, date, time)` : Get a schedule entry
-* `npc.update_schedule_entry(luaentity, schedule_type, date, time, check, commands)` : Update a schedule entry
+* `npc.schedule.create(luaentity, schedule_type, day)` : Create a schedule for a NPC
+* `npc.schedule.delete(luaentity, schedule_type, date)` : Delete a schedule for a NPC
+* `npc.schedule.entry.put(luaentity, schedule_type, date, time, check, commands)` : Add a schedule entry for a time
+* `npc.schedule.entry.get(luaentity, schedule_type, date, time)` : Get a schedule entry
+* `npc.schedule.entry.set(luaentity, schedule_type, date, time, check, commands)` : Update a schedule entry
 
 ### Examples
 
     -- Schedule entry for 7 in the morning
-    npc.add_schedule_entry(self, "generic", 0, 7, nil, {
+    npc.schedule.entry.put(self, "generic", 0, 7, nil, {
         -- Get out of bed
         [1] = {
-            task = npc.commands.cmd.USE_BED, 
-            args = {
-                pos = "bed_primary",
-                action = npc.commands.const.beds.GET_UP
-           }
+            program_name = "schedules:default:wake_up",
+            arguments = {},
+            interrupt_options = {}
         },
-        -- Allow mobs_redo wandering
+        -- Walk to home inside
         [2] = {
-            action = npc.commands.cmd.FREEZE, 
-            args = {
-            	freeze = false
-            }
-        }
+            program_name = "advanced_npc:walk_to_pos",
+            arguments = {
+                end_pos = npc.locations.PLACE_TYPE.OTHER.HOME_INSIDE,
+                walkable = {}
+            },
+            interrupt_options = {},
+        },
     })
 
 
@@ -212,13 +268,13 @@ lives, etc.
 * `npc.occupations.register_occupation(occupation_name, {occupation definition})` : Register an occupation
 * `npc.occupations.initialize_occupation_values(luaentity, occupation_name)` : Initialize an occupation for a NPC
 
-Places Map
-----------
-Places map define which NPCs can access which places.
-Places are separated into different types.
 
-### Place types
-Current place types
+Locations
+----------
+Locations define which NPCs can access which places and are separated into different types.
+
+### Locations types
+Current location types
 * `bed_primary` : the bed of a NPC 
 * `sit_primary`
 * `sit_shared`
@@ -242,7 +298,7 @@ Current place types
   `place_type` place typing. 
   `pos` is a position of a node to be owned.
   `access_pos` is the coordinate where npc must be to initiate the access.
-  Place is added for the NPC.
+  Location is added for the NPC.
 * `npc.locations.add_shared(luaentity, place_name, place_type, pos, access_node)` : Add shared place
 
 
@@ -262,11 +318,52 @@ The flags or marks of the dialogue text. Tags can be used for ....
 * `npc.dialogue.register_dialogue({dialogue definition})` : Defines and 
   registers dialogues.
 * `npc.dialogue.search_dialogue_by_tags({search_tags})` : A method returning 
-  a table of dialogues if called.
+  a Lua table of dialogues if called.
 
 
 Definition tables
 -----------------
+
+### Program definition (Programs)
+
+    {
+        program_name = "modname:program1", -- Programs name
+        
+        arguments = {program arguments}, -- Lua table of arguments for the program
+        
+        is_state_program = true, --[[
+            ^ [OPTIONAL]
+            ^ If this is true, then this program will be 
+              repeated while there is no next program]]
+        
+        interrupt_options = {} --[[
+            ^ [OPTIONAL] 
+            ^ Is a Lua table that defines what kind of interaction can interrupt the process 
+              when it is running. The "interruption" is not a literal process pause. 
+              It means that the defined interactions can happe while the process is running. 
+              In that fashion, for example, if the NPC is sleeping, talking (right click interaction) 
+              to the NPC can be disabled.
+            ^ The three supported interaction types are defined below. 
+              They are all optional and accept values of true or false 
+                * allow_punch: if enabled, the entity's on_punch() function is executed.
+                * allow_rightclick: if enabled, when the rightclick of the entitiy is called, 
+                  the process is put on waiting_user_input state and entity's on_rightclick() executed
+                * allow_schedule: enables or disables schedule entries. If disabled, schedule will not run.]]
+        
+        depends = {}, --[[ 
+            ^ [OPTIONAL]
+            ^ is an array of numbers, where each number represents an index in the array 
+              of schedule entries for that time.
+            ^ Is a schedule entry concept. For a certain time, an array of programs 
+              is enqueued when the scheduled time arrives. The programs are enqueued 
+              in the order they are given in the array. If a program have a chance argument, 
+              it means that it could or couldn't happen. Therefore, some programs may or 
+              may not run, hence the depends.
+        
+        chance = <number>, --[[
+            ^ [OPTIONAL]
+            ^ chance x in 100 of this program be executed
+    }
 
 ### Occupation definition (`register_occupation`)
 
@@ -325,31 +422,20 @@ Definition tables
             ^ Valid values are: "casual", "trader", "none" ]]
         
         schedules_entries = {},
-            ^ This is a table of tables in the following format:
+            ^ This is a Lua  table of schedules where the index is a schedule time:
               {
-                  [<time number>]  = {
-                      [<command number>] = {
-                          command
-                      }
-                  }
+                  [<schedule time>] = {
+                      [1] = {program definition},
+                      [2] = {program definition},
+                      ...
+                  },
+                  [<schedule time>] = {
+                      [1] = {program definition},
+                      [2] = {program definition},
+                      ...
+                  },
+                  ...
               }
-            ^ Example:
-            {
-                [1] = {
-                    [1] = schedule command
-                },
-                [13] = {
-                    [1] = schedule command,
-                    [2] = schedule command
-                },
-                [23] = {
-                    [1] = schedule command
-                }
-            }
-              The numbers, [1], [13] and [23] are the times when the entries
-              corresponding to each are supposed to happen. The tables with
-              [1], [1],[2] and [1] actions respectively are the entries that
-              will happen at time 1, 13 and 23. ]]
     }
 
 ### Dialogue definition (`register_dialogue`)
@@ -362,49 +448,6 @@ Definition tables
         tags = {"tag1", "tag2"} --[[ 
         ^ The flags or marks of the dialogue text. 
         ^ The object can be excluded. ]]
-    }
-
-### Schedule query/check definition (schedule command) 
-
-    {
-        check = true, -- Indicates that this is a schedule query/check
-        
-        range = 2, -- Range of checked area in blocks.
-        
-        count = 20, -- How many checks will be performed.
-        
-        random_execution_times = true, --[[
-            ^ Randomizes the number of checks that will be performed.
-            ^ min_count and max_count is required ]]
-        
-        min_count = 20, -- minimum of checks
-        max_count = 25, -- maximum of checks
-        
-        nodes = {"itemstring1", "itemstring2"}, --[[ 
-            ^ Nodes to be found for the actions.
-            ^ When a node is found, it is add in the npc place map 
-              with the place name "schedule_target_pos"
-        
-        prefer_last_acted_upon_node = true, -- If prefer to act on nodes already acted upon
-        
-        walkable_nodes = {"itemstring1", "itemstring2"}, -- Walkable nodes
-        
-        actions = { --[[
-            ^ Table where index is a itemstring of the node to be found, 
-              and value is an array of actions and tasks to be performed 
-              when found the node. ]]
-       	
-            ["itemstring1"] = {            
-               [1] = action or task in schedule command format,
-               [2] = action or task in schedule command format,
-               [3] = action or task in schedule command format
-            },
-            ["itemstring2"] = {            
-               [1] = action or task in schedule command format,
-               [2] = action or task in schedule command format
-            }
-        },
-        
     }
 
 Examples: 
