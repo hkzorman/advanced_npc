@@ -77,6 +77,26 @@ correct directional rotations and opening/closing of doors on the path.
     }
 
 #### `INTERNAL PROPERTY CHANGE` (advanced_npc:internal_property_change)
+Changes the value of an internal property of a NPC Lua entity.
+
+    {
+        property = <string>, --[[ 
+          ^ Property type
+          ^ Property types:
+            "flag" for flags save in `flags` Lua table for in Lua entity]]
+            
+        args = {
+        
+            action = <string>, --[[
+              ^ Type change action
+              ^ Change types:
+                "set" for set the value
+                "reset" for reset the value 0 for number, false for boolean and "" for strings]]
+                
+            flag_name = <string>, -- Flag name
+            flag_value = <value>, -- New flag value
+        }
+    }
 
 #### `NODE QUERY` (advanced_npc:node_query)
 Check and run a program with nodes found near.
