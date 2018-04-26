@@ -127,8 +127,8 @@ end
 -- will be allowed.
 
 local function get_random_name(sex)
-	local i = math.random(#npc.data.FIRST_NAMES[sex])
-	return npc.data.FIRST_NAMES[sex][i]
+	local i = math.random(#npc.random_data.FIRST_NAMES[sex])
+	return npc.random_data.FIRST_NAMES[sex][i]
 end
 
 local function initialize_inventory()
@@ -240,15 +240,15 @@ end
 -- These items are chosen from the favorite items list.
 local function choose_spawn_items(self)
 	local number_of_items_to_add = math.random(1, 2)
-	local number_of_items = #npc.FAVORITE_ITEMS[self.sex].phase1
-
-	for i = 1, number_of_items_to_add do
-		npc.add_item_to_inventory(
-			self,
-			npc.FAVORITE_ITEMS[self.sex].phase1[math.random(1, number_of_items)].item,
-			math.random(1,5)
-		)
-	end
+--	local number_of_items = #npc.FAVORITE_ITEMS[self.sex].phase1
+--
+--	for i = 1, number_of_items_to_add do
+--		npc.add_item_to_inventory(
+--			self,
+--			npc.FAVORITE_ITEMS[self.sex].phase1[math.random(1, number_of_items)].item,
+--			math.random(1,5)
+--		)
+--	end
 	-- Add currency to the items spawned with. Will add 5-10 tier 3
 	-- currency items
 	local currency_item_count = math.random(5, 10)
@@ -464,7 +464,15 @@ function npc.initialize(entity, pos, is_lua_entity, npc_stats, occupation_name)
 		-- Interval to run process queue scheduler
 		scheduler_interval = 1,
 		-- Timer for next scheduler interval
-		scheduler_timer = 0
+		scheduler_timer = 0,
+		-- Monitor environment executes timers and registered callbacks
+		monitor = {
+			timer = {},
+			callback = {
+				to_execute = {}
+			},
+			enabled = true
+		}
     }
 
     -- NPC permanent storage for data
@@ -574,9 +582,25 @@ function npc.generate_trade_list_from_inventory(self)
 end
 
 function npc.set_trading_status(self, status)
+	-- Stop, if any, the casual offer regeneration timer
+	npc.monitor.timer.stop(self, "advanced_npc:trade:casual_offer_regeneration")
 	--minetest.log("Trader_data: "..dump(self.trader_data))
 	-- Set status
 	self.trader_data.trader_status = status
+	-- Check if status is casual
+	if status == npc.trade.CASUAL then
+		-- Register timer for changing casual trade offers
+		local timer_reg_success = npc.monitor.timer.register(self, "advanced_npc:trade:casual_offer_regeneration", 60,
+			function(self)
+				-- Re-select casual trade offers
+				npc.trade.generate_trade_offers_by_status(self)
+			end)
+		if timer_reg_success == false then
+			-- Activate timer instead
+			npc.monitor.timer.start(self, "advanced_npc:trade:casual_offer_regeneration")
+		end
+	end
+
 	-- Re-generate trade offers
 	npc.trade.generate_trade_offers_by_status(self)
 end
@@ -858,6 +882,8 @@ end
 -- This function creates a state process. The state process will execute
 -- everytime there's no other process executing
 function npc.exec.set_state_program(self, program_name, arguments, interrupt_options)
+	-- Disable monitor - give a chance to this state process to do what it has to do
+	self.execution.monitor.enabled = false
 	-- This flag signals the state process was changed and scheduler needs to consume
 	self.execution.state_process_changed = true
 	self.execution.state_process = {
@@ -912,6 +938,10 @@ function npc.exec.execute_process(self)
 		npc.programs.execute(self, current_process.program_name, current_process.arguments)
 		--minetest.log("Current process after execution: "..dump(self.execution.process_queue[1]))
         current_process.state = npc.exec.proc.state.RUNNING
+		-- Re-enable monitor
+		if current_process.is_state_process then
+			self.execution.monitor.enabled = true
+		end
 	end
 end
 
@@ -1213,9 +1243,10 @@ function npc.exec.process_scheduler(self)
 					if current_process.interrupted_process.is_state_process == true and
 						current_process.interrupted_process.state_process_id < self.execution.state_process.state_process_id then
 						-- Do nothing, just dequeue process
-						npc.log("INFO", "Found an old state process that was interrupted.\nWILL NOT be re-enqueued")
-						--
-						npc.log("INFO", "Process "..dump(self.execution.process_queue[1].program_name).." is finished executionand will be dequeued")
+						npc.log("INFO", "Found an old state process that was interrupted.\n"
+								..dump(current_process.interrupted_process.program_name).." WILL NOT be re-enqueued")
+						npc.log("INFO", "Process "..dump(self.execution.process_queue[1].program_name)
+								.." is finished execution and will be dequeued")
 						-- Dequeue process
 						table.remove(self.execution.process_queue, 1)
 						-- Check if there are more processes
@@ -1418,6 +1449,16 @@ function npc.exec.var.get(self, name)
 	end
 end
 
+function npc.exec.var.get_or_put_if_nil(self, name, initial_value)
+	local var = npc.exec.var.get(self, name)
+	if var == nil then
+		npc.exec.var.put(self, name, initial_value)
+		return initial_value
+	else
+		return var
+	end
+end
+
 -- This function updates a value in the execution context.
 -- Returns false if the value is read-only or if key isn't found.
 -- Returns true if able to update value
@@ -1494,6 +1535,17 @@ function npc.data.get(self, name)
     end
 end
 
+-- Convenience function
+function npc.data.get_or_put_if_nil(self, name, initial_value)
+	local var = npc.data.get(self, name)
+	if var == nil then
+		npc.data.put(self, name, initial_value, false)
+		return initial_value
+	else
+		return var
+	end
+end
+
 -- This function updates a value in the execution context.
 -- Returns false if the value is read-only or if key isn't found.
 -- Returns true if able to update value
@@ -1524,6 +1576,200 @@ function npc.data.remove(self, name)
         return result
     end
 end
+
+---------------------------------------------------------------------------------------
+-- Monitor API: API that executes timers and registered callbacks.
+--   - Timers can be registered by programs or by code in general, and can
+--     have a callback which is executed when the timer reaches the interval.
+--   - Callbacks are for programs, instructions and for interrupts (punch, right-click,
+--     and scheduled entries). The callback is executed after a program,
+--     instruction or interrupt is executed.
+-- IMPORTANT: Please, keep *all your callbacks* as light as possible. While useful,
+--            too many timers or callbacks can deteriorate performance, as all could
+--			  run on NPC steps.
+--            If a certain timer or callback *IS NOT* needed anymore, use the
+--            corresponding delete method to free up calculations.
+---------------------------------------------------------------------------------------
+-- Namespace
+npc.monitor = {
+	timer = {
+		registered = {}
+	},
+	callback = {
+		registered = {}
+	},
+	callback_type = {
+		program = "program",
+		instruction = "instruction",
+		interaction = "interaction",
+		interaction_on_punch = "on_punch",
+		interaction_on_rightclick = "on_rightclick",
+		interaction_on_schedule = "on_schedule",
+		--on_activate = "on_activate"
+	}
+}
+
+-- Register a timer. The timer can have the following arguments:
+--   - name: unique identifier for timer
+--   - interval: when timer reaches this value, callback will be executed
+--   - callback: function to be executed when timer reaches interval
+--   - initial_value: default is 0. Give this to start with a specific value
+function npc.monitor.timer.register(name, interval, callback, initial_value)
+	if npc.monitor.timer.registered[name] ~= nil then
+		npc.log("DEBUG", "Attempt to register an existing timer: "..dump(name))
+		return false
+	else
+		local timer = {
+			interval = interval,
+			callback = callback
+		}
+		npc.monitor.timer.registered[name] = timer
+	end
+	return true
+end
+
+function npc.monitor.timer.start(self, name, interval, args)
+	if self.execution.monitor.timer[name] then
+		npc.log("DEBUG", "Attempted to start already started timer: "..dump(name))
+		return
+	end
+	local timer = npc.monitor.timer.registered[name]
+	if timer then
+		-- Activate timer by moving it into the active timer array
+		self.execution.monitor.timer[name] = {
+			value = 0,
+			interval = interval or timer.interval,
+			args = args
+		}
+		-- Remove from inactive list
+		--self.execution.monitor.timer.inactive[name] = nil
+	else
+		npc.log("DEBUG", "Attempted to start non-existent timer: "..dump(name))
+	end
+	minetest.log("TImers: "..dump(self.execution.monitor.timer))
+end
+
+function npc.monitor.timer.stop(self, name)
+	if self.execution.monitor.timer[name] == nil then
+		npc.log("DEBUG", "Attempted to stop already stopped timer: "..dump(name))
+		return
+	end
+	local timer = self.execution.monitor.timer[name]
+	if timer then
+		-- Reset value
+		--timer.value = 0
+		-- Stop timer by moving it into the inactive timer array
+		--self.execution.monitor.timer.inactive[name] = timer
+		-- Schedule for removal
+		self.execution.monitor.timer[name].remove = true
+	else
+		npc.log("DEBUG", "Attempted to stop non-existent timer: "..dump(name))
+	end
+	minetest.log("TImers: "..dump(self.execution.monitor.timer))
+end
+
+function npc.monitor.timer.is_running(self, name)
+	return self.execution.monitor.timer[name] ~= nil
+end
+
+function npc.monitor.timer.delete(self, name)
+	local timer = self.execution.monitor.timer.inactive[name]
+	if timer then
+		self.execution.monitor.timer.inactive[name] = nil
+		timer = nil
+	else
+		timer = self.execution.monitor.timer.active[name]
+		if timer then
+			self.execution.monitor.timer.active[name] = nil
+			timer = nil
+		else
+			npc.log("DEBUG", "Attempted to delete non-existent timer from NPC: "..dump(name))
+		end
+	end
+end
+
+-- Name is the name of function for which callback is being registered.
+-- Use program or instruction name for corresponding programs or instructions,
+-- and "on_punch", "on_rightclick", "on_activate", "on_schedule" for interrupts
+function npc.monitor.callback.register(name, type, subtype, callback)
+	-- Initialize categories
+	if npc.monitor.callback.registered[type] == nil then
+		npc.monitor.callback.registered[type] = {}
+	end
+	if npc.monitor.callback.registered[type][subtype] == nil then
+		npc.monitor.callback.registered[type][subtype] = {}
+	end
+
+	--minetest.log("Categories: "..dump(npc.monitor.callback.registered[type]))
+
+	if npc.monitor.callback.registered[type][subtype][name] ~= nil then
+		npc.log("DEBUG", "Attempt to register an existing callback: "..dump(name))
+		return
+	else
+		npc.monitor.callback.registered[type][subtype][name] = callback
+	end
+
+	minetest.log("Callbacks: "..dump(npc.monitor.callback.registered))
+end
+
+function npc.monitor.callback.enqueue(self, type, subtype, name)
+	self.execution.monitor.callback.to_execute[#self.execution.monitor.callback.to_execute + 1] = {
+		name = name,
+		type = type,
+		subtype = subtype
+	}
+end
+
+function npc.monitor.callback.enqueue_all(self, type, subtype)
+	for name,_ in pairs(npc.monitor.callback.registered[type][subtype]) do
+		self.execution.monitor.callback.to_execute[#self.execution.monitor.callback.to_execute + 1] = {
+			name = name,
+			type = type,
+			subtype = subtype
+		}
+	end
+end
+
+function npc.monitor.callback.delete(self, type, subtype, name)
+	local callback = npc.monitor.callback.registered[type][subtype][name]
+	if callback then
+		npc.monitor.callback.registered[type][subtype][name] = nil
+	else
+		npc.log("DEBUG", "Attempted to delete non-existent callback: "..dump(name))
+	end
+end
+
+function npc.monitor.execution_routine(self, dtime)
+	if self.execution.monitor.enabled == false then
+		return
+	end
+	-- Execute timers - traverse the array of active timers and increase
+	-- their respective values
+	for name,timer in pairs(self.execution.monitor.timer) do
+		if timer.remove == true then
+			self.execution.monitor.timer[name] = nil
+		else
+			-- Increase value
+			timer.value = timer.value + dtime
+			-- Check if interval is met
+			if timer.value >= timer.interval then
+				-- Reset value
+				timer.value = 0
+				-- Execute callback
+				npc.monitor.timer.registered[name].callback(self, timer.args)
+			end
+		end
+	end
+	-- Execute callbacks - traverse array of callbacks to execute
+	for i = #self.execution.monitor.callback.to_execute, 1, -1 do
+		local callback = self.execution.monitor.callback.to_execute[i]
+		-- Execute callback
+		npc.monitor.callback.registered[callback.type][callback.subtype][callback.name](self)
+		-- Remove callback from the execute array
+		self.execution.monitor.callback.to_execute[i] = nil
+	end
+end
+
 
 ---------------------------------------------------------------------------------------
 -- Schedule functionality
@@ -1814,6 +2060,11 @@ function npc.rightclick_interaction(self, clicker)
 		end
 	end
 
+	-- Set callback
+	if next(npc.monitor.callback.registered["interaction"]["on_rightclick"]) ~= nil then
+		npc.monitor.callback.enqueue_all(self, "interaction", "on_rightclick")
+	end
+
 	-- Store original yaw
 	self.yaw_before_interaction = self.object:getyaw()
 
@@ -1856,7 +2107,7 @@ function npc.rightclick_interaction(self, clicker)
 end
 
 function npc.step(self, dtime)
-	if self.initialized == nil then
+	if self.initialized == nil or self.initialized == false then
 		-- Initialize NPC if spawned using the spawn egg built in from
 		-- mobs_redo. This functionality will be removed in the future in
 		-- favor of a better manual spawning method with customization
@@ -1885,17 +2136,6 @@ function npc.step(self, dtime)
 				npc.texture_check.interval = 60
 			end
 		end
-	end
-
-	-- Timer function for casual traders to reset their trade offers
-	self.trader_data.change_offers_timer = self.trader_data.change_offers_timer + dtime
-	-- Check if time has come to change offers
-	if self.trader_data.trader_status == npc.trade.CASUAL and
-			self.trader_data.change_offers_timer >= self.trader_data.change_offers_timer_interval then
-		-- Reset timer
-		self.trader_data.change_offers_timer = 0
-		-- Re-select casual trade offers
-		npc.trade.generate_trade_offers_by_status(self)
 	end
 
 	-- Timer function for gifts
@@ -1930,6 +2170,9 @@ function npc.step(self, dtime)
 			end
 		end
 	end
+
+	-- Execute monitor
+	npc.monitor.execution_routine(self, dtime)
 
 	-- Execute process scheduler
 	npc.exec.execution_routine(self, dtime)

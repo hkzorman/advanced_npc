@@ -147,7 +147,7 @@ local basic_def = {
             [3] = {
                 program_name = "advanced_npc:idle",
                 arguments = {
-                    acknowledge_nearby_objs = false,
+                    acknowledge_nearby_objs = true,
                     wander_chance = 0
                 },
                 interrupt_options = {},
