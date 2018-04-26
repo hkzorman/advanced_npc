@@ -80,18 +80,42 @@ Here is a recommended code.
     end
 
 
-Programs
---------
-The API follows an OS like model where "programs" are registered. Programs execute 
-"instructions" and when a program is run it is put into a process queue 
-(which is handled by a process scheduler that runs every 1 second). 
-There is also the ability to interrupt processes in which the process state is stored. 
-Also, processes have a variable storage if they need them.
+Execution API
+-------------
+The API follows a simple OS-based model where tasks performed by NPCs are encapsulated
+in the concepts of `instructions` and `programs`. `Instructions` are "small", "atomic"
+actions performed by a NPC (like rotating, standing, etc.) and `programs` are a
+"collection" of instructions with logic on what to execute and what not (for example,
+walking to a specific position). The NPC executes different programs in order to be
+able to perform tasks (e.g. going to sleep on a bed).
+
+The execution environment of Advanced NPC is based on processes, which are instances
+of a program. Processes have an internal instruction queue and execution context for
+storing variables; they can be interrupted and their state upon interruption is
+stored for later restoration. Processes can also be enqueued into a process queue
+which is managed by a process scheduler (which runs roughly each second). The process
+scheduler has the responsibility of determining what is the next process to be executed.
+
+### State processes
+A very important concept introduced by the execution environment are `state processes`.
+A state process is used to determine the actions of a NPC on a given state. The usual
+examples for states are:
+  - idle
+  - wandering
+  - following an object
+  - attacking
+
+All of the above `states` are actions that have similar properties:
+  - Triggered by a particular action, e.g. NPC is punched (attack state) or NPC is sleeping (idle state)
+  - Executed constantly until a particular goal is reached or more important action takes place
+
+Therefore, a `state process` is a special type of process that is executed constantly while
+the process queue is empty.
 
 ### Operation principle
-Note: The information in this subtopic should not be considered for external development, 
+Note: The information in this subtopic should not be considered for external development,
 only for knowledge about the principle of internal operation.
-A small clarification: a program is a single, executable Lua function. 
+
 A process is an instance of a program, with the following attributes:
   * A state, which can be any of:
     * inactive: process that was just enqueued
@@ -111,10 +135,10 @@ A process is an instance of a program, with the following attributes:
     (so it can be re-executed in case process is interrupted)
 
 The process definition is in private `_exec.create_process_entry()` function. This is like this so a process 
-is always complete and ensured to have all its attributes. You can create a process entry and enqueue 
-it into the NPC's process queue by using `npc.exec.enqueue_program()`.
+is always complete and ensured to have all its attributes. The proper way to create a process entry and enqueue
+it into the NPC's process queue is by using the `npc.exec.enqueue_program()`.
 
-The exact process definition is this:
+The process definition (as Lua table) is the following:
 
    {
         id = process_id,
@@ -141,9 +165,10 @@ The state process have an additional attribute and is_state_process is set to tr
 
     state_process_id = os.time()
 
-### Programs Registrarion
-Programs registration is really easy, it is just a Lua function.
-There are many examples of programs, but the general approach to writing one is:
+### Writing and registering programs
+Programs are  just a Lua function.
+Many examples of programs can be found on the code, but the following
+are some general tips to keep in mind while writing programs
 * If you are doing anything that needs to be done in the future 
   (example, walking and then checking a node), run the initial instruction and enqueue 
   the rest.
@@ -184,6 +209,61 @@ Example 2
     end)
 
 See more about different instructions and his arguments in [instructions.md](instructions.md) documentation.
+
+### Monitoring API
+To complete the OS/microprocessor analogy, the Execution API has a sub-API for registering
+timers and callbacks of certain events. This API is called "monitor" API because its main
+purpose is to be able to keep track of actions that the NPC performs and act according to this
+data. The key concept behind the Monitoring API is to be able to introduce some concepts of
+artificial intelligence into the Advanced NPC programs.
+
+#### Timers
+Timers can be registered (globally on the `npc.*` namespace) and then added to a NPC for
+execution. To register a timer, use:
+`npc.monitor.timer.register(name, interval, callback)`
+where:
+  - `name` is a unique name for the timer. Recommended naming convention to use: `<modname>:<related_program_name>:<timer_name>`
+  - `interval`: the default interval, this can be overriden
+  - `callback`: a Lua function that is called with `self` (the NPC Lua entity) and a Lua table `args` for arguments
+
+To run a timer, a new instance is created for the particular NPC that will use the timer
+and then it is executed internally. The following function is used to start a timer:
+`npc.monitor.timer.start(self, name, interval, args)`
+where:
+  - `name` is the unique name of the timer
+  - `interval` optional, interval for the timer (if nil, uses the default interval)
+  - `args` a Lua table of arguments for the timer callback
+
+To stop a timer, simply use:
+`npc.monitor.timer.stop(self, name)`
+
+#### Callbacks
+Callbacks are functions executed whenever another action is executed. All callbacks
+execute *after* the actual action. Currently, there are three types of callbacks supported:
+  - Program callback: executed whenever a program is executed
+  - Instruction callback: executed whenever a instruction is executed
+  - Interaction callback: executed whenever a interaction occurred, which are:
+    - on punch,
+    - on right-click
+    - on schedule
+
+Callbacks are categorized in terms of `type` (mentioned above) and `subtype`. For programs and
+instruction callbacks, the `subtype` is the program or instruction name.
+For interaction callbacks, the subtypes are predetermined (as shown above).
+
+To register a callback, use:
+`npc.monitor.callback.register(name, type, subtype, callback)`
+where:
+  - `name` is a unique name for the callback
+  - `type` is one of the three callback types (defined in `npc.monitor.callback.type`),
+  - `subtype` is an arbitrary string that denotes the program or instruction name for `program` and `instruction` callbacks respectively, or one of the three subtypes (defined in `npc.monitor.callback.subtype`) as mentioned above for `interaction` callbacks
+  - `callback` is the function to be executed. The only argument of this function is `self` (the NPC Lua entity)
+
+To execute a callback, use:
+`npc.monitor.callback.enqueue(self, type, subtype, name)`
+
+Or to enqueue all callbacks for a specific `type` and `subtype`, do:
+`npc.monitor.callback.enqueue_all(self, type, subtype)`
 
 
 Schedules

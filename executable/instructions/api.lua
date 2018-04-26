@@ -29,6 +29,11 @@ function npc.programs.instr.execute(self, name, args)
         npc.log("ERROR", "Attempted to execute instruction with name "..dump(name)..".\nInstruction doesn't exists.")
         return
     end
+    -- Enqueue callbacks if any
+    if next(npc.monitor.callback.registered[npc.monitor.callback.type.instruction][name]) ~= nil then
+        -- Enqueue all callbacks for this instruction
+        npc.monitor.callback.enqueue_all(self, npc.monitor.callback.type.instruction, name)
+    end
     --npc.log("INFO", "Executing instruction '"..dump(name).."' with args:\n"..dump(args))
     return _programs.instr.registered_instructions[name].func(self, args)
 end

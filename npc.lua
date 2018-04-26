@@ -1535,7 +1535,7 @@ function npc.data.get(self, name)
     end
 end
 
--- Convenience function
+-- Convenience function for initializing a variable if nil
 function npc.data.get_or_put_if_nil(self, name, initial_value)
 	local var = npc.data.get(self, name)
 	if var == nil then
@@ -1587,8 +1587,6 @@ end
 -- IMPORTANT: Please, keep *all your callbacks* as light as possible. While useful,
 --            too many timers or callbacks can deteriorate performance, as all could
 --			  run on NPC steps.
---            If a certain timer or callback *IS NOT* needed anymore, use the
---            corresponding delete method to free up calculations.
 ---------------------------------------------------------------------------------------
 -- Namespace
 npc.monitor = {
@@ -1596,16 +1594,18 @@ npc.monitor = {
 		registered = {}
 	},
 	callback = {
-		registered = {}
-	},
-	callback_type = {
-		program = "program",
-		instruction = "instruction",
-		interaction = "interaction",
-		interaction_on_punch = "on_punch",
-		interaction_on_rightclick = "on_rightclick",
-		interaction_on_schedule = "on_schedule",
-		--on_activate = "on_activate"
+		registered = {},
+		-- Constant values
+		type = {
+			program = "program",
+			instruction = "instruction",
+			interaction = "interaction",
+		},
+		subtype = {
+			on_punch = "on_punch",
+			on_rightclick = "on_rightclick",
+			on_schedule = "on_schedule",
+		}
 	}
 }
 
@@ -1614,7 +1614,7 @@ npc.monitor = {
 --   - interval: when timer reaches this value, callback will be executed
 --   - callback: function to be executed when timer reaches interval
 --   - initial_value: default is 0. Give this to start with a specific value
-function npc.monitor.timer.register(name, interval, callback, initial_value)
+function npc.monitor.timer.register(name, interval, callback)
 	if npc.monitor.timer.registered[name] ~= nil then
 		npc.log("DEBUG", "Attempt to register an existing timer: "..dump(name))
 		return false
@@ -1641,12 +1641,9 @@ function npc.monitor.timer.start(self, name, interval, args)
 			interval = interval or timer.interval,
 			args = args
 		}
-		-- Remove from inactive list
-		--self.execution.monitor.timer.inactive[name] = nil
 	else
 		npc.log("DEBUG", "Attempted to start non-existent timer: "..dump(name))
 	end
-	minetest.log("TImers: "..dump(self.execution.monitor.timer))
 end
 
 function npc.monitor.timer.stop(self, name)
@@ -1656,35 +1653,10 @@ function npc.monitor.timer.stop(self, name)
 	end
 	local timer = self.execution.monitor.timer[name]
 	if timer then
-		-- Reset value
-		--timer.value = 0
-		-- Stop timer by moving it into the inactive timer array
-		--self.execution.monitor.timer.inactive[name] = timer
-		-- Schedule for removal
+		-- Set timer for removal on next monitor execution routine
 		self.execution.monitor.timer[name].remove = true
 	else
 		npc.log("DEBUG", "Attempted to stop non-existent timer: "..dump(name))
-	end
-	minetest.log("TImers: "..dump(self.execution.monitor.timer))
-end
-
-function npc.monitor.timer.is_running(self, name)
-	return self.execution.monitor.timer[name] ~= nil
-end
-
-function npc.monitor.timer.delete(self, name)
-	local timer = self.execution.monitor.timer.inactive[name]
-	if timer then
-		self.execution.monitor.timer.inactive[name] = nil
-		timer = nil
-	else
-		timer = self.execution.monitor.timer.active[name]
-		if timer then
-			self.execution.monitor.timer.active[name] = nil
-			timer = nil
-		else
-			npc.log("DEBUG", "Attempted to delete non-existent timer from NPC: "..dump(name))
-		end
 	end
 end
 
@@ -1692,24 +1664,21 @@ end
 -- Use program or instruction name for corresponding programs or instructions,
 -- and "on_punch", "on_rightclick", "on_activate", "on_schedule" for interrupts
 function npc.monitor.callback.register(name, type, subtype, callback)
-	-- Initialize categories
+	-- Initialize type and subtype if they don't exist
 	if npc.monitor.callback.registered[type] == nil then
 		npc.monitor.callback.registered[type] = {}
 	end
 	if npc.monitor.callback.registered[type][subtype] == nil then
 		npc.monitor.callback.registered[type][subtype] = {}
 	end
-
-	--minetest.log("Categories: "..dump(npc.monitor.callback.registered[type]))
-
+	-- Check if callback already exists
 	if npc.monitor.callback.registered[type][subtype][name] ~= nil then
 		npc.log("DEBUG", "Attempt to register an existing callback: "..dump(name))
 		return
 	else
+		-- Register callback
 		npc.monitor.callback.registered[type][subtype][name] = callback
 	end
-
-	minetest.log("Callbacks: "..dump(npc.monitor.callback.registered))
 end
 
 function npc.monitor.callback.enqueue(self, type, subtype, name)
@@ -1727,15 +1696,6 @@ function npc.monitor.callback.enqueue_all(self, type, subtype)
 			type = type,
 			subtype = subtype
 		}
-	end
-end
-
-function npc.monitor.callback.delete(self, type, subtype, name)
-	local callback = npc.monitor.callback.registered[type][subtype][name]
-	if callback then
-		npc.monitor.callback.registered[type][subtype][name] = nil
-	else
-		npc.log("DEBUG", "Attempted to delete non-existent callback: "..dump(name))
 	end
 end
 
@@ -2006,21 +1966,6 @@ function npc.schedule.execution_routine(self, dtime)
 	end
 end
 
---
---function npc.enqueue_schedule_action(self, entry)
---	if entry.task ~= nil then
---		-- Add task
---		npc.enqueue_script(self, entry.task, entry.args)
---	elseif entry.action ~= nil then
---		-- Add action
---		npc.add_action(self, entry.action, entry.args)
---	elseif entry.property ~= nil then
---		-- Change NPC property
---		npc.schedule_change_property(self, entry.property, entry.args)
---	end
---end
---
-
 ---------------------------------------------------------------------------------------
 -- NPC Lua object functions
 ---------------------------------------------------------------------------------------
@@ -2028,11 +1973,7 @@ end
 -- and other functions that are assigned to the Lua entity definition
 -- This function is executed each time the NPC is loaded
 function npc.after_activate(self)
-	minetest.log("Self: "..dump(self))
---	if not self.actions then
---		npc.log("WARNING", "Found NPC on bad initialization state: no 'self.actions' object.\nReinitializing...")
---		npc.initialize(self, self.object:getpos(), true)
---	end
+	--minetest.log("Self: "..dump(self))
 	-- Reset animation
 	if self.npc_state then
 		if self.npc_state.movement then
@@ -2061,8 +2002,11 @@ function npc.rightclick_interaction(self, clicker)
 	end
 
 	-- Set callback
-	if next(npc.monitor.callback.registered["interaction"]["on_rightclick"]) ~= nil then
-		npc.monitor.callback.enqueue_all(self, "interaction", "on_rightclick")
+	if next(npc.monitor.callback.registered[npc.monitor.callback.type.interaction][npc.monitor.callback.subtype.on_rightclick]) ~= nil then
+		-- Enqueue all right-click callbacks for execution
+		npc.monitor.callback.enqueue_all(self,
+			npc.monitor.callback.type.interaction,
+			npc.monitor.callback.subtype.on_rightclick)
 	end
 
 	-- Store original yaw
@@ -2166,7 +2110,6 @@ function npc.step(self, dtime)
 					relationship.points = relationship.points - 1
 				end
 				relationship.relationship_decrease_timer_value = 0
-				--minetest.log(dump(self))
 			end
 		end
 	end

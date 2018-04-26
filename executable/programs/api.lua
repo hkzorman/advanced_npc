@@ -31,6 +31,11 @@ function npc.programs.execute(self, name, args)
         npc.log("ERROR", "Attempted to execute program with name "..dump(name)..".\nProgram doesn't exists.")
         return
     end
+    -- Enqueue callbacks if any
+    if next(npc.monitor.callback.registered[npc.monitor.callback.type.program][name]) ~= nil then
+        -- Enqueue all callbacks for this instruction
+        npc.monitor.callback.enqueue_all(self, npc.monitor.callback.type.program, name)
+    end
     --npc.log("INFO", "Executing program '"..dump(name).."' with args:\n"..dump(args))
     return _programs.registered_programs[name].func(self, args)
 end
