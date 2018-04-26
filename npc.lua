@@ -1681,6 +1681,15 @@ function npc.monitor.callback.register(name, type, subtype, callback)
 	end
 end
 
+function npc.monitor.callback.exists(type, subtype)
+	if npc.monitor.callback.registered[type] ~= nil then
+		if npc.monitor.callback.registered[type][subtype] ~= nil then
+			return next(npc.monitor.callback.registered[type][subtype]) ~= nil
+		end
+	end
+	return false
+end
+
 function npc.monitor.callback.enqueue(self, type, subtype, name)
 	self.execution.monitor.callback.to_execute[#self.execution.monitor.callback.to_execute + 1] = {
 		name = name,
@@ -2001,8 +2010,8 @@ function npc.rightclick_interaction(self, clicker)
 		end
 	end
 
-	-- Set callback
-	if next(npc.monitor.callback.registered[npc.monitor.callback.type.interaction][npc.monitor.callback.subtype.on_rightclick]) ~= nil then
+	-- Enqueue callback if any
+	if npc.monitor.callback.exists(npc.monitor.callback.type.interaction, npc.monitor.callback.subtype.on_rightclick) then
 		-- Enqueue all right-click callbacks for execution
 		npc.monitor.callback.enqueue_all(self,
 			npc.monitor.callback.type.interaction,

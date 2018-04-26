@@ -32,7 +32,7 @@ function npc.programs.execute(self, name, args)
         return
     end
     -- Enqueue callbacks if any
-    if next(npc.monitor.callback.registered[npc.monitor.callback.type.program][name]) ~= nil then
+    if npc.monitor.callback.exists(npc.monitor.callback.type.program, name) then
         -- Enqueue all callbacks for this instruction
         npc.monitor.callback.enqueue_all(self, npc.monitor.callback.type.program, name)
     end
