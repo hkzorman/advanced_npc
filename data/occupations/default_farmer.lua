@@ -113,7 +113,8 @@ local farmer_def = {
     state_program = {
         name = "advanced_npc:wander",
         args = {
-            acknowledge_nearby_objs = true
+            acknowledge_nearby_objs = true,
+            max_acknowledge_time = 10
         },
         interrupt_options = {}
     },
@@ -254,6 +255,76 @@ local farmer_def = {
                                 interrupt_options = {}
                             }
                         },
+                        ["farming:wheat_1"] =
+                        {
+                            [1] = {
+                                program_name = "advanced_npc:farmer:dig_and_replant",
+                                arguments = {
+                                    pos = npc.locations.data.calculated.target
+                                },
+                                interrupt_options = {}
+                            }
+                        },
+                        ["farming:wheat_2"] =
+                        {
+                            [1] = {
+                                program_name = "advanced_npc:farmer:dig_and_replant",
+                                arguments = {
+                                    pos = npc.locations.data.calculated.target
+                                },
+                                interrupt_options = {}
+                            }
+                        },
+                        ["farming:wheat_3"] =
+                        {
+                            [1] = {
+                                program_name = "advanced_npc:farmer:dig_and_replant",
+                                arguments = {
+                                    pos = npc.locations.data.calculated.target
+                                },
+                                interrupt_options = {}
+                            }
+                        },
+                        ["farming:wheat_4"] =
+                        {
+                            [1] = {
+                                program_name = "advanced_npc:farmer:dig_and_replant",
+                                arguments = {
+                                    pos = npc.locations.data.calculated.target
+                                },
+                                interrupt_options = {}
+                            }
+                        },
+                        ["farming:wheat_5"] =
+                        {
+                            [1] = {
+                                program_name = "advanced_npc:farmer:dig_and_replant",
+                                arguments = {
+                                    pos = npc.locations.data.calculated.target
+                                },
+                                interrupt_options = {}
+                            }
+                        },
+                        ["farming:wheat_6"] =
+                        {
+                            [1] = {
+                                program_name = "advanced_npc:farmer:dig_and_replant",
+                                arguments = {
+                                    pos = npc.locations.data.calculated.target
+                                },
+                                interrupt_options = {}
+                            }
+                        },
+                        ["farming:wheat_7"] =
+                        {
+                            [1] = {
+                                program_name = "advanced_npc:farmer:dig_and_replant",
+                                arguments = {
+                                    pos = npc.locations.data.calculated.target
+                                },
+                                interrupt_options = {}
+                            }
+                        },
                         ["farming:wheat_8"] =
                         {
                             [1] = {
@@ -311,6 +382,7 @@ local farmer_def = {
                 program_name = "advanced_npc:idle",
                 arguments = {
                     acknowledge_nearby_objs = true,
+                    max_acknowledge_time = 10,
                     wander_chance = 0
                 },
                 interrupt_options = {},
@@ -365,6 +437,17 @@ local farmer_def = {
                 interrupt_options = {},
                 depends = {3}
             },
+            -- stay put
+            [5] = {
+                program_name = "advanced_npc:idle",
+                arguments = {
+                    acknowledge_nearby_objs = true,
+                    max_acknowledge_time = 10,
+                    wander_chance = 0
+                },
+                interrupt_options = {},
+                is_state_program = true
+            }
         },
 --        [14] = {
 --            -- Give NPC money to buy from player

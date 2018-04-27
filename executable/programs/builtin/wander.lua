@@ -9,6 +9,7 @@
 -- a NPC will have of walking one step on a random direction
 npc.programs.register("advanced_npc:wander", function(self, args)
     local acknowledge_nearby_objs = args.acknowledge_nearby_objs
+    local max_acknowledge_time = args.max_acknowledge_time
     local obj_search_radius = args.obj_search_radius or 3
     local chance = args.chance or 60
     local max_radius = args.max_radius or 10
@@ -19,7 +20,8 @@ npc.programs.register("advanced_npc:wander", function(self, args)
     local objs_found = false
     if acknowledge_nearby_objs then
         objs_found = npc.programs.instr.execute(self, "advanced_npc:idle:acknowledge_objects", {
-            obj_search_radius = obj_search_radius
+            obj_search_radius = obj_search_radius,
+            acknowledge_burnout = max_acknowledge_time
         })
     end
     -- Check if there was any object found

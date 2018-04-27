@@ -60,7 +60,8 @@ local basic_def = {
     state_program = {
         name = "advanced_npc:wander",
         args = {
-            acknowledge_nearby_objs = true
+            acknowledge_nearby_objs = true,
+            max_acknowledge_time = 10
         },
         interrupt_options = {}
     },
@@ -148,6 +149,7 @@ local basic_def = {
                 program_name = "advanced_npc:idle",
                 arguments = {
                     acknowledge_nearby_objs = true,
+                    max_acknowledge_time = 0,
                     wander_chance = 0
                 },
                 interrupt_options = {},
@@ -202,6 +204,17 @@ local basic_def = {
                 interrupt_options = {},
                 depends = {3}
             },
+            -- stay put
+            [5] = {
+                program_name = "advanced_npc:idle",
+                arguments = {
+                    acknowledge_nearby_objs = true,
+                    max_acknowledge_time = 10,
+                    wander_chance = 0
+                },
+                interrupt_options = {},
+                is_state_program = true
+            }
         },
         -- schedule entry for 6 in the evening
         [18] = {

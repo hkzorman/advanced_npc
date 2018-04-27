@@ -13,6 +13,15 @@ end)
 
 -- Timer for stopping acknowledge of nearby objects if no interactions
 npc.monitor.timer.register("advanced_npc:idle:acknowledge_burnout", 5, function(self, args)
+    -- Check if timer should run
+    if self.execution.state_process.program_name ~= "advanced_npc:idle"
+            and self.execution.state_process.program_name ~= "advanced_npc:wander"
+            or self.execution.state_process.arguments.acknowledge_nearby_objs == false then
+        -- Stop current timer
+        npc.monitor.timer.stop(self, "advanced_npc:idle:acknowledge_burnout")
+        return
+    end
+
     -- Get number of interactions
     local interaction_count_since_ack = npc.data.get(self, "interaction_count_since_ack")
     -- Check if there has been any interaction
@@ -34,6 +43,14 @@ end)
 
 -- Timer to start acknowledging again
 npc.monitor.timer.register("advanced_npc:idle:burnout_reversal", 5, function(self, args)
+    -- Check if timer should run
+    if self.execution.state_process.program_name ~= "advanced_npc:idle"
+            and self.execution.state_process.program_name ~= "advanced_npc:wander"
+            or self.execution.state_process.arguments.acknowledge_nearby_objs == false then
+        -- Stop current timer
+        npc.monitor.timer.stop(self, "advanced_npc:idle:burnout_reversal")
+        return
+    end
     -- Stop burnot timer and burnout reversal
     npc.monitor.timer.stop(self, "advanced_npc:idle:burnout_reversal")
     -- Signal instruction to restart acknowldge burnout
@@ -100,6 +117,7 @@ npc.programs.register("advanced_npc:idle", function(self, args)
     local obj_search_radius = args.obj_search_radius or 4
     local wander_chance = args.wander_chance or 30
     local max_wandering_radius = args.max_wandering_radius or 10
+    local max_acknowledge_time = args.max_acknowledge_time
 
     -- Check if NPC is moving, if it is, stop.
     if npc.programs.helper.is_moving(self) then
@@ -110,7 +128,7 @@ npc.programs.register("advanced_npc:idle", function(self, args)
         -- Search nearby objects and acknowledge them
         local objs_found = npc.programs.instr.execute(self, "advanced_npc:idle:acknowledge_objects", {
             obj_search_radius = obj_search_radius,
-            acknowledge_burnout = 10
+            acknowledge_burnout = max_acknowledge_time
         })
 
         if objs_found == true then
