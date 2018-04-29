@@ -182,6 +182,24 @@ are some general tips to keep in mind while writing programs
   want to have a certain pause between instruction execution for visual reasons 
   (e.g NPC sitting to laying, everythig executed quickly will not look nice)
 
+### Permanent storage functionality
+Permanent storage functionality - create, read, update and delete variables 
+in the NPC's permnanent storage.
+IMPORTANT: These variables are *NOT* deleted. Be careful what you store on it or 
+the NPC object can grow in size very quickly. 
+For temporary storage, use `npc.exec.var.*` functions.
+
+#### Methods
+* `npc.data.put(luaentity, key_name, value, readonly)`: This function adds a value to the execution context of the current process
+  * Readonly defaults to false. 
+  * Returns false if failed due to key_name conflict, or returns true if successful.
+* `npc.data.get(luaentity, key_name)`: Returns the value of a given key. If not found returns nil
+* `npc.data.set(luaentity, key_name, new_value)`: This function updates a value in the execution context
+  * Returns false if the value is read-only or if key isn't found.
+  * Returns true if able to update value.
+* `npc.data.remove(luaentity, key_name)`: This function removes a variable from the execution context
+  * If the key doesn't exist, returns nil, otherwise, returns the value removed.
+
 ### Variable functionality
 Variable functionality - create, read, update and delete variables in the
 current process.
@@ -212,6 +230,10 @@ For permanent storage, use `npc.data.*` functions.
 * `npc.exec.var.get(luaentity, key_name)`: Returns the value of a given key_name
 * `npc.exec.var.set(luaentity, key_name, new_value)`: Update a value in the execution context
 * `npc.exec.var.remove(luaentity, key_name)`: Remove a variable from the execution context
+* `npc.data.put(luaentity, key_name, value, readonly)`: This function adds a value to the execution context of the current process
+* `npc.data.get(luaentity, key_name)`: Returns the value of a given key
+* `npc.data.set(luaentity, key_name, new_value)`: This function updates a value in the execution context
+* `npc.data.remove(luaentity, key_name)`: This function removes a variable from the execution context
 
 Example 1
     
