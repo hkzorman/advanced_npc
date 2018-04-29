@@ -182,6 +182,24 @@ are some general tips to keep in mind while writing programs
   want to have a certain pause between instruction execution for visual reasons 
   (e.g NPC sitting to laying, everythig executed quickly will not look nice)
 
+### Variable functionality
+Variable functionality - create, read, update and delete variables in the
+current process.
+IMPORTANT: These variables are deleted when the process is finished execution.
+For permanent storage, use `npc.data.*` functions.
+
+#### Methods
+* `npc.exec.var.put(luaentity, key_name, value, readonly)`: Put a value to the execution context of the current process
+  * Readonly defaults to false
+  * Returns false if failed due to key_name conflict, or returns true if successful
+* `npc.exec.var.get(luaentity, key_name)`: Returns the value of a given key
+  * If not found returns nil
+* `npc.exec.var.set(luaentity, key_name, new_value)`: Update a value in the execution context
+  * Returns false if the value is read-only or if key isn't found
+  * Returns true if able to update value
+* `npc.exec.var.remove(luaentity, key_name)`: Remove a variable from the execution context
+  * If the key doesn't exist, returns nil, otherwise, returns the value removed
+
 ### Methods
 * `npc.programs.register(program_name, func)`: Register a program
 * `npc.programs.is_registered(program_name)`: Check if a program exists
@@ -189,6 +207,11 @@ are some general tips to keep in mind while writing programs
 * `npc.programs.instr.register(name, func)`: Register a instruction
 * `npc.programs.instr.execute(self, name, args)`: Execute a instruction for a NPC
 * `npc.exec.enqueue_program(luaentity, program_name, {program arguments}, interrupt_options, is_state_program)`: Add program to schedule queue
+* `npc.exec.proc.enqueue(luaentity, instruction_name, {instruction arguments})`: Add instruction to process queue
+* `npc.exec.var.put(luaentity, key_name, value, readonly)`: Put a value to the execution context of the current process
+* `npc.exec.var.get(luaentity, key_name)`: Returns the value of a given key_name
+* `npc.exec.var.set(luaentity, key_name, new_value)`: Update a value in the execution context
+* `npc.exec.var.remove(luaentity, key_name)`: Remove a variable from the execution context
 
 Example 1
     
