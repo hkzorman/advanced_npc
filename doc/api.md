@@ -237,6 +237,12 @@ where:
 To stop a timer, simply use:
 `npc.monitor.timer.stop(self, name)`
 
+##### A word of caution with timers:
+While timers can be very useful, they can also be very disruptive, specially if they are
+changing state process. Therefore, every timer `callback` function *should* have a condition
+check at the very beginning before anything else runs. This way, if the condition for the timer
+is no longer valid, it stops and doesn't interferes with other processes running.
+
 #### Callbacks
 Callbacks are functions executed whenever another action is executed. All callbacks
 execute *after* the actual action. Currently, there are three types of callbacks supported:
