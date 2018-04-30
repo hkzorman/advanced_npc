@@ -1366,7 +1366,7 @@ function npc.exec.execution_routine(self, dtime)
 	if execution.scheduler_timer >= execution.scheduler_interval then
 		-- Reset timer
 		execution.scheduler_timer = 0
-		minetest.log("Executing scheduler for NPC "..dump(self.npc_name))
+		npc.log("EXECUTION", "Executing scheduler for NPC "..dump(self.npc_name))
 		-- Execute process scheduler
 		npc.exec.process_scheduler(self)
 	end

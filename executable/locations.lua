@@ -323,10 +323,14 @@ end
 
 -- This function searches on a squared are of the given radius
 -- for nodes of the given type. The type should be npc.locations.nodes
-function npc.locations.find_node_nearby(pos, type, radius)
+function npc.locations.find_node_nearby(pos, type, radius, fixed_vertical)
+	local y_offset = 1
+	if not fixed_vertical then
+		y_offset = radius
+	end
 	-- Determine area points
-	local start_pos = {x=pos.x - radius, y=pos.y - 1, z=pos.z - radius}
-	local end_pos = {x=pos.x + radius, y=pos.y + 1, z=pos.z + radius}
+	local start_pos = {x=pos.x - radius, y=pos.y - y_offset, z=pos.z - radius}
+	local end_pos = {x=pos.x + radius, y=pos.y + y_offset, z=pos.z + radius}
 	-- Get nodes
 	local nodes = minetest.find_nodes_in_area(start_pos, end_pos, type)
 
