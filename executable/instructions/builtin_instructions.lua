@@ -216,13 +216,15 @@ npc.programs.instr.register("advanced_npc:place", function(self, args)
                 minetest.set_node(pos, {name=node})
                 -- Play place sound
                 if play_sound == true then
-                    minetest.sound_play(
-                        minetest.registered_nodes[node].sounds.place,
-                        {
-                            max_hear_distance = 10,
-                            object = self.object
-                        }
-                    )
+                    if minetest.registered_nodes[node].sounds then
+                        minetest.sound_play(
+                            minetest.registered_nodes[node].sounds.place,
+                            {
+                                max_hear_distance = 10,
+                                object = self.object
+                            }
+                        )
+                    end
                 end
             end
         end
