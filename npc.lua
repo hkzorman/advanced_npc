@@ -50,7 +50,8 @@ npc.log_level = {
 	ERROR = true,
 	DEBUG = false,
 	DEBUG_ACTION = false,
-	DEBUG_SCHEDULE = false
+	DEBUG_SCHEDULE = false,
+	EXECUTION = false
 }
 
 npc.texture_check = {
@@ -932,11 +933,10 @@ function npc.exec.execute_process(self)
 		-- Restore scheduler interval
 		self.execution.scheduler_interval = 1
 		if not current_process.is_state_process then
-			npc.log("INFO", "NPC "..dump(self.npc_name).." is executing: "..dump(current_process.program_name))
+			npc.log("EXECUTION", "NPC "..dump(self.npc_name).." is executing: "..dump(current_process.program_name))
 		end
         current_process.state = npc.exec.proc.state.EXECUTING
 		npc.programs.execute(self, current_process.program_name, current_process.arguments)
-		--minetest.log("Current process after execution: "..dump(self.execution.process_queue[1]))
         current_process.state = npc.exec.proc.state.RUNNING
 		-- Re-enable monitor
 		if current_process.is_state_process then
@@ -977,7 +977,7 @@ function _exec.priority_enqueue(self, program_entries)
 --	minetest.log("Initial queue: "..dump(self.execution.process_queue))
 	-- Check if the queue has more than one (current) process
 	if #self.execution.process_queue > 1 then
-		minetest.log("More than One: "..dump(self.execution.process_queue))
+		npc.log("EXECUTION", "More than One: "..dump(#self.execution.process_queue))
 		-- Get current process entry
 		--local current_process = self.execution.process_queue[1]
 		-- Backup the current process queue
@@ -989,9 +989,9 @@ function _exec.priority_enqueue(self, program_entries)
 --		-- Recreate queue, re-enqueue first process
 --		minetest.log("ENqueue")
 --		self.execution.process_queue[#self.execution.process_queue + 1] = current_process
-		minetest.log("Queue size after enqueue: "..dump(#self.execution.process_queue))
+		npc.log("EXECUTION", "Queue size after enqueue: "..dump(#self.execution.process_queue))
 		-- Enqueue the next processes with high priority (next to the current)
-		minetest.log("Enqueue all new")
+		npc.log("EXECUTION", "Enqueue all new")
 		for i = 1, #program_entries do
 			if program_entries[i].is_state_program == true then
 				npc.exec.set_state_program(self,
@@ -1013,7 +1013,7 @@ function _exec.priority_enqueue(self, program_entries)
 		end
 		--minetest.log("Backup queue after all new: "..dump(#backup_queue))
 	else
-		minetest.log("Only one")
+		npc.log("EXECUTION", "Only one process in queue")
 		-- There is only one process, therefore just enqueue every process
 		for i = 1, #program_entries do
 			if program_entries[i].is_state_program == true then
@@ -1040,24 +1040,24 @@ end
 -- Will execute steps 1 and 2 of the above algorithm. The scheduler 
 -- will take care of handling step 3.
 function npc.exec.interrupt(self, new_program, new_arguments, interrupt_options)
-	minetest.log("Priority enqueue")
+	--minetest.log("Priority enqueue")
 	-- Enqueue process with priority
 	_exec.priority_enqueue(self,
 		{[1] = {program_name=new_program, arguments=new_arguments, interrupt_options=interrupt_options}})
-	minetest.log("Pause")
+	--minetest.log("Pause")
 	-- Pause current process
 	_exec.pause_process(self, false)
-	minetest.log("Dequeue")
+	--minetest.log("Dequeue")
 	-- Dequeue process
 	local interrupted_process = npc.exec.get_current_process(self)
 	table.remove(self.execution.process_queue, 1)
-	minetest.log("Store")
+	--minetest.log("Store")
 	-- Store interrupted process
 	local current_process = self.execution.process_queue[1]
 	current_process.interrupted_process = interrupted_process
 	-- Restore process scheduler interval
 	self.execution.scheduler_interval = 1
-	minetest.log("Execute")
+	--minetest.log("Execute")
 	-- Execute current process
 	npc.exec.execute_process(self)
 end
@@ -1067,7 +1067,7 @@ end
 -- Once the process is ready to run again, the `npc.exec.set_ready_state()` function
 -- should be called, and execution will continue.
 function npc.exec.set_input_wait_state(self)
-	minetest.log("Setting input wait...")
+	npc.log("EXECUTION", "Setting input wait...")
 	if self.execution.process_queue[1] then
 		-- Call pause to do the instruction interruption
 		_exec.pause_process(self)
@@ -1087,7 +1087,7 @@ end
 -- currently executing process, then executes the 
 function _exec.pause_process(self, set_instruction_as_interrupted)
 	if #self.execution.process_queue == 1 then
-		npc.log("ERROR", "Unable to pause current process without anoher process in queue.\nCurrent queue: "
+		npc.log("WARNING", "Unable to pause current process without anoher process in queue.\nCurrent queue: "
 			..dump(self.execution.process_queue))
 		return
 	end
@@ -1155,13 +1155,12 @@ end
 --       - Execute next process in the queue
 --   - If the instruction queue is not empty, continue
 function npc.exec.process_scheduler(self)
-	npc.log("INFO", "Current process queue size: "..dump(#self.execution.process_queue))
+	npc.log("EXECUTION", "Current process queue size: "..dump(#self.execution.process_queue))
 	for i = 1, #self.execution.process_queue do
 		minetest.log("["..dump(self.execution.process_queue[i].program_name).."]")
 	end
 	-- Check current process
 	local current_process = self.execution.process_queue[1]
-	--npc.log("INFO", "Hi, current process next: "..dump(next(current_process)))
 	if current_process then
 		-- Check current process state
 		if current_process.state == npc.exec.proc.state.EXECUTING then
@@ -1178,8 +1177,6 @@ function npc.exec.process_scheduler(self)
 			_exec.restore_process(self)
 		end
 		-- Check if instruction queue is empty
---		minetest.log("GRRR see here, name: "..dump(current_process.program_name))
---		minetest.log("GRRR, see here, instruction queue size: "..dump(current_process.instruction_queue))
 		if current_process.instruction_queue and #current_process.instruction_queue == 0
 				and current_process.state == npc.exec.proc.state.RUNNING then
 			-- Check if this is a state process
@@ -1188,7 +1185,7 @@ function npc.exec.process_scheduler(self)
 				if #self.execution.process_queue == 1 then
 					-- Check if state process was changed
 					if self.execution.state_process_changed == true then
-						npc.log("INFO", "Switching from state process "
+						npc.log("EXECUTION", "Switching from state process "
 								..dump(self.execution.process_queue[1].program_name)
 								.." to "
 								..dump(self.execution.state_process.program_name))
@@ -1198,7 +1195,7 @@ function npc.exec.process_scheduler(self)
 						self.execution.state_process_changed = false
 					end
 					-- Since this is a state process, re-execute
-					npc.log("INFO", "Hi, executing state process "..dump(self.execution.process_queue[1].program_name))
+					npc.log("EXECUTION", "Hi, executing state process "..dump(self.execution.process_queue[1].program_name))
 					npc.exec.execute_process(self)
 				else
 					-- Changed state process check - an old state process could be enqueued,
@@ -1214,7 +1211,7 @@ function npc.exec.process_scheduler(self)
 						self.execution.state_process_changed = false
 					else
 						-- Next process is not a state process, interrupt current state process
-						npc.log("Current process queue size: "..dump(#self.execution.process_queue))
+						npc.log("EXECUTION", "Current process queue size: "..dump(#self.execution.process_queue))
 						-- Pause current process
 						current_process.state = npc.exec.proc.state.PAUSED
 						-- Dequeue process
@@ -1228,24 +1225,24 @@ function npc.exec.process_scheduler(self)
 					npc.exec.execute_process(self)
 				end
 			else
-				minetest.log("Current process name: "..dump(current_process.program_name))
-				minetest.log("Process queue size: "..dump(#self.execution.process_queue))
-				minetest.log("Current instrcution queue size: "..dump(#current_process.instruction_queue))
-				minetest.log("Current process state: "..dump(current_process.state))
+				npc.log("EXECUTION", "Current process name: "..dump(current_process.program_name))
+				npc.log("EXECUTION", "Process queue size: "..dump(#self.execution.process_queue))
+				npc.log("EXECUTION", "Current instrcution queue size: "..dump(#current_process.instruction_queue))
+				npc.log("EXECUTION", "Current process state: "..dump(current_process.state))
 				-- This is not a state process, check the interrupted process field
 				if next(current_process.interrupted_process) ~= nil then
-					minetest.log("There is an interrupted process: "..dump(current_process.interrupted_process.program_name))
-					minetest.log("------------------------------")
-					minetest.log("Is state process? "..dump(current_process.interrupted_process.is_state_process))
-					minetest.log("State process ID: "..dump(current_process.interrupted_process.state_process_id))
-					minetest.log("Valid state process ID: "..dump(self.execution.state_process.state_process_id))
+					npc.log("EXECUTION", "There is an interrupted process: "..dump(current_process.interrupted_process.program_name))
+					npc.log("EXECUTION", "------------------------------")
+					npc.log("EXECUTION", "Is state process? "..dump(current_process.interrupted_process.is_state_process))
+					npc.log("EXECUTION", "State process ID: "..dump(current_process.interrupted_process.state_process_id))
+					npc.log("EXECUTION", "Valid state process ID: "..dump(self.execution.state_process.state_process_id))
 
 					if current_process.interrupted_process.is_state_process == true and
 						current_process.interrupted_process.state_process_id < self.execution.state_process.state_process_id then
 						-- Do nothing, just dequeue process
-						npc.log("INFO", "Found an old state process that was interrupted.\n"
+						npc.log("EXECUTION", "Found an old state process that was interrupted.\n"
 								..dump(current_process.interrupted_process.program_name).." WILL NOT be re-enqueued")
-						npc.log("INFO", "Process "..dump(self.execution.process_queue[1].program_name)
+						npc.log("EXECUTION", "Process "..dump(self.execution.process_queue[1].program_name)
 								.." is finished execution and will be dequeued")
 						-- Dequeue process
 						table.remove(self.execution.process_queue, 1)
@@ -1260,10 +1257,7 @@ function npc.exec.process_scheduler(self)
 					-- Dequeue process
 					table.remove(self.execution.process_queue, 1)
 					-- Re-enqueue the interrupted process
-					--npc.log("INFO", "Hi, re-enqueuing interrupted process")
-                    --minetest.log("Current queue: "..dump(self.execution.process_queue))
 					self.execution.process_queue[#self.execution.process_queue + 1] = current_process.interrupted_process
-					--minetest.log("Current queue after re-enqueue: "..dump(self.execution.process_queue))
 					if #self.execution.process_queue > 1 then
 						-- Execute next process in queue
 						npc.exec.execute_process(self)
@@ -1272,7 +1266,7 @@ function npc.exec.process_scheduler(self)
 						_exec.restore_process(self)
 					end
 				else
-					npc.log("INFO", "Process "..dump(self.execution.process_queue[1].program_name).." is finished execution")
+					npc.log("EXECUTION", "Process "..dump(self.execution.process_queue[1].program_name).." is finished execution")
 					-- Dequeue process
 					table.remove(self.execution.process_queue, 1)
 					-- Check if there are more processes
@@ -1286,7 +1280,7 @@ function npc.exec.process_scheduler(self)
 	else
 		-- Process queue is empty, enqueue state process if it is defined
 		if next(self.execution.state_process) ~= nil then
-			npc.log("INFO", "NPC "..dump(self.npc_name).." is executing: "..dump(self.execution.state_process.program_name))
+			npc.log("EXECUTION", "NPC "..dump(self.npc_name).." is executing: "..dump(self.execution.state_process.program_name))
 			self.execution.process_queue[#self.execution.process_queue + 1] = self.execution.state_process
 			-- Execute state process
 			npc.exec.execute_process(self)
@@ -1312,18 +1306,15 @@ end
 
 -- Private function to execute a given instruction entry
 function _exec.proc.execute(self, entry)
---	minetest.log("BEGIN PRIVATE PROC EXEC")
---	minetest.log("PARAMS: ENTRY: "..dump(entry))
 	if entry ~= nil and next(entry) ~= nil then
 		local current_process = self.execution.process_queue[1]
 		if current_process then
---			minetest.log("Initial queue: "..dump(current_process.instruction_queue))
 			-- Set current instruction params
 			current_process.current_instruction.entry = entry
 			current_process.current_instruction.pos = self.object:getpos()
 			current_process.current_instruction.state = npc.exec.proc.instr.state.EXECUTING
 			-- Execute current instruction
-			npc.log("INFO", "  Executing instruction: "..dump(entry.name))
+			npc.log("EXECUTION", "  Executing instruction: "..dump(entry.name))
 			local result = npc.programs.instr.execute(self, entry.name, entry.args)
 			-- Check if var_name was given
 			if entry.var_name then
