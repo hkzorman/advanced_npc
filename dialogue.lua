@@ -276,7 +276,7 @@ negative_answer_label,
 negative_callback,
 player_name)
 
-	npc.lock_actions(self)
+	npc.exec.set_input_wait_state(self)
 
 	local formspec = "size[7,3]"..
 			"label[0.5,0.1;"..prompt.."]"..
@@ -467,7 +467,8 @@ end
 -- actions depending on what is defined in the object
 function npc.dialogue.process_dialogue(self, dialogue, player_name)
 	-- Freeze NPC actions
-	npc.lock_actions(self)
+	npc.exec.set_input_wait_state(self)
+	--npc.lock_actions(self)
 
 	local dialogue_key = -1
 
@@ -505,7 +506,7 @@ function npc.dialogue.process_dialogue(self, dialogue, player_name)
 	-- Check if dialogue has responses. If it doesn't, unlock the actions
 	-- queue and reset actions timer.'
 	if not dialogue.responses then
-		npc.unlock_actions(self)
+		npc.exec.set_ready_state(self)
 	end
 
 	-- Check if there are responses, then show multi-option dialogue if there are
@@ -623,7 +624,7 @@ minetest.register_on_player_receive_fields(function (player, formname, fields)
 			local player_response = npc.dialogue.dialogue_results.yes_no_dialogue[player_name]
 
 			-- Unlock queue, reset action timer and unfreeze NPC.
-			npc.unlock_actions(player_response.npc)
+			npc.exec.set_ready_state(player_response.npc)
 
 			if fields.yes_option then
 				player_response.yes_callback()
@@ -644,7 +645,7 @@ minetest.register_on_player_receive_fields(function (player, formname, fields)
 			-- Check if the player hit the negative option or esc button
 			if fields["exit"] or fields["quit"] == "true" then
 				-- Unlock queue, reset action timer and unfreeze NPC.
-				npc.unlock_actions(player_response.npc)
+				npc.exec.set_ready_state(player_response.npc)
 			end
 
 			for i = 1, #player_response.options do
@@ -680,7 +681,7 @@ minetest.register_on_player_receive_fields(function (player, formname, fields)
 							response.action(player_response.npc, player)
 
 							-- Unlock queue, reset action timer and unfreeze NPC.
-							npc.unlock_actions(player_response.npc)
+							npc.exec.set_ready_state(player_response.npc)
 						end
 					end
 					return

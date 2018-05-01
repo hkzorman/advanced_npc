@@ -116,133 +116,133 @@ npc.occupations.basic_def = {
 	-- Initialize schedule
 	schedules_entries = {
 		-- Schedule entry for 7 in the morning
-		[7] = {
-			-- Get out of bed
-			[1] = {task = npc.actions.cmd.USE_BED, args = {
-				pos = npc.places.PLACE_TYPE.BED.PRIMARY,
-				action = npc.actions.const.beds.GET_UP
-			}
-			},
-			-- Walk to home inside
-			[2] = {task = npc.actions.cmd.WALK_TO_POS, args = {
-				end_pos = npc.places.PLACE_TYPE.OTHER.HOME_INSIDE,
-				walkable = {}
-			},
-				chance = 75
-			},
-			-- Allow mobs_redo wandering
-			[3] = {action = npc.actions.cmd.FREEZE, args = {freeze = false}}
-		},
-		-- Schedule entry for 7 in the morning
-		[8] = {
-			-- Walk to outside of home
-			[1] = {task = npc.actions.cmd.WALK_TO_POS, args = {
-				end_pos = npc.places.PLACE_TYPE.OTHER.HOME_OUTSIDE,
-				walkable = {}
-			},
-				chance = 75
-			},
-			-- Allow mobs_redo wandering
-			[2] = {action = npc.actions.cmd.FREEZE, args = {freeze = false}}
-		},
-		-- Schedule entry for 12 midday
-		[12] = {
-			-- Walk to a sittable node
-			[1] = {task = npc.actions.cmd.WALK_TO_POS, args = {
-				end_pos = {place_type=npc.places.PLACE_TYPE.SITTABLE.PRIMARY, use_access_node=true},
-				walkable = {"cottages:bench"}
-			},
-				chance = 75
-			},
-			-- Sit on the node
-			[2] = {task = npc.actions.cmd.USE_SITTABLE, args = {
-				pos = npc.places.PLACE_TYPE.SITTABLE.PRIMARY,
-				action = npc.actions.const.sittable.SIT
-			},
-				depends = {1}
-			},
-			-- Stay put into place
-			[3] = {action = npc.actions.cmd.SET_INTERVAL, args = {
-				freeze = true,
-				interval = 35
-			},
-				depends = {2}
-			},
-			[4] = {action = npc.actions.cmd.SET_INTERVAL, args = {
-				freeze = true,
-				interval = npc.actions.default_interval
-			},
-				depends = {3}
-			},
-			-- Get up from sit
-			[5] = {action = npc.actions.cmd.USE_SITTABLE, args = {
-				pos = npc.places.PLACE_TYPE.SITTABLE.PRIMARY,
-				action = npc.actions.const.sittable.GET_UP
-			},
-				depends = {4}
-			}
-		},
-		-- Schedule entry for 1 in the afternoon
-		[13] = {
-			-- Give NPC money to buy from player
-			[1] = {property = npc.schedule_properties.put_multiple_items, args = {
-				itemlist = {
-					{name="default:iron_lump", random=true, min=2, max=4}
-				}
-			},
-				chance = 75
-			},
-			-- Change trader status to "trader"
-			[2] = {property = npc.schedule_properties.trader_status, args = {
-				status = npc.trade.TRADER
-			},
-				chance = 75
-			},
-			[3] = {property = npc.schedule_properties.can_receive_gifts, args = {
-				can_receive_gifts = false
-			},
-				depends = {1}
-			},
-			-- Allow mobs_redo wandering
-			[4] = {action = npc.actions.cmd.FREEZE, args = {freeze = false}}
-		},
-		-- Schedule entry for 6 in the evening
-		[18] = {
-			-- Change trader status to "none"
-			[1] = {property = npc.schedule_properties.trader_status, args = {
-				status = npc.trade.NONE
-			}
-			},
-			-- Enable gift receiving again
-			[2] = {property = npc.schedule_properties.can_receive_gifts, args = {
-				can_receive_gifts = true
-			}
-			},
-			-- Get inside home
-			[3] = {task = npc.actions.cmd.WALK_TO_POS, args = {
-				end_pos = npc.places.PLACE_TYPE.OTHER.HOME_INSIDE,
-				walkable = {}
-			}
-			},
-			-- Allow mobs_redo wandering
-			[4] = {action = npc.actions.cmd.FREEZE, args = {freeze = false}}
-		},
-		-- Schedule entry for 10 in the evening
-		[22] = {
-			[1] = {task = npc.actions.cmd.WALK_TO_POS, args = {
-				end_pos = {place_type=npc.places.PLACE_TYPE.BED.PRIMARY, use_access_node=true},
-				walkable = {}
-			}
-			},
-			-- Use bed
-			[2] = {task = npc.actions.cmd.USE_BED, args = {
-				pos = npc.places.PLACE_TYPE.BED.PRIMARY,
-				action = npc.actions.const.beds.LAY
-			}
-			},
-			-- Stay put on bed
-			[3] = {action = npc.actions.cmd.FREEZE, args = {freeze = true}}
-		}
+--		[7] = {
+--			-- Get out of bed
+--			[1] = {task = npc.commands.cmd.USE_BED, args = {
+--				pos = npc.locations.data.bed.primary,
+--				action = npc.commands.const.beds.GET_UP
+--			}
+--			},
+--			-- Walk to home inside
+--			[2] = {task = npc.commands.cmd.WALK_TO_POS, args = {
+--				end_pos = npc.locations.data.OTHER.HOME_INSIDE,
+--				walkable = {}
+--			},
+--				chance = 75
+--			},
+--			-- Allow mobs_redo wandering
+--			[3] = {action = npc.commands.cmd.FREEZE, args = {freeze = false}}
+--		},
+--		-- Schedule entry for 7 in the morning
+--		[8] = {
+--			-- Walk to outside of home
+--			[1] = {task = npc.commands.cmd.WALK_TO_POS, args = {
+--				end_pos = npc.locations.data.OTHER.HOME_OUTSIDE,
+--				walkable = {}
+--			},
+--				chance = 75
+--			},
+--			-- Allow mobs_redo wandering
+--			[2] = {action = npc.commands.cmd.FREEZE, args = {freeze = false}}
+--		},
+--		-- Schedule entry for 12 midday
+--		[12] = {
+--			-- Walk to a sittable node
+--			[1] = {task = npc.commands.cmd.WALK_TO_POS, args = {
+--				end_pos = {place_type=npc.locations.data.SITTABLE.PRIMARY, use_access_node=true},
+--				walkable = {"cottages:bench"}
+--			},
+--				chance = 75
+--			},
+--			-- Sit on the node
+--			[2] = {task = npc.commands.cmd.USE_SITTABLE, args = {
+--				pos = npc.locations.data.SITTABLE.PRIMARY,
+--				action = npc.commands.const.sittable.SIT
+--			},
+--				depends = {1}
+--			},
+--			-- Stay put into place
+--			[3] = {action = npc.commands.cmd.SET_INTERVAL, args = {
+--				freeze = true,
+--				interval = 35
+--			},
+--				depends = {2}
+--			},
+--			[4] = {action = npc.commands.cmd.SET_INTERVAL, args = {
+--				freeze = true,
+--				interval = npc.commands.default_interval
+--			},
+--				depends = {3}
+--			},
+--			-- Get up from sit
+--			[5] = {action = npc.commands.cmd.USE_SITTABLE, args = {
+--				pos = npc.locations.data.SITTABLE.PRIMARY,
+--				action = npc.commands.const.sittable.GET_UP
+--			},
+--				depends = {4}
+--			}
+--		},
+--		-- Schedule entry for 1 in the afternoon
+--		[13] = {
+--			-- Give NPC money to buy from player
+--			[1] = {property = npc.schedule_properties.put_multiple_items, args = {
+--				itemlist = {
+--					{name="default:iron_lump", random=true, min=2, max=4}
+--				}
+--			},
+--				chance = 75
+--			},
+--			-- Change trader status to "trader"
+--			[2] = {property = npc.schedule_properties.trader_status, args = {
+--				status = npc.trade.TRADER
+--			},
+--				chance = 75
+--			},
+--			[3] = {property = npc.schedule_properties.can_receive_gifts, args = {
+--				can_receive_gifts = false
+--			},
+--				depends = {1}
+--			},
+--			-- Allow mobs_redo wandering
+--			[4] = {action = npc.commands.cmd.FREEZE, args = {freeze = false}}
+--		},
+--		-- Schedule entry for 6 in the evening
+--		[18] = {
+--			-- Change trader status to "none"
+--			[1] = {property = npc.schedule_properties.trader_status, args = {
+--				status = npc.trade.NONE
+--			}
+--			},
+--			-- Enable gift receiving again
+--			[2] = {property = npc.schedule_properties.can_receive_gifts, args = {
+--				can_receive_gifts = true
+--			}
+--			},
+--			-- Get inside home
+--			[3] = {task = npc.commands.cmd.WALK_TO_POS, args = {
+--				end_pos = npc.locations.data.OTHER.HOME_INSIDE,
+--				walkable = {}
+--			}
+--			},
+--			-- Allow mobs_redo wandering
+--			[4] = {action = npc.commands.cmd.FREEZE, args = {freeze = false}}
+--		},
+--		-- Schedule entry for 10 in the evening
+--		[22] = {
+--			[1] = {task = npc.commands.cmd.WALK_TO_POS, args = {
+--				end_pos = {place_type=npc.locations.data.bed.primary, use_access_node=true},
+--				walkable = {}
+--			}
+--			},
+--			-- Use bed
+--			[2] = {task = npc.commands.cmd.USE_BED, args = {
+--				pos = npc.locations.data.bed.primary,
+--				action = npc.commands.const.beds.LAY
+--			}
+--			},
+--			-- Stay put on bed
+--			[3] = {action = npc.commands.cmd.FREEZE, args = {freeze = true}}
+--		}
 	}
 }
 
@@ -283,6 +283,14 @@ function npc.occupations.register_occupation(name, def)
 
 	-- Save into the definition the dialogue keys
 	def.dialogues["keys"] = dialogue_keys
+
+	-- Validate state program
+	if def.state_program then
+		if npc.programs.is_registered(def.state_program.name) == false then
+			npc.log("ERROR", "Unable to find program with name: "..dump(def.state_program.name))
+			return
+		end
+	end
 
 	-- Save the definition
 	npc.occupations.registered_occupations[name] = def
@@ -451,15 +459,23 @@ function npc.occupations.initialize_occupation_values(self, occupation_name)
 		end
 	end
 
+	-- Initialize state program
+	if def.state_program then
+		npc.exec.set_state_program(self,
+			def.state_program.name,
+			def.state_program.args,
+			def.state_program.interrupt_options)
+		npc.log("INFO", "Successfully set state program "..dump(def.state_program.name))
+	end
 
 	-- Initialize schedule entries
 	if def.schedules_entries and table.getn(npc.utils.get_map_keys(def.schedules_entries)) > 0 then
 		-- Create schedule in NPC
-		npc.create_schedule(self, npc.schedule_types.generic, 0)
+		npc.schedule.create(self, npc.schedule.const.types.generic, 0)
 		-- Traverse schedules
 		for time, entries in pairs(def.schedules_entries) do
 			-- Add schedule entry for each time
-			npc.add_schedule_entry(self, npc.schedule_types.generic, 0, time, nil, entries)
+			npc.schedule.entry.put(self, npc.schedule.const.types.generic, 0, time, nil, entries)
 		end
 	end
 

@@ -1,8 +1,8 @@
 ----------------------------------------------------
--- Default occupation for Advanced NPC
+-- Default class for Advanced NPC
 -- By Zorman2000
 ----------------------------------------------------
--- The default "occupation" gives some schedule entries to the NPCs
+-- The default "class" gives some schedule entries to the NPCs
 -- which don't have any occupation. The rest is left as randomly
 -- initialized.
 
@@ -10,157 +10,326 @@ local basic_def = {
     -- Use random textures
     textures = {},
     -- Use random dialogues
-    dialogues = {},
+    dialogues = {
+        type = "given",
+        max_count = 1,
+        data = {
+            {
+                text = "Hello!",
+                tags = {"unisex", "follow"},
+                responses = {
+                    [1] = {
+                        text = "Follow",
+                        action_type = "function",
+                        action = function(self, player)
+                            npc.add_flag(self, "follow_player", true)
+                            -- Follow
+                            npc.exec.interrupt(self, "advanced_npc:follow", {
+                                    target="player",
+                                    radius="5",
+                                    player_name=player:get_player_name(),
+                                    follow_flag="follow_player"
+                                },
+                                {
+                                    allow_scheduler_interruption = false
+                                })
+                        end
+                    },
+                    [2] = {
+                        text = "Stop following",
+                        action_type = "function",
+                        action = function(self, player)
+                            npc.update_flag(self, "follow_player", false)
+                            npc.chat(self.npc_name, player:get_player_name(), "Ok!")
+                        end,
+                    },
+                }
+            }
+        }
+    },
     -- Initialize inventory with random items
     initial_inventory = {},
+    -- Initialize default state program
+--    state_program = {
+--        name = "advanced_npc:idle",
+--        args = {
+--            acknowledge_nearby_objs = true
+--        },
+--        interrupt_options = {}
+--    },
+    state_program = {
+        name = "advanced_npc:wander",
+        args = {
+            acknowledge_nearby_objs = true,
+            max_acknowledge_time = 10
+        },
+        interrupt_options = {}
+    },
     -- Initialize schedule
     schedules_entries = {
-        -- Schedule entry for 7 in the morning
+        -- schedule entry for 7 in the morning
         [7] = {
-            -- Change trader status to "none"
             [1] = {
-                property = npc.schedule_properties.trader_status,
-                args = {
-                    status = npc.trade.NONE
-                }
+                program_name = "advanced_npc:internal_property_change",
+                arguments = {
+                    property = npc.programs.internal_properties.change_trader_status,
+                    args = {
+                        status = npc.trade.NONE
+                    }
+                },
+                interrupt_options = {}
             },
-            -- Get out of bed
-            [1] = {task = npc.actions.cmd.USE_BED, args = {
-                pos = npc.places.PLACE_TYPE.BED.PRIMARY,
-                action = npc.actions.const.beds.GET_UP
-            }
-            },
-            -- Walk to home inside
             [2] = {
-                task = npc.actions.cmd.WALK_TO_POS,
-                args = {
-                    end_pos = npc.places.PLACE_TYPE.OTHER.HOME_INSIDE,
+                program_name = "schedules:default:wake_up",
+                arguments = {},
+                interrupt_options = {}
+            },
+            -- walk to home inside
+            [3] = {
+                program_name = "advanced_npc:walk_to_pos",
+                arguments = {
+                    end_pos = npc.locations.data.other.home_inside,
                     walkable = {}
                 },
+                interrupt_options = {},
                 chance = 75
             },
-            -- Allow mobs_redo wandering
-            [3] = {action = npc.actions.cmd.FREEZE, args = {freeze = false, disable_rightclick = false}}
+            [4] = {
+                program_name = "advanced_npc:idle",
+                arguments = {
+                    acknowledge_nearby_objs = true
+                },
+                interrupt_options = {},
+                is_state_program = true
+            }
         },
-        -- Schedule entry for 8 in the morning
-        [8] = {
-            -- Walk to outside of home
-            [1] = {task = npc.actions.cmd.WALK_TO_POS, args = {
-                end_pos = npc.places.PLACE_TYPE.OTHER.HOME_OUTSIDE,
-                walkable = {}
-            },
+        -- schedule entry for 10 in the morning
+        [10] = {
+            -- walk to outside of home
+            [1] = {
+                program_name = "advanced_npc:walk_to_pos",
+                arguments = {
+                    end_pos = npc.locations.data.other.home_outside,
+                    walkable = {}
+                },
+                interrupt_options = {},
                 chance = 75
-            },
-            -- Allow mobs_redo wandering
-            [2] = {action = npc.actions.cmd.FREEZE, args = {freeze = false}}
+            }
         },
-        -- Schedule entry for 12 midday
+        -- schedule entry for 12 midday
         [12] = {
-            -- Walk to a sittable node
-            [1] = {task = npc.actions.cmd.WALK_TO_POS,
-                args = {
+            -- walk to a sittable node
+            [1] = {
+                program_name = "advanced_npc:walk_to_pos",
+                arguments = {
                     end_pos = {
-                        place_category=npc.places.PLACE_TYPE.CATEGORIES.SITTABLE,
-                        place_type=npc.places.PLACE_TYPE.SITTABLE.PRIMARY,
-                        use_access_node=true,
-                        try_alternative_if_used=true,
+                        place_category = npc.locations.data.categories.sittable,
+                        place_type = npc.locations.data.sittable.primary,
+                        use_access_node = true,
+                        try_alternative_if_used = true,
                         mark_target_as_used = true
                     },
                     walkable = {"cottages:bench"}
                 },
-                chance = 75
+                chance = 75,
+                interrupt_options = {},
             },
-            -- Sit on the node
-            [2] = {task = npc.actions.cmd.USE_SITTABLE,
-                args = {
-                    pos = npc.places.PLACE_TYPE.CALCULATED.TARGET,
-                    action = npc.actions.const.sittable.SIT
+            -- sit on the node
+            [2] = {
+                program_name = "advanced_npc:use_sittable",
+                arguments = {
+                    pos = npc.locations.data.calculated.target,
+                    action = npc.programs.const.node_ops.sittable.SIT
                 },
-                depends = {1}
+                depends = {1},
+                interrupt_options = {}
             },
-            -- Stay put into place
+            -- stay put
             [3] = {
-                action = npc.actions.cmd.FREEZE, args = {freeze = true},
-                depends = {2}
+                program_name = "advanced_npc:idle",
+                arguments = {
+                    acknowledge_nearby_objs = true,
+                    max_acknowledge_time = 0,
+                    wander_chance = 0
+                },
+                interrupt_options = {},
+                is_state_program = true
             }
         },
-        -- Schedule entry for 1 in the afternoon
+        -- schedule entry for 1 in the afternoon
         [13] = {
-            -- Get up from sit
+            -- get up from sit
             [1] = {
-                action = npc.actions.cmd.USE_SITTABLE, args = {
-                    pos = npc.places.PLACE_TYPE.CALCULATED.TARGET,
-                    action = npc.actions.const.sittable.GET_UP
+                program_name = "advanced_npc:use_sittable",
+                arguments = {
+                    pos = npc.locations.data.calculated.target,
+                    action = npc.programs.const.node_ops.sittable.GET_UP
                 },
+                interrupt_options = {}
             },
-            -- Give NPC money to buy from player
+            -- give npc money to buy from player
             [2] = {
-                property = npc.schedule_properties.put_multiple_items,
-                args = {
-                    itemlist = {
-                        {name="default:iron_lump", random=true, min=2, max=4}
-                    }
+                program_name = "advanced_npc:internal_property_change",
+                arguments = {
+                    property = npc.programs.internal_properties.put_multiple_items,
+                    args = {
+                        itemlist = {
+                            {name="default:iron_lump", random=true, min=2, max=4}
+                        }
+                    },
                 },
+                interrupt_options = {},
                 chance = 75
             },
-            -- Change trader status to "casual trader"
+            -- change trader status to "casual trader"
             [3] = {
-                property = npc.schedule_properties.trader_status,
-                args = {
-                    status = npc.trade.CASUAL
+                program_name = "advanced_npc:internal_property_change",
+                arguments = {
+                    property = npc.schedule_properties.change_trader_status,
+                    args = {
+                        status = npc.trade.CASUAL
+                    },
                 },
+                interrupt_options = {},
                 chance = 75
             },
             [4] = {
-                property = npc.schedule_properties.can_receive_gifts,
-                args = {
-                    can_receive_gifts = false
+                program_name = "advanced_npc:internal_property_change",
+                arguments = {
+                    property = npc.schedule_properties.can_receive_gifts,
+                    args = {
+                        can_receive_gifts = false
+                    },
                 },
-                depends = {1}
+                interrupt_options = {},
+                depends = {3}
             },
-            -- Allow mobs_redo wandering
-            [5] = {action = npc.actions.cmd.FREEZE, args = {freeze = false}}
+            -- stay put
+            [5] = {
+                program_name = "advanced_npc:idle",
+                arguments = {
+                    acknowledge_nearby_objs = true,
+                    max_acknowledge_time = 10,
+                    wander_chance = 0
+                },
+                interrupt_options = {},
+                is_state_program = true
+            }
         },
-        -- Schedule entry for 6 in the evening
+        -- schedule entry for 6 in the evening
         [18] = {
-            -- Change trader status to "none"
-            [1] = {property = npc.schedule_properties.trader_status, args = {
-                status = npc.trade.NONE
-            }
+            -- change trader status to "none"
+            [1] = {
+                program_name = "advanced_npc:internal_property_change",
+                arguments = {
+                    {
+                        property = npc.schedule_properties.change_trader_status,
+                        args = {
+                            status = npc.trade.NONE
+                        },
+                    },
+                    {
+                        property = npc.schedule_properties.can_receive_gifts,
+                        args = {
+                            can_receive_gifts = true
+                        },
+                    }
+
+                },
+                interrupt_options = {},
             },
-            -- Enable gift receiving again
-            [2] = {property = npc.schedule_properties.can_receive_gifts, args = {
-                can_receive_gifts = true
+            -- get inside home
+            [2] = {
+                program_name = "advanced_npc:walk_to_pos",
+                arguments = {
+                    end_pos = npc.locations.data.other.home_inside,
+                    walkable = {}
+                },
+                interrupt_options = {},
             }
-            },
-            -- Get inside home
-            [3] = {task = npc.actions.cmd.WALK_TO_POS, args = {
-                end_pos = npc.places.PLACE_TYPE.OTHER.HOME_INSIDE,
-                walkable = {}
-            }
-            },
-            -- Allow mobs_redo wandering
-            [4] = {action = npc.actions.cmd.FREEZE, args = {freeze = false}}
         },
-        -- Schedule entry for 10 in the evening
-        [22] = {
-            [1] = {task = npc.actions.cmd.WALK_TO_POS, args = {
-                end_pos = {place_type=npc.places.PLACE_TYPE.BED.PRIMARY, use_access_node=true},
-                walkable = {}
+        [21] = {
+            [1] = {
+                program_name = "advanced_npc:walk_to_pos",
+                arguments = {
+                    end_pos = npc.locations.data.other.room_inside,
+                    walkable = {}
+                },
+                interrupt_options = {}
             }
+        },
+        -- schedule entry for 10 in the evening
+        [22] = {
+            [1] = {
+                program_name = "advanced_npc:walk_to_pos",
+                arguments = {
+                    end_pos = {place_type=npc.locations.data.bed.primary, use_access_node=true},
+                    walkable = {}
+                },
+                interrupt_options = {}
             },
-            -- Use bed
-            [2] = {task = npc.actions.cmd.USE_BED,
-                args = {
-                    pos = npc.places.PLACE_TYPE.BED.PRIMARY,
-                    action = npc.actions.const.beds.LAY
+            [2] = {
+                program_name = "advanced_npc:use_bed",
+                arguments = {
+                    pos = npc.locations.data.bed.primary,
+                    action = npc.programs.const.node_ops.beds.LAY
+                },
+                interrupt_options = {
+                    allow_rightclick = false
                 }
             },
-            -- Stay put on bed
-            [3] = {action = npc.actions.cmd.FREEZE, args = {freeze = true, disable_rightclick = true}}
+            [3] = {
+                program_name = "advanced_npc:idle",
+                arguments = {
+                    acknowledge_nearby_objs = false,
+                    wander_chance = 0
+                },
+                interrupt_options = {
+                    allow_rightclick = false
+                },
+                is_state_program = true
+            }
         }
     }
 }
+
+-- Program registrations
+--npc.programs.register("schedules:default:sleep", function(self, args)
+--    -- Walk to bed
+--    npc.exec.proc.enqueue(self, "advanced_npc:interrupt", {
+--        new_program = "advanced_npc:walk_to_pos",
+--        new_args = {
+--            end_pos = {place_type=npc.locations.data.bed.primary, use_access_node=true},
+--            walkable = {}
+--        },
+--        interrupt_options = {}
+--    })
+--    -- Use bed
+--    npc.exec.proc.enqueue(self, "advanced_npc:interrupt", {
+--        new_program = "advanced_npc:use_bed",
+--        new_args = {
+--            pos = npc.locations.data.bed.primary,
+--            action = npc.programs.const.node_ops.beds.LAY
+--        },
+--        interrupt_options = {
+--            allow_rightclick = false
+--        }
+--    })
+--end)
+
+npc.programs.register("schedules:default:wake_up", function(self, args)
+    -- Use bed
+    npc.exec.proc.enqueue(self, "advanced_npc:interrupt", {
+        new_program = "advanced_npc:use_bed",
+        new_args = {
+            pos = npc.locations.data.bed.primary,
+            action = npc.programs.const.node_ops.beds.GET_UP
+        },
+        interrupt_options = {
+            allow_rightclick = false
+        }
+    })
+end)
 
 -- Register default occupation
 npc.occupations.register_occupation(npc.occupations.basic_name, basic_def)

@@ -89,7 +89,7 @@ spawner.spawn_eggs = {}
 --  - Sittable nodes
 -- It will return a table with all information gathered
 -- Playername should be provided if manual spawning
-function npc.spawner.scan_area_for_spawn(start_pos, end_pos, player_name)
+function npc.spawner.scan_area_for_spawn(start_pos, end_pos, player_name, spawn_pos)
     local result = {
         building_type = "",
         plot_info = {},
@@ -115,7 +115,7 @@ function npc.spawner.scan_area_for_spawn(start_pos, end_pos, player_name)
 
     -- Scan building nodes
     -- Scan building for nodes
-    local usable_nodes = npc.places.scan_area_for_usable_nodes(start_pos, end_pos)
+    local usable_nodes = npc.locations.scan_area_for_usable_nodes(start_pos, end_pos)
     -- Get all doors
     local doors = usable_nodes.openable_type
 
@@ -141,11 +141,14 @@ function npc.spawner.scan_area_for_spawn(start_pos, end_pos, player_name)
         if npc.spawner_marker.entrance_markers[player_name] then
             outside_pos = npc.spawner_marker.entrance_markers[player_name]
         end
+    elseif spawn_pos ~= nil then
+        -- A spawn egg was used, assume it was spawned outside the building
+        outside_pos = spawn_pos
     end
     -- Try to find entrance
-    local entrance = npc.places.find_entrance_from_openable_nodes(doors, outside_pos)
+    local entrance = npc.locations.find_building_entrance(usable_nodes.bed_type, outside_pos)
     if entrance then
-        npc.log("INFO", "Found building entrance at: "..minetest.pos_to_string(entrance.node_pos))
+        npc.log("INFO", "Found building entrance at: "..minetest.pos_to_string(entrance.door))
         -- Set building entrance
         result.entrance = entrance
     else
@@ -491,29 +494,39 @@ end
 function npc.spawner.assign_places(self, entrance, node_data, pos)
     -- Assign plotmarker if position given
     if pos then
-        npc.places.add_shared(self, npc.places.PLACE_TYPE.OTHER.HOME_PLOTMARKER,
-            npc.places.PLACE_TYPE.OTHER.HOME_PLOTMARKER, pos)
+        npc.locations.add_shared(self, npc.locations.data.other.home_plotmarker,
+            npc.locations.data.other.home_plotmarker, pos)
     end
 
-    -- Assign entrance door and related locations
-    if entrance ~= nil and entrance.node_pos ~= nil then
-        npc.places.add_shared(self, npc.places.PLACE_TYPE.OPENABLE.HOME_ENTRANCE_DOOR, npc.places.PLACE_TYPE.OPENABLE.HOME_ENTRANCE_DOOR, entrance.node_pos)
-        -- Find the position inside and outside the door
-        local entrance_inside, entrance_outside = npc.places.find_node_in_front_and_behind_door(entrance.node_pos)
-        --local entrance_inside = npc.places.find_node_behind_door(entrance.node_pos)
-        --local entrance_outside = npc.places.find_node_in_front_of_door(entrance.node_pos)
-        -- Assign these places to NPC
-        npc.places.add_shared(self, npc.places.PLACE_TYPE.OTHER.HOME_INSIDE, npc.places.PLACE_TYPE.OTHER.HOME_INSIDE, entrance_inside)
-        npc.places.add_shared(self, npc.places.PLACE_TYPE.OTHER.HOME_OUTSIDE, npc.places.PLACE_TYPE.OTHER.HOME_OUTSIDE, entrance_outside)
+    -- Assign building entrance door
+    if entrance ~= nil and entrance.door ~= nil and entrance.inside ~= nil and entrance.outside ~= nil then
+        npc.locations.add_shared(self, npc.locations.data.openable.home_entrance_door, npc.locations.data.openable.home_entrance_door, entrance.door)
+        -- Assign these places to npc
+        npc.locations.add_shared(self, npc.locations.data.other.home_inside, npc.locations.data.other.home_inside, entrance.inside)
+        npc.locations.add_shared(self, npc.locations.data.other.home_outside, npc.locations.data.other.home_outside, entrance.outside)
     end
 
     -- Assign beds
+    local assigned_bed
     if #node_data.bed_type > 0 then
         -- Assign a specific bed node to a NPC.
-        npc.places.add_owned_accessible_place(self, node_data.bed_type,
-            npc.places.PLACE_TYPE.BED.PRIMARY)
-        -- Store changes to node_data
-        --meta:set_string("node_data", minetest.serialize(node_data))
+        assigned_bed = npc.locations.add_owned_accessible_place(self, node_data.bed_type,
+            npc.locations.data.bed.primary)
+    end
+
+    -- Assign rooms
+    if assigned_bed then
+        local bedroom_entrance = npc.locations.find_bedroom_entrance(assigned_bed, pos)
+        --minetest.log("Entrance: "..dump(bedroom_entrance))
+        if bedroom_entrance ~= nil
+                and bedroom_entrance.door ~= nil
+                and bedroom_entrance.inside ~= nil
+                and bedroom_entrance.outside ~= nil then
+            npc.locations.add_shared(self, npc.locations.data.openable.room_entrance_door, npc.locations.data.openable.room_entrance_door, bedroom_entrance.door)
+            -- Assign these places to npc
+            npc.locations.add_shared(self, npc.locations.data.other.room_inside, npc.locations.data.other.room_inside, bedroom_entrance.inside)
+            npc.locations.add_shared(self, npc.locations.data.other.room_outside, npc.locations.data.other.room_outside, bedroom_entrance.outside)
+        end
     end
 
     -- Assign sits
@@ -521,15 +534,15 @@ function npc.spawner.assign_places(self, entrance, node_data, pos)
         -- Check if there are same or more amount of sits as beds
         if #node_data.sittable_type >= #node_data.bed_type then
             -- Assign a specific sittable node to a NPC.
-            npc.places.add_owned_accessible_place(self, node_data.sittable_type,
-                npc.places.PLACE_TYPE.SITTABLE.PRIMARY)
+            npc.locations.add_owned_accessible_place(self, node_data.sittable_type,
+                npc.locations.data.sittable.primary)
             -- Store changes to node_data
             --meta:set_string("node_data", minetest.serialize(node_data))
         end
         -- Add all sits to places as shared since NPC should be able to sit
         -- at any accessible sit
-        npc.places.add_shared_accessible_place(self, node_data.sittable_type,
-            npc.places.PLACE_TYPE.SITTABLE.SHARED)
+        npc.locations.add_shared_accessible_place(self, node_data.sittable_type,
+            npc.locations.data.sittable.shared)
     end
 
     -- Assign furnaces
@@ -537,15 +550,15 @@ function npc.spawner.assign_places(self, entrance, node_data, pos)
         -- Check if there are same or more amount of furnace as beds
         if #node_data.furnace_type >= #node_data.bed_type then
             -- Assign a specific furnace node to a NPC.
-            npc.places.add_owned_accessible_place(self, node_data.furnace_type,
-                npc.places.PLACE_TYPE.FURNACE.PRIMARY)
+            npc.locations.add_owned_accessible_place(self, node_data.furnace_type,
+                npc.locations.data.furnace.primary)
             -- Store changes to node_data
             --meta:set_string("node_data", minetest.serialize(node_data))
         end
         -- Add all furnaces to places as shared since NPC should be able to use
         -- any accessible furnace
-        npc.places.add_shared_accessible_place(self, node_data.furnace_type,
-            npc.places.PLACE_TYPE.FURNACE.SHARED)
+        npc.locations.add_shared_accessible_place(self, node_data.furnace_type,
+            npc.locations.data.furnace.shared)
     end
 
     -- Assign storage nodes
@@ -553,15 +566,15 @@ function npc.spawner.assign_places(self, entrance, node_data, pos)
         -- Check if there are same or more amount of storage as beds
         if #node_data.storage_type >= #node_data.bed_type then
             -- Assign a specific storage node to a NPC.
-            npc.places.add_owned_accessible_place(self, node_data.storage_type,
-                npc.places.PLACE_TYPE.STORAGE.PRIMARY)
+            npc.locations.add_owned_accessible_place(self, node_data.storage_type,
+                npc.locations.data.storage.primary)
             -- Store changes to node_data
             --meta:set_string("node_data", minetest.serialize(node_data))
         end
         -- Add all storage-types to places as shared since NPC should be able
         -- to use other storaage nodes as well.
-        npc.places.add_shared_accessible_place(self, node_data.storage_type,
-            npc.places.PLACE_TYPE.STORAGE.SHARED)
+        npc.locations.add_shared_accessible_place(self, node_data.storage_type,
+            npc.locations.data.storage.shared)
     end
 
     -- Assign workplace nodes
@@ -577,8 +590,8 @@ function npc.spawner.assign_places(self, entrance, node_data, pos)
                 -- Walkable nodes from occupation
                 local walkables = npc.occupations.registered_occupations[self.occupation_name].walkable_nodes
                 -- Found the node. Assign only this node to the NPC.
-                npc.places.add_shared_accessible_place(self, {node_data.workplace_type[i]},
-                    npc.places.PLACE_TYPE.WORKPLACE.PRIMARY, false, walkables)
+                npc.locations.add_shared_accessible_place(self, {node_data.workplace_type[i]},
+                    npc.locations.data.workplace.primary, false, walkables)
                 -- Edit metadata of this workplace node to not allow it for other NPCs
                 local meta = minetest.get_meta(node_data.workplace_type[i].node_pos)
                 local work_data = {
@@ -592,16 +605,17 @@ function npc.spawner.assign_places(self, entrance, node_data, pos)
         end
     end
 
+
     npc.log("DEBUG", "Places for NPC "..self.npc_name..": "..dump(self.places_map))
 
     -- Make NPC go into their house
     -- If entrance is available let NPC
     if entrance then
-        npc.add_task(self,
-            npc.actions.cmd.WALK_TO_POS,
-            {end_pos=npc.places.PLACE_TYPE.OTHER.HOME_INSIDE,
-                walkable={}})
-        npc.add_action(self, npc.actions.cmd.FREEZE, {freeze = false})
+--        npc.enqueue_script(self,
+--            npc.commands.cmd.WALK_TO_POS,
+--            {end_pos=npc.locations.data.OTHER.HOME_INSIDE,
+--                walkable={}})
+--        npc.enqueue_command(self, npc.commands.cmd.FREEZE, {freeze = false})
     end
 
     return node_data
@@ -670,8 +684,6 @@ minetest.register_craftitem("advanced_npc:spawn_egg", {
     on_place = function(itemstack, user, pointed_thing)
         -- Store spawn pos
         spawner.spawn_pos[user:get_player_name()] = pointed_thing.above
-
-
 
         local occupation_names = npc.utils.get_map_keys(npc.occupations.registered_occupations)
 
@@ -771,8 +783,8 @@ minetest.register_on_player_receive_fields(function(player, formname, fields)
                     local end_pos = {x=pos.x+radius, y=pos.y+y_adj, z=pos.z+radius }
 
                     -- Scan for usable nodes
-                    local area_info = npc.spawner.scan_area_for_spawn(start_pos, end_pos, player:get_player_name())
-
+                    local area_info = npc.spawner.scan_area_for_spawn(start_pos, end_pos, player:get_player_name(), pos)
+                    minetest.log("Area info: "..dump(area_info))
                     -- Assign occupation
                     local occupation_data = npc.spawner.determine_npc_occupation(
                         fields.building_type or area_info.building_type,
@@ -836,6 +848,7 @@ if minetest.get_modpath("mg_villages") ~= nil then
     -- point and the building_data to get the x, y and z-coordinate size
     -- of the building schematic
     function spawner.scan_mg_villages_building(pos, building_data)
+        local result = {}
         -- Get area of the building
         local x_size = building_data.bsizex
         local y_size = building_data.ysize
@@ -850,19 +863,47 @@ if minetest.get_modpath("mg_villages") ~= nil then
         -- 1 - facing North, +Z
         -- 2 - facing East, +X
         -- 3 - facing South -Z
-        if brotate == 0 then
-            x_sign, z_sign = 1, -1
-        elseif brotate == 1 then
-            x_sign, z_sign =  -1, -1
-            local temp = z_size
-            z_size = x_size
-            x_size = temp
-        elseif brotate == 2 then
-            x_sign, z_sign = -1, 1
-        elseif brotate == 3 then
-            x_sign, z_sign = 1, 1
-        end
+        -- Attempt rotating the search area if no data is found
+        for i = 1, 4 do
+            if brotate == 0 then
+                x_sign, z_sign = 1, -1
+            elseif brotate == 1 then
+                x_sign, z_sign =  -1, -1
+                local temp = z_size
+                z_size = x_size
+                x_size = temp
+            elseif brotate == 2 then
+                x_sign, z_sign = -1, 1
+            elseif brotate == 3 then
+                x_sign, z_sign = 1, 1
+            end
 
+            npc.log("DEBUG", "Start pos: "..minetest.pos_to_string(start_pos))
+            npc.log("DEBUG", "Plot: "..dump(minetest.get_meta(start_pos):get_string("infotext")))
+            npc.log("DEBUG", "Brotate: "..dump(brotate))
+            npc.log("DEBUG", "X_sign: "..dump(x_sign))
+            npc.log("DEBUG", "X_adj: "..dump(x_sign*x_size))
+            npc.log("DEBUG", "Z_sign: "..dump(z_sign))
+            npc.log("DEBUG", "Z_adj: "..dump(z_sign*z_size))
+
+            local end_pos = {x=pos.x + (x_sign * x_size), y=pos.y + y_size, z=pos.z + (z_sign * z_size)}
+
+            -- For debug:
+            --minetest.set_node(start_pos, {name="default:mese_block"})
+            --minetest.set_node(end_pos, {name="default:mese_block"})
+            --minetest.get_meta(end_pos):set_string("infotext", minetest.get_meta(start_pos):get_string("infotext"))
+
+            npc.log("DEBUG", "Calculated end pos: "..minetest.pos_to_string(end_pos))
+
+            result = npc.locations.scan_area_for_usable_nodes(start_pos, end_pos)
+            if result and result.bed_type and #result.bed_type > 0 then
+                return result
+            else
+                npc.log("WARNING", "Failed attempt "..dump(i).." in finding usable nodes. "..dump(4-i).." attempts left.")
+                -- Rotate search area and try again
+                brotate = (brotate + 1) % 4
+            end
+        end
         ------------------------
         -- For debug:
         ------------------------
@@ -872,26 +913,6 @@ if minetest.get_modpath("mg_villages") ~= nil then
         -- Blue is z marker
         --minetest.set_node({x=pos.x,y=pos.y,z=pos.z + (z_sign * z_size)}, {name = "wool:blue"})
         --minetest.get_meta({x=pos.x,y=pos.y,z=pos.z + (z_sign * z_size)}):set_string("infotext", minetest.get_meta(pos):get_string("infotext")..", Axis: z, Sign: "..dump(z_sign))
-
-        npc.log("DEBUG", "Start pos: "..minetest.pos_to_string(start_pos))
-        npc.log("DEBUG", "Plot: "..dump(minetest.get_meta(start_pos):get_string("infotext")))
-
-        npc.log("DEBUG", "Brotate: "..dump(brotate))
-        npc.log("DEBUG", "X_sign: "..dump(x_sign))
-        npc.log("DEBUG", "X_adj: "..dump(x_sign*x_size))
-        npc.log("DEBUG", "Z_sign: "..dump(z_sign))
-        npc.log("DEBUG", "Z_adj: "..dump(z_sign*z_size))
-
-        local end_pos = {x=pos.x + (x_sign * x_size), y=pos.y + y_size, z=pos.z + (z_sign * z_size)}
-
-        -- For debug:
-        --minetest.set_node(start_pos, {name="default:mese_block"})
-        --minetest.set_node(end_pos, {name="default:mese_block"})
-        --minetest.get_meta(end_pos):set_string("infotext", minetest.get_meta(start_pos):get_string("infotext"))
-
-        npc.log("DEBUG", "Calculated end pos: "..minetest.pos_to_string(end_pos))
-
-        return npc.places.scan_area_for_usable_nodes(start_pos, end_pos)
     end
 
     -- This function "adapts" an existent mg_villages:plotmarker for NPC spawning.
@@ -911,11 +932,14 @@ if minetest.get_modpath("mg_villages") ~= nil then
             return
         end
 
-        local all_data = npc.places.get_mg_villages_building_data(pos)
+        local all_data = npc.locations.get_mg_villages_building_data(pos)
         local building_data = all_data.building_data
         local building_type = all_data.building_type
         local building_pos_data = all_data.building_pos_dataS
 
+        --minetest.log("bldng data: "..dump(building_data))
+        --minetest.log("bldng type: "..dump(building_type))
+        --minetest.log("Pos data: "..dump(building_pos_data))
         --minetest.log("Found building data: "..dump(building_data))
 
         -- Check if the building is of the support types
@@ -934,16 +958,19 @@ if minetest.get_modpath("mg_villages") ~= nil then
                 -- Store plot information
                 local plot_info = mg_villages.all_villages[village_id].to_add_data.bpos[plot_nr]
                 plot_info["ysize"] = building_data.ysize
-                -- minetest.log("Plot info at replacement time: "..dump(plot_info))
+                 minetest.log("Plot info at replacement time: "..dump(plot_info))
                 meta:set_string("plot_info", minetest.serialize(plot_info))
                 -- Scan building for nodes
                 local nodedata = spawner.scan_mg_villages_building(pos, plot_info)
                 -- Find building entrance
                 local doors = nodedata.openable_type
                 --minetest.log("Found "..dump(#doors).." openable nodes")
-                local entrance = npc.places.find_entrance_from_openable_nodes(doors, pos)
+                minetest.log("Nodedata: "..dump(nodedata))
+                local entrance = npc.locations.find_building_entrance(nodedata.bed_type, pos)
+                --minetest.log("Found good entrance: "..dump(entrance1))
+                --local entrance = npc.locations.find_entrance_from_openable_nodes(doors, pos)
                 if entrance then
-                    npc.log("INFO", "Found building entrance at: "..minetest.pos_to_string(entrance.node_pos))
+                    npc.log("INFO", "Found building entrance at: "..minetest.pos_to_string(entrance.door))
                 else
                     npc.log("ERROR", "Unable to find building entrance!")
                 end
@@ -952,7 +979,7 @@ if minetest.get_modpath("mg_villages") ~= nil then
                 -- Store nodedata into the spawner's metadata
                 meta:set_string("node_data", minetest.serialize(nodedata))
                 -- Find nearby plotmarkers, excluding current plotmarker
-                local nearby_plotmarkers = npc.places.find_plotmarkers(pos, 35, true)
+                local nearby_plotmarkers = npc.locations.find_plotmarkers(pos, 35, true)
                 --minetest.log("Found nearby plotmarkers: "..dump(nearby_plotmarkers))
                 meta:set_string("nearby_plotmarkers", minetest.serialize(nearby_plotmarkers))
                 -- Check if building position data is also available (recent mg_villages)
@@ -1083,7 +1110,7 @@ minetest.register_chatcommand("restore_plotmarkers", {
             -- Clear NPC stats, NPC data and node data
             -- Clear node_data metadata
             local node_data = minetest.deserialize(meta:get_string("node_data"))
-            npc.places.clear_metadata_usable_nodes_in_area(node_data)
+            npc.locations.clear_metadata_usable_nodes_in_area(node_data)
 
             meta:set_string("node_data", nil)
             meta:set_string("npcs", nil)
@@ -1120,8 +1147,8 @@ minetest.register_chatcommand("restore_area", {
         local end_pos = {x=pos.x+radius, y=pos.y+y_adj, z=pos.z+radius }
 
         -- Scan for usable nodes
-        local node_data = npc.places.scan_area_for_usable_nodes(start_pos, end_pos)
-        local removed_count = npc.places.clear_metadata_usable_nodes_in_area(node_data)
+        local node_data = npc.locations.scan_area_for_usable_nodes(start_pos, end_pos)
+        local removed_count = npc.locations.clear_metadata_usable_nodes_in_area(node_data)
 
         minetest.chat_send_player(name, "Restored "..dump(removed_count).." nodes in area from "
                 ..minetest.pos_to_string(start_pos).." to "..minetest.pos_to_string(end_pos))

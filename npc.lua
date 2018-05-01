@@ -50,7 +50,8 @@ npc.log_level = {
 	ERROR = true,
 	DEBUG = false,
 	DEBUG_ACTION = false,
-	DEBUG_SCHEDULE = false
+	DEBUG_SCHEDULE = false,
+	EXECUTION = false
 }
 
 npc.texture_check = {
@@ -127,8 +128,8 @@ end
 -- will be allowed.
 
 local function get_random_name(sex)
-	local i = math.random(#npc.data.FIRST_NAMES[sex])
-	return npc.data.FIRST_NAMES[sex][i]
+	local i = math.random(#npc.random_data.FIRST_NAMES[sex])
+	return npc.random_data.FIRST_NAMES[sex][i]
 end
 
 local function initialize_inventory()
@@ -240,15 +241,15 @@ end
 -- These items are chosen from the favorite items list.
 local function choose_spawn_items(self)
 	local number_of_items_to_add = math.random(1, 2)
-	local number_of_items = #npc.FAVORITE_ITEMS[self.sex].phase1
-
-	for i = 1, number_of_items_to_add do
-		npc.add_item_to_inventory(
-			self,
-			npc.FAVORITE_ITEMS[self.sex].phase1[math.random(1, number_of_items)].item,
-			math.random(1,5)
-		)
-	end
+--	local number_of_items = #npc.FAVORITE_ITEMS[self.sex].phase1
+--
+--	for i = 1, number_of_items_to_add do
+--		npc.add_item_to_inventory(
+--			self,
+--			npc.FAVORITE_ITEMS[self.sex].phase1[math.random(1, number_of_items)].item,
+--			math.random(1,5)
+--		)
+--	end
 	-- Add currency to the items spawned with. Will add 5-10 tier 3
 	-- currency items
 	local currency_item_count = math.random(5, 10)
@@ -430,52 +431,83 @@ function npc.initialize(entity, pos, is_lua_entity, npc_stats, occupation_name)
 		custom_trades = {}
 	}
 
-	-- Initialize trading offers for NPC
-	--npc.trade.generate_trade_offers_by_status(ent)
-	-- if ent.trader_data.trader_status == npc.trade.CASUAL then
-	--   select_casual_trade_offers(ent)
-	-- end
+	-- To model and control behavior of a NPC, advanced_npc follows an OS model
+	-- where it allows developers to create processes. These processes executes
+	-- programs, or a group of instructions that together make the NPC do something,
+	-- e.g. follow a player, use a furnace, etc. The model is:
+	--   - Each process has:
+	--     - An `execution context`, which is memory to store variables
+	--     - An `instruction queue`, which is a queue with the program instructions
+	--       to execute
+	--     - A `state`, whether the process is running or is paused
+	--   - Processes can specify whether they allow interruptions or not. They also
+	--     can opt to handle the interruption with a callback. The possible
+	--     interruptions are:
+	--     - Punch interruption
+	--     - Rightclick interruption
+	--     - Schedule interruption
+	--   - Only one process can run at a time. If another process is executed,
+	--     the currently running process is paused, and restored when the other ends.
+	--   - Processes can be enqueued, so once the executing process finishes, the
+	--     next one in the queue can be started.
+	--   - One process, called the `state` process, will run by default when no
+	--     processes are executing.
+	ent.execution = {
+        process_id = 0,
+		-- Queue of processes
+		process_queue = {},
+		-- State process
+		state_process = {},
+		-- Whether state process was changed or not
+		state_process_changed = false,
+		-- Whether to enable process execution or not
+		enable = true,
+		-- Interval to run process queue scheduler
+		scheduler_interval = 1,
+		-- Timer for next scheduler interval
+		scheduler_timer = 0,
+		-- Monitor environment executes timers and registered callbacks
+		monitor = {
+			timer = {},
+			callback = {
+				to_execute = {}
+			},
+			enabled = true
+		}
+    }
 
-	-- Actions data
-	ent.actions = {
-		-- The queue is a queue of actions to be performed on each interval
-		queue = {},
-		-- Current value of the action timer
-		action_timer = 0,
-		-- Determines the interval for each action in the action queue
-		-- Default is 1. This can be changed via actions
-		action_interval = npc.actions.default_interval,
-		-- Avoid the execution of the action timer
-		action_timer_lock = false,
-		-- Defines the state of the current action
-		current_action_state = npc.action_state.none,
-		-- Store information about action on state before lock
-		state_before_lock = {
-			-- State of the mobs_redo API
-			freeze = false,
-			-- State of execution
-			action_state = npc.action_state.none,
-			-- Action executed while on lock
-			interrupted_action = {}
+    -- NPC permanent storage for data
+    ent.data = {}
+
+    -- State date
+	ent.npc_state = {
+		-- This table defines the types of interaction the NPC is performing
+       interaction = {
+           dialogues = {
+               is_in_dialogue = false,
+               in_dialogue_with = "",
+               in_dialogue_with_name = ""
+           },
+		   yaw_before_interaction = 0
+       },
+		punch = {
+			last_punch_time = 0,
 		},
-		-- Variables that allows preserving the movement state and NPC animation
-		move_state = {
-			-- Whether a NPC is sitted or not
-			is_sitting = false,
-			-- Whether a NPC is laying or not
-			is_laying = false
-		},
-		-- Walking variables -- required for implementing accurate movement code
-		walking = {
-			-- Defines whether NPC is walking to specific position or not
-			is_walking = false,
-			-- Path that the NPC is following
-			path = {},
-			-- Target position the NPC is supposed to walk to in this step. NOTE:
-			-- This is NOT the end of the path, but the next position in the path
-			-- relative to the last position
-			target_pos = {}
-		},
+       movement = {
+           is_idle = false,
+           is_sitting = false,
+           is_laying = false,
+		   walking = {
+			   is_walking = false,
+			   path = {},
+			   target_pos = {},
+		   }
+       },
+       following = {
+           is_following = false,
+           following_obj = "",
+           following_obj_name = ""
+       }
 	}
 
 	-- This flag is checked on every step. If it is true, the rest of
@@ -492,9 +524,9 @@ function npc.initialize(entity, pos, is_lua_entity, npc_stats, occupation_name)
 		enabled = true,
 		-- Lock for when executing a schedule
 		lock = false,
-		-- Queue of schedules executed
+		-- Queue of programs in schedule to be enqueued
 		-- Used to calculate dependencies
-		temp_executed_queue = {},
+		dependency_queue = {},
 		-- An array of schedules, meant to be one per day at some point
 		-- when calendars are implemented. Allows for only 7 schedules,
 		-- one for each day of the week
@@ -526,32 +558,8 @@ function npc.initialize(entity, pos, is_lua_entity, npc_stats, occupation_name)
 	-- Set ID
 	ent.npc_id = tostring(math.random(1000, 9999))..":"..ent.npc_name
 
-	-- TODO: Remove this - do inside occupation
-	-- Dedicated trade test
---	ent.trader_data.trade_list = {
---		["default:tree"] = {},
---		["default:cobble"] = {},
---		["default:wood"] = {},
---		["default:diamond"] = {},
---		["default:mese_crystal"] = {},
---		["flowers:rose"] = {},
---		["advanced_npc:marriage_ring"] = {},
---		["flowers:geranium"] = {},
---		["mobs:meat"] = {},
---		["mobs:leather"] = {},
---		["default:sword_stone"] = {},
---		["default:shovel_stone"] = {},
---		["default:axe_stone"] = {}
---	}
-
 	-- Generate trade offers
 	npc.trade.generate_trade_offers_by_status(ent)
-
-	-- Add a custom trade offer
-	-- local offer1 = npc.trade.create_custom_sell_trade_offer("Do you want me to fix your steel sword?", "Fix steel sword", "Fix steel sword", "default:sword_steel", {"default:sword_steel", "default:iron_lump 5"})
-	-- table.insert(ent.trader_data.custom_trades, offer1)
-	--local offer2 = npc.trade.create_custom_sell_trade_offer("Do you want me to fix your mese sword?", "Fix mese sword", "Fix mese sword", "default:sword_mese", {"default:sword_mese", "default:copper_lump 10"})
-	--table.insert(ent.trader_data.custom_trades, offer2)
 
 	-- Set initialized flag on
 	ent.initialized = true
@@ -575,9 +583,25 @@ function npc.generate_trade_list_from_inventory(self)
 end
 
 function npc.set_trading_status(self, status)
+	-- Stop, if any, the casual offer regeneration timer
+	npc.monitor.timer.stop(self, "advanced_npc:trade:casual_offer_regeneration")
 	--minetest.log("Trader_data: "..dump(self.trader_data))
 	-- Set status
 	self.trader_data.trader_status = status
+	-- Check if status is casual
+	if status == npc.trade.CASUAL then
+		-- Register timer for changing casual trade offers
+		local timer_reg_success = npc.monitor.timer.register(self, "advanced_npc:trade:casual_offer_regeneration", 60,
+			function(self)
+				-- Re-select casual trade offers
+				npc.trade.generate_trade_offers_by_status(self)
+			end)
+		if timer_reg_success == false then
+			-- Activate timer instead
+			npc.monitor.timer.start(self, "advanced_npc:trade:casual_offer_regeneration")
+		end
+	end
+
 	-- Re-generate trade offers
 	npc.trade.generate_trade_offers_by_status(self)
 end
@@ -726,177 +750,1003 @@ function npc.start_dialogue(self, clicker, show_married_dialogue)
 end
 
 ---------------------------------------------------------------------------------------
--- Action functionality
+-- State functionality
 ---------------------------------------------------------------------------------------
--- This function adds a function to the action queue.
--- Actions should be added in strict order for tasks to work as expected.
-function npc.add_action(self, action, arguments)
-	local action_entry = {action=action, args=arguments, is_task=false}
-	table.insert(self.actions.queue, action_entry)
+-- All the self.npc_state variables are used to track the state of the NPC, and
+-- if necessary, restore it back in case of changes. The following functions allow
+-- to set different aspects of the state.
+function npc.set_movement_state(self, args)
+	self.npc_state.movement.is_idle = args.is_idle or false
+	self.npc_state.movement.is_sitting = args.is_sitting or false
+	self.npc_state.movement.is_laying = args.is_laying or false
+	self.npc_state.movement.walking.is_walking = args.is_walking or false
 end
 
--- This function adds task actions in-place, as opposed to
--- at the end of the queue. This allows for continued order
-function npc.add_task(self, task, args)
-	local action_entry = {action=task, args=args, is_task=true}
-	table.insert(self.actions.queue, action_entry)
-end
 
--- This function removes the first action in the action queue
--- and then executes it
-function npc.execute_action(self)
-	npc.log("DEBUG_ACTION", "Current actions queue: "..dump(self.actions.queue))
-	-- Check if an action was interrupted
-	if self.actions.current_action_state == npc.action_state.interrupted then
-		npc.log("DEBUG_ACTION", "Re-inserting interrupted action for NPC: '"..dump(self.npc_name).."': "..dump(self.actions.state_before_lock.interrupted_action))
-		-- Insert into queue the interrupted action
-		table.insert(self.actions.queue, 1, self.actions.state_before_lock.interrupted_action)
-		-- Clear the action
-		self.actions.state_before_lock.interrupted_action = {}
-		-- Clear the position
-		self.actions.state_before_lock.pos = {}
-	end
-	local result = nil
-	if table.getn(self.actions.queue) == 0 then
-		-- Set state to none
-		self.actions.current_action_state = npc.action_state.none
-		-- Keep state the same if there are no more actions in actions queue
-		return self.freeze
-	end
-	local action_obj = self.actions.queue[1]
-	-- Check if action is null
-	if action_obj.action == nil then
-		return
-	end
-	-- Check if action is an schedule check
-	if action_obj.action == "schedule_check" then
-		-- Remove table entry
-		table.remove(self.actions.queue, 1)
-		-- Execute schedule check
-		npc.schedule_check(self)
-		-- Return
-		return false
-	end
-	-- If the entry is a task, then push all this new operations in
-	-- stack fashion
-	if action_obj.is_task == true then
-		npc.log("DEBUG_ACTION", "Executing task for NPC '"..dump(self.npc_name).."': "..dump(action_obj))
-		-- Backup current queue
-		local backup_queue = self.actions.queue
-		-- Remove this "task" action from queue
-		table.remove(self.actions.queue, 1)
-		-- Clear queue
-		self.actions.queue = {}
-		-- Now, execute the task with its arguments
-		result = npc.actions.execute(self, action_obj.action, action_obj.args)
-		--result = action_obj.action(self, action_obj.args)
-		-- After all new actions has been added by task, add the previously
-		-- queued actions back
-		for i = 1, #backup_queue do
-			table.insert(self.actions.queue, backup_queue[i])
-		end
+---------------------------------------------------------------------------------------
+-- Execution API
+---------------------------------------------------------------------------------------
+-- Methods for:
+--  - Enqueue a program
+--  - Set a program as the `state` process
+--  - Execute next process in queue
+--  - Pause/restore current process
+--  - Process scheduling
+--  - Get the current process data
+--  - Create, read, write and update variables in current process
+--  - Enqueue and execute instructions for the current process
+
+
+-- Global namespace
+npc.exec = {
+	var = {},
+	proc = {
+		instr = {}
+	}
+}
+-- Private namespace
+local _exec = {
+	proc = {}
+}
+
+-- Process states
+npc.exec.proc.state = {
+	INACTIVE = "inactive",
+	RUNNING = "running",
+	EXECUTING = "executing",
+	PAUSED = "paused",
+	WAITING_USER_INPUT = "waiting_user_input",
+	READY = "ready"
+}
+
+npc.exec.proc.instr.state = {
+	INACTIVE = "inactive",
+	EXECUTING = "executing",
+	INTERRUPTED = "interrupted"
+}
+
+
+-- This function sets the interrupt options as given from the `interrupt_options`
+-- table. This table can have the following values:
+--   - allow_punch, boolean
+--   - allow_rightclick, boolean
+--   - allow_schedule, boolean
+function npc.exec.create_interrupt_options(interrupt_options)
+	local interrupt_options = interrupt_options or {}
+	if next(interrupt_options) ~= nil then
+		local allow_punch = interrupt_options.allow_punch
+		local allow_rightclick = interrupt_options.allow_rightclick
+		local allow_schedule = interrupt_options.allow_schedule
+
+		-- Set defaults
+		if allow_punch == nil then allow_punch = true end
+		if allow_rightclick == nil then allow_rightclick = true end
+		if allow_schedule == nil then allow_schedule = true end
+
+		return {
+			allow_punch = allow_punch,
+			allow_rightclick = allow_rightclick,
+			allow_schedule = allow_schedule
+		}
 	else
-		npc.log("DEBUG_ACTION", "Executing action for NPC '"..dump(self.npc_name).."': "..dump(action_obj))
-		-- Store the action that is being executed
-		self.actions.state_before_lock.interrupted_action = action_obj
-		-- Store current position
-		self.actions.state_before_lock.pos = self.object:getpos()
-		-- Execute action as normal
-		result = npc.actions.execute(self, action_obj.action, action_obj.args)
-		-- Remove task
-		table.remove(self.actions.queue, 1)
-		-- Set state
-		self.actions.current_action_state = npc.action_state.executing
+		return {
+			allow_punch = true,
+			allow_rightclick = true,
+			allow_schedule = true
+		}
+	end
+end
+
+function _exec.get_new_process_id(self)
+    self.execution.process_id = self.execution.process_id + 1
+    if self.execution.process_id > 10000 then
+        self.execution.process_id = 0
+    end
+    return self.execution.process_id
+end
+
+function _exec.create_process_entry(program_name, arguments, interrupt_options, is_state_program, process_id)
+	return {
+        id = process_id,
+		program_name = program_name,
+		arguments = arguments,
+		state = npc.exec.proc.state.INACTIVE,
+		execution_context = {
+			data = {},
+			instr_interval = 1,
+			instr_timer = 0
+		},
+		instruction_queue = {},
+		current_instruction = {
+			entry = {},
+			state = npc.exec.proc.instr.state.INACTIVE,
+			pos = {}
+		},
+		interrupt_options = npc.exec.create_interrupt_options(interrupt_options),
+		interrupted_process = {},
+		is_state_process = is_state_program
+	}
+end
+
+-- This function creates a process for the given program, and
+-- places it into the process queue.
+function npc.exec.enqueue_program(self, program_name, arguments, interrupt_options, is_state_program)
+	if is_state_program == nil then
+		is_state_program = false
+	end
+	-- Enqueue process
+	self.execution.process_queue[#self.execution.process_queue + 1] =
+		_exec.create_process_entry(program_name, arguments, interrupt_options, is_state_program, _exec.get_new_process_id(self))
+
+end
+
+-- This function creates a state process. The state process will execute
+-- everytime there's no other process executing
+function npc.exec.set_state_program(self, program_name, arguments, interrupt_options)
+	-- Disable monitor - give a chance to this state process to do what it has to do
+	self.execution.monitor.enabled = false
+	-- This flag signals the state process was changed and scheduler needs to consume
+	self.execution.state_process_changed = true
+	self.execution.state_process = {
+		program_name = program_name,
+		arguments = arguments,
+		state = npc.exec.proc.state.INACTIVE,
+		execution_context = {
+			data = {},
+			instr_interval = 1,
+			instr_timer = 0
+		},
+		instruction_queue = {},
+		current_instruction = {
+			entry = {},
+			state = npc.exec.proc.instr.state.INACTIVE,
+			pos = {}
+		},
+		interrupt_options = npc.exec.create_interrupt_options(interrupt_options),
+		is_state_process = true,
+		state_process_id = os.time()
+	}
+end
+
+-- Convenience function that returns first process in the queue
+function npc.exec.get_current_process(self)
+	local result = self.execution.process_queue[1]
+	if result then
+		if next(result) == 0 then
+			return nil
+		end
 	end
 	return result
 end
 
-function npc.lock_actions(self)
 
-	-- Avoid re-locking if already locked
-	if self.actions.action_timer_lock == true then
-		return
-	end
+-- This function always execute the process at the start of the process
+-- queue. When a process is stopped (because its instruction queue is empty
+-- or because the process itself stops), the entry is removed from the
+-- process queue, and thus the next process to execute will be the first one
+-- in the queue.
 
-	local pos = self.object:getpos()
-
-	if self.freeze == false then
-		-- Round current pos to avoid the NPC being stopped on positions
-		-- where later on can't walk to the correct positions
-		-- Choose which position is to be taken as start position
-		if self.actions.state_before_lock.pos ~= {} then
-			pos = vector.round(self.actions.state_before_lock.pos)
-		else
-			pos = vector.round(self.object:getpos())
+function npc.exec.execute_process(self)
+	local current_process = self.execution.process_queue[1]
+	-- Execute current process
+	if current_process then
+		-- Restore scheduler interval
+		self.execution.scheduler_interval = 1
+		if not current_process.is_state_process then
+			npc.log("EXECUTION", "NPC "..dump(self.npc_name).." is executing: "..dump(current_process.program_name))
 		end
-		pos.y = self.object:getpos().y
+        current_process.state = npc.exec.proc.state.EXECUTING
+		npc.programs.execute(self, current_process.program_name, current_process.arguments)
+        current_process.state = npc.exec.proc.state.RUNNING
+		-- Re-enable monitor
+		if current_process.is_state_process then
+			self.execution.monitor.enabled = true
+		end
 	end
-	-- Check if NPC is in unmovable state
-	if self.actions.move_state
-			and self.actions.move_state.is_sitting == false and self.actions.move_state.is_laying == false then
-		-- Stop NPC
-		npc.actions.execute(self, npc.actions.cmd.STAND, {pos=pos})
-	end
-	-- Avoid all timer execution
-	self.actions.action_timer_lock = true
-	-- Reset timer so that it has some time after interaction is done
-	self.actions.action_timer = 0
-	-- Check if there are is an action executing
-	if self.actions.current_action_state == npc.action_state.executing
-			and self.freeze == false then
-		-- Store the current action state
-		self.actions.state_before_lock.action_state = self.actions.current_action_state
-		-- Set current action state to interrupted
-		self.actions.current_action_state = npc.action_state.interrupted
-	end
-	-- Store the current freeze variable
-	self.actions.state_before_lock.freeze = self.freeze
-	-- Freeze mobs_redo API
-	self.freeze = false
-
-	npc.log("DEBUG_ACTION", "Locking NPC "..dump(self.npc_id).." actions")
 end
 
-function npc.unlock_actions(self)
 
-	if self.yaw_before_interaction ~= nil then
-		minetest.after(1, function(ent, yaw)
-			ent.object:setyaw(yaw)
-		end, self, self.yaw_before_interaction)
-		self.yaw_before_interaction = nil
+---------------------------------------------------------------------------------------
+-- Interruption algorithm
+---------------------------------------------------------------------------------------
+-- Interruption of an executing process can come from three sources:
+--   - NPC is left-clicked (or punch)
+--   - NPC is right-clicked (or rightclick)
+--   - Job scheduler has identified it is time to start a process
+-- When an interrupt happens, and another process needs to be executed, the
+-- workflow should be the following:
+--   1. Enqueue the new process to be scheduled. 
+--      a. If for some reason the process queue *has more than one* process,
+--         then the process will have to be enqueued with high priority,
+--         meaning next to the current process.
+--   2. Pause the current executing process using `npc.exec.pause_process(self)`
+--      The new process will be executed by `npc.exec.pause_process()`.
+--   3. The process finishes execution successfully, in which the scheduler
+--      will notice that and restore the interrupted process properly
+--
+-- It is very important that a process is enqueued before pausing the current
+-- process. The pause will not work itself if that condition is not met
+
+-- This function enqueues an array of processes right after the current process
+-- Each element in `program_entries` is a Lua table with three parameters:
+--   - program_name
+--   - arguments
+--   - interrupt_options
+function _exec.priority_enqueue(self, program_entries)
+--	minetest.log("BEGIN PRIORITY ENQUEUE")
+--	minetest.log("Initial queue: "..dump(self.execution.process_queue))
+	-- Check if the queue has more than one (current) process
+	if #self.execution.process_queue > 1 then
+		npc.log("EXECUTION", "More than One: "..dump(#self.execution.process_queue))
+		-- Get current process entry
+		--local current_process = self.execution.process_queue[1]
+		-- Backup the current process queue
+--		local backup_queue = self.execution.process_queue
+--		minetest.log("Backup queue size: "..dump(#backup_queue))
+--		-- Remove current process from backup_queue
+--		table.remove(backup_queue, 1)
+--		minetest.log("Backup queue size after dequeue: "..dump(#backup_queue))
+--		-- Recreate queue, re-enqueue first process
+--		minetest.log("ENqueue")
+--		self.execution.process_queue[#self.execution.process_queue + 1] = current_process
+		npc.log("EXECUTION", "Queue size after enqueue: "..dump(#self.execution.process_queue))
+		-- Enqueue the next processes with high priority (next to the current)
+		npc.log("EXECUTION", "Enqueue all new")
+		for i = 1, #program_entries do
+			if program_entries[i].is_state_program == true then
+				npc.exec.set_state_program(self,
+					program_entries[i].program_name,
+					program_entries[i].arguments,
+					program_entries[i].interrupt_options)
+				-- Enqueue state process
+				table.insert(self.execution.process_queue, i + 1, self.execution.state_process)
+			else
+				-- Enqueue normal process
+				table.insert(
+					self.execution.process_queue, i + 1, _exec.create_process_entry(
+						program_entries[i].program_name,
+						program_entries[i].arguments,
+						program_entries[i].interrupt_options,
+						program_entries[i].is_state_program,
+						_exec.get_new_process_id(self)))
+			end
+		end
+		--minetest.log("Backup queue after all new: "..dump(#backup_queue))
+	else
+		npc.log("EXECUTION", "Only one process in queue")
+		-- There is only one process, therefore just enqueue every process
+		for i = 1, #program_entries do
+			if program_entries[i].is_state_program == true then
+				npc.exec.set_state_program(self,
+					program_entries[i].program_name,
+					program_entries[i].arguments,
+					program_entries[i].interrupt_options)
+				-- Enqueue state process
+				self.execution.process_queue[#self.execution.process_queue + 1] = self.execution.state_process
+			else
+				-- Enqueue normal process
+				self.execution.process_queue[#self.execution.process_queue + 1] = _exec.create_process_entry(
+					program_entries[i].program_name,
+					program_entries[i].arguments,
+					program_entries[i].interrupt_options,
+					program_entries[i].is_state_program,
+					_exec.get_new_process_id(self))
+			end
+		end
 	end
+end
 
-	-- Allow timers to execute
-	self.actions.action_timer_lock = false
+-- This function handles a new process called by an interrupt.
+-- Will execute steps 1 and 2 of the above algorithm. The scheduler 
+-- will take care of handling step 3.
+function npc.exec.interrupt(self, new_program, new_arguments, interrupt_options)
+	--minetest.log("Priority enqueue")
+	-- Enqueue process with priority
+	_exec.priority_enqueue(self,
+		{[1] = {program_name=new_program, arguments=new_arguments, interrupt_options=interrupt_options}})
+	--minetest.log("Pause")
+	-- Pause current process
+	_exec.pause_process(self, false)
+	--minetest.log("Dequeue")
+	-- Dequeue process
+	local interrupted_process = npc.exec.get_current_process(self)
+	table.remove(self.execution.process_queue, 1)
+	--minetest.log("Store")
+	-- Store interrupted process
+	local current_process = self.execution.process_queue[1]
+	current_process.interrupted_process = interrupted_process
+	-- Restore process scheduler interval
+	self.execution.scheduler_interval = 1
+	--minetest.log("Execute")
+	-- Execute current process
+	npc.exec.execute_process(self)
+end
 
-	-- Check if the NPC is sitting or laying states
-	if self.actions.move_state
-			and (self.actions.move_state.is_sitting == true or self.actions.move_state.is_laying == true) then
+-- This function pauses a process and sets its state as waiting for user input.
+-- The process scheduler and instruction executer will skip any process in this state.
+-- Once the process is ready to run again, the `npc.exec.set_ready_state()` function
+-- should be called, and execution will continue.
+function npc.exec.set_input_wait_state(self)
+	npc.log("EXECUTION", "Setting input wait...")
+	if self.execution.process_queue[1] then
+		-- Call pause to do the instruction interruption
+		_exec.pause_process(self)
+		-- Change process state
+		self.execution.process_queue[1].state = npc.exec.proc.state.WAITING_USER_INPUT
+	end
+end
+
+function npc.exec.set_ready_state(self)
+	if self.execution.process_queue[1] then
+		-- Change process state
+		self.execution.process_queue[1].state = npc.exec.proc.state.READY
+	end
+end
+
+-- If there is another process in the queue, this function pauses a 
+-- currently executing process, then executes the 
+function _exec.pause_process(self, set_instruction_as_interrupted)
+	if #self.execution.process_queue == 1 then
+		npc.log("WARNING", "Unable to pause current process without anoher process in queue.\nCurrent queue: "
+			..dump(self.execution.process_queue))
 		return
 	end
 
-	-- Restore the value of self.freeze
-	self.freeze = self.actions.state_before_lock.freeze
-
-	if table.getn(self.actions.queue) == 0 then
-		-- Allow mobs_redo API to execute since action queue is empty
-		self.freeze = true
+	local current_process = self.execution.process_queue[1]
+	if current_process then
+		-- Check if there are instructions in the instruction queue
+		if #current_process.instruction_queue > 0 then
+			-- Check current instruction
+			if current_process.current_instruction.entry 
+				and current_process.current_instruction.state == npc.exec.proc.instr.state.EXECUTING
+                and set_instruction_as_interrupted == true then
+				-- Change instruction state
+				current_process.current_instruction.state = npc.exec.proc.instr.state.INTERRUPTED
+			elseif set_instruction_as_interrupted == nil or set_instruction_as_interrupted == false then
+                current_process.current_instruction.state = npc.exec.proc.instr.state.INACTIVE
+            end
+		end
+		-- Change process state
+		current_process.state = npc.exec.proc.state.PAUSED
 	end
-
-	npc.log("DEBUG_ACTION", "Unlocked NPC "..dump(self.npc_id).." actions")
 end
+
+-- This function restores the process that was running before the
+-- current one (the interrupted process).
+-- As it can only be runned with the interrupted process being enqueued
+-- before calling this function, this function is private and only
+-- used by the scheduler (which will enqueue the interrupted process before
+-- calling this)
+function _exec.restore_process(self)
+	local current_process = self.execution.process_queue[1]
+	if current_process then
+		-- Change process state
+		current_process.state = npc.exec.proc.state.RUNNING
+		-- Check if any instruction was interrupted
+		if current_process.current_instruction.entry
+			and current_process.current_instruction.state == npc.exec.proc.instr.state.INTERRUPTED then
+			-- Restore position
+			self.object:setpos(current_process.current_instruction.pos)
+			-- Execute instruction
+			_exec.proc.execute(self, current_process.current_instruction.entry)
+		end
+	end
+end
+
+---------------------------------------------------------------------------------------
+-- Scheduler algorithm
+---------------------------------------------------------------------------------------
+-- This function will manage how processes are executed. This function needs
+-- to be called on a one second interval. The function will check:
+--   - If the process queue is emtpy and there is a state process, enqueue the
+--     the state process and execute
+--   - If the current process' instruction queue is empty:
+--     - If the process is a `state` process, and no other process is in queue,
+--       re-execute `state` process.
+--     - If the process is a `state` process and there is a process in queue,
+--       - Remove current process from queue
+-- 		 - Store the current process entry into the `interrupted_process` field of
+--         the next process in queue.
+--       - Execute next process in queue
+--     - If the process is *not* a `state` process and there is a process entry in
+--       the `interrupted_process` field:
+--       - Remove current process from queue
+--       - Enqueue the entry in the `interrupted_process` field
+--       - Execute next process in the queue
+--   - If the instruction queue is not empty, continue
+function npc.exec.process_scheduler(self)
+	npc.log("EXECUTION", "Current process queue size: "..dump(#self.execution.process_queue))
+	for i = 1, #self.execution.process_queue do
+		minetest.log("["..dump(self.execution.process_queue[i].program_name).."]")
+	end
+	-- Check current process
+	local current_process = self.execution.process_queue[1]
+	if current_process then
+		-- Check current process state
+		if current_process.state == npc.exec.proc.state.EXECUTING then
+			-- Do not interrupt process while the process is enqueuing instructions
+			return
+		elseif current_process.state == npc.exec.proc.state.INACTIVE then
+			-- Execute process
+			npc.exec.execute_process(self)
+		elseif current_process.state == npc.exec.proc.state.READY then
+			-- Change state to running
+			current_process.state = npc.exec.proc.state.RUNNING
+		elseif current_process.state == npc.exec.proc.state.PAUSED then
+			-- Restore process
+			_exec.restore_process(self)
+		end
+		-- Check if instruction queue is empty
+		if current_process.instruction_queue and #current_process.instruction_queue == 0
+				and current_process.state == npc.exec.proc.state.RUNNING then
+			-- Check if this is a state process
+			if current_process.is_state_process == true then
+				-- Check if the process queue only has this process
+				if #self.execution.process_queue == 1 then
+					-- Check if state process was changed
+					if self.execution.state_process_changed == true then
+						npc.log("EXECUTION", "Switching from state process "
+								..dump(self.execution.process_queue[1].program_name)
+								.." to "
+								..dump(self.execution.state_process.program_name))
+						-- Dequeue this process, enqueue new one
+						self.execution.process_queue[1] = self.execution.state_process
+						-- Change flag back
+						self.execution.state_process_changed = false
+					end
+					-- Since this is a state process, re-execute
+					npc.log("EXECUTION", "Hi, executing state process "..dump(self.execution.process_queue[1].program_name))
+					npc.exec.execute_process(self)
+				else
+					-- Changed state process check - an old state process could be enqueued,
+					-- but the state process was changed. If this is is true, ignore old
+					-- entry in the process queue.
+					local next_enqueued_process = self.execution.process_queue[2]
+					if self.execution.state_process_changed == true
+						and next_enqueued_process.id ~= current_process.id
+							and next_enqueued_process.is_state_process == true then
+						-- Assume every enqueued state process is old and discard
+						table.remove(self.execution.process_queue, 2)
+						-- Change flag back
+						self.execution.state_process_changed = false
+					else
+						-- Next process is not a state process, interrupt current state process
+						npc.log("EXECUTION", "Current process queue size: "..dump(#self.execution.process_queue))
+						-- Pause current process
+						current_process.state = npc.exec.proc.state.PAUSED
+						-- Dequeue process
+						table.remove(self.execution.process_queue, 1)
+						-- Get next process in queue
+						local next_process = self.execution.process_queue[1]
+						-- Store the interrupted process in the next process
+						next_process.interrupted_process = current_process
+					end
+					-- Execute next process
+					npc.exec.execute_process(self)
+				end
+			else
+				npc.log("EXECUTION", "Current process name: "..dump(current_process.program_name))
+				npc.log("EXECUTION", "Process queue size: "..dump(#self.execution.process_queue))
+				npc.log("EXECUTION", "Current instrcution queue size: "..dump(#current_process.instruction_queue))
+				npc.log("EXECUTION", "Current process state: "..dump(current_process.state))
+				-- This is not a state process, check the interrupted process field
+				if next(current_process.interrupted_process) ~= nil then
+					npc.log("EXECUTION", "There is an interrupted process: "..dump(current_process.interrupted_process.program_name))
+					npc.log("EXECUTION", "------------------------------")
+					npc.log("EXECUTION", "Is state process? "..dump(current_process.interrupted_process.is_state_process))
+					npc.log("EXECUTION", "State process ID: "..dump(current_process.interrupted_process.state_process_id))
+					npc.log("EXECUTION", "Valid state process ID: "..dump(self.execution.state_process.state_process_id))
+
+					if current_process.interrupted_process.is_state_process == true and
+						current_process.interrupted_process.state_process_id < self.execution.state_process.state_process_id then
+						-- Do nothing, just dequeue process
+						npc.log("EXECUTION", "Found an old state process that was interrupted.\n"
+								..dump(current_process.interrupted_process.program_name).." WILL NOT be re-enqueued")
+						npc.log("EXECUTION", "Process "..dump(self.execution.process_queue[1].program_name)
+								.." is finished execution and will be dequeued")
+						-- Dequeue process
+						table.remove(self.execution.process_queue, 1)
+						-- Check if there are more processes
+						if #self.execution.process_queue > 0 then
+							-- Execute new process
+							npc.exec.execute_process(self)
+						end
+						return
+					end
+
+					-- Dequeue process
+					table.remove(self.execution.process_queue, 1)
+					-- Re-enqueue the interrupted process
+					self.execution.process_queue[#self.execution.process_queue + 1] = current_process.interrupted_process
+					if #self.execution.process_queue > 1 then
+						-- Execute next process in queue
+						npc.exec.execute_process(self)
+					else
+						-- Execute next process in queue
+						_exec.restore_process(self)
+					end
+				else
+					npc.log("EXECUTION", "Process "..dump(self.execution.process_queue[1].program_name).." is finished execution")
+					-- Dequeue process
+					table.remove(self.execution.process_queue, 1)
+					-- Check if there are more processes
+					if #self.execution.process_queue > 0 then
+						-- Execute new process
+						npc.exec.execute_process(self)
+					end
+				end
+			end
+		end
+	else
+		-- Process queue is empty, enqueue state process if it is defined
+		if next(self.execution.state_process) ~= nil then
+			npc.log("EXECUTION", "NPC "..dump(self.npc_name).." is executing: "..dump(self.execution.state_process.program_name))
+			self.execution.process_queue[#self.execution.process_queue + 1] = self.execution.state_process
+			-- Execute state process
+			npc.exec.execute_process(self)
+		end
+	end
+end
+
+---------------------------------------------------------------------------------------
+-- Process instructions functionality - enqueue and execute instructions
+-- for the currently executing process
+---------------------------------------------------------------------------------------
+-- This function enqueues a given instruction with its arguments
+-- in the current process' instruction queue. If var_name is given,
+-- results of this function are stored in the execution context with that
+-- var_key
+function npc.exec.proc.enqueue(self, name, args, var_name)
+	local current_process = self.execution.process_queue[1]
+	if current_process then
+		current_process.instruction_queue[#current_process.instruction_queue + 1] =
+			{name=name, args=args, var_name=var_name}
+	end
+end
+
+-- Private function to execute a given instruction entry
+function _exec.proc.execute(self, entry)
+	if entry ~= nil and next(entry) ~= nil then
+		local current_process = self.execution.process_queue[1]
+		if current_process then
+			-- Set current instruction params
+			current_process.current_instruction.entry = entry
+			current_process.current_instruction.pos = self.object:getpos()
+			current_process.current_instruction.state = npc.exec.proc.instr.state.EXECUTING
+			-- Execute current instruction
+			npc.log("EXECUTION", "  Executing instruction: "..dump(entry.name))
+			local result = npc.programs.instr.execute(self, entry.name, entry.args)
+			-- Check if var_name was given
+			if entry.var_name then
+				if npc.exec.var.get(self, entry.var_name) then
+					-- Update the value
+					npc.exec.var.set(self, entry.var_name, result)
+				else
+					-- Create new var with value
+					npc.exec.var.put(self, entry.var_name, result, false)
+				end
+			end
+			-- Dequeue from instruction queue
+			table.remove(current_process.instruction_queue, 1)
+		end
+	end
+--	minetest.log("END PRIVATE PROC EXEC")
+end
+
+-- This function executes the next instruction entry in the current
+-- process' instruction queue
+function npc.exec.proc.execute(self)
+	--minetest.log("PROCESS EXECUTE BEGIN")
+	local current_process = self.execution.process_queue[1]
+	if current_process then
+		-- Get next instruction entry in queue
+		local entry = current_process.instruction_queue[1]
+		-- Execute instruction
+		_exec.proc.execute(self, entry)
+	end
+	--minetest.log("PROCESS EXECUTE END")
+end
+
+---------------------------------------------------------------------------------------
+-- Execution routine
+---------------------------------------------------------------------------------------
+-- This function is to be executed on each step() of the Lua entity
+-- Algorithm:
+--   1. Increase the timer with dtime
+--   2. If the timer has reached the interval, then:
+--      a. Reset the timer and execute `npc.exec.process_scheduler(self)`
+--   3. Increase the current process' instruction timer with dtime
+--   4. If the instruction timer has reached the interval, then:
+--      a. Reset the instruction timer and execute `noc.exec.proc.execute(self)`
+function npc.exec.execution_routine(self, dtime)
+	local execution = self.execution
+	-- Increase process scheduler timer
+	execution.scheduler_timer = execution.scheduler_timer + dtime
+	-- Check if timer reached interval
+	if execution.scheduler_timer >= execution.scheduler_interval then
+		-- Reset timer
+		execution.scheduler_timer = 0
+		npc.log("EXECUTION", "Executing scheduler for NPC "..dump(self.npc_name))
+		-- Execute process scheduler
+		npc.exec.process_scheduler(self)
+	end
+	-- Get current process
+	local current_process = execution.process_queue[1]
+	if current_process ~= nil and current_process.execution_context ~= nil then
+		--minetest.log("STATE: "..dump(self.execution.process_queue[1].state))
+		--minetest.log("PROCESS: "..dump(self.execution.process_queue[1]))
+		if current_process.state == npc.exec.proc.state.RUNNING then
+			-- Increase timer
+			current_process.execution_context.instr_timer =
+				current_process.execution_context.instr_timer + dtime
+			-- Check if timer reached interval
+			if current_process.execution_context.instr_timer
+					>= current_process.execution_context.instr_interval then
+				-- Reset timer
+				--minetest.log("HI, RESET")
+				current_process.execution_context.instr_timer = 0
+				-- Check if NPC is walking
+				if self.npc_state.movement.walking.is_walking == true then
+					-- Move NPC to expected position to ensure not getting lost
+					local pos = self.npc_state.movement.walking.target_pos
+					self.object:moveto({x=pos.x, y=pos.y, z=pos.z})
+				end
+				--minetest.log("Executing next function :)")
+				-- Execute next instruction in process' queue
+				npc.exec.proc.execute(self)
+			end
+		end
+	end
+end
+
+---------------------------------------------------------------------------------------
+-- Variable functionality - create, read, update and delete variables in the
+-- current process.
+-- IMPORTANT: These variables are deleted when the process is finished execution.
+--            For permanent storage, use npc.data.* functions.
+---------------------------------------------------------------------------------------
+-- This function adds a value to the execution context of the
+-- current process.
+-- Readonly defaults to false. Returns false if failed due to
+-- key-name conflict, or returns true if successful
+function npc.exec.var.put(self, name, value, readonly)
+	-- Retrieve current process execution context
+	local current_process = self.execution.process_queue[1]
+	if current_process then
+		local context = current_process.execution_context
+		-- Check if variable exists
+		if context[name] ~= nil then
+			npc.log("ERROR", "Attempt to create new variable with name "..name.." failed"..
+				"due to variable already existing: "..dump(context[name]))
+			return false
+		end
+		context[name] = {value = value, readonly = readonly}
+		return true		
+	end
+end
+
+-- Returns the value of a given key. If not found returns nil.
+function npc.exec.var.get(self, name)
+	-- Retrieve current process execution context
+	local current_process = self.execution.process_queue[1]
+	if current_process then
+		local context = current_process.execution_context
+		local result = context[name]
+		if result == nil then
+			return nil
+		else
+			return result.value
+		end
+	end
+end
+
+function npc.exec.var.get_or_put_if_nil(self, name, initial_value)
+	local var = npc.exec.var.get(self, name)
+	if var == nil then
+		npc.exec.var.put(self, name, initial_value)
+		return initial_value
+	else
+		return var
+	end
+end
+
+-- This function updates a value in the execution context.
+-- Returns false if the value is read-only or if key isn't found.
+-- Returns true if able to update value
+function npc.exec.var.set(self, name, new_value)
+    -- Retrieve current process execution context
+	local current_process = self.execution.process_queue[1]
+	if current_process then
+		local context = current_process.execution_context
+		local var = context[name]
+		if var == nil then
+			return false
+		else
+			if var.readonly == true then
+				npc.log("ERROR", "Attempt to set value of readonly variable: "..name)
+				return false
+			end
+			var.value = new_value
+		end
+		return true
+	end
+end
+
+-- This function removes a variable from the execution context.
+-- If the key doesn't exist, returns nil, otherwise, returns
+-- the value removed.
+function npc.exec.var.remove(self, name)
+    -- Retrieve current process execution context
+	local current_process = self.execution.process_queue[1]
+	if current_process then
+		local context = current_process.execution_context
+		local result = context[name]
+		if result == nil then
+			return nil
+		else
+			-- Clear variable
+			npc.exec.get_current_process(self).execution_context[name] = nil
+			return result
+		end
+	end
+end
+
+---------------------------------------------------------------------------------------
+-- Permanent storage functionality - create, read, update and delete variables
+-- in the NPC's permnanent storage.
+-- IMPORTANT: These variables are *NOT* deleted. Be careful what you store on it or
+--            the NPC object can grow in size very quickly.
+--            For temporary storage, use npc.exec.var.* functions.
+---------------------------------------------------------------------------------------
+-- Namespace
+npc.data = {}
+
+-- This function adds a value to the execution context of the
+-- current process.
+-- Readonly defaults to false. Returns false if failed due to
+-- key-name conflict, or returns true if successful
+function npc.data.put(self, name, value, readonly)
+    -- Check if variable exists
+    if self.data[name] ~= nil then
+        npc.log("ERROR", "Attempt to create new variable with name "..name.." failed"..
+                "due to variable already existing: "..dump(self.data[name]))
+        return false
+    end
+    self.data[name] = {value = value, readonly = readonly}
+    return true
+end
+
+-- Returns the value of a given key. If not found returns nil.
+function npc.data.get(self, name)
+    local result = self.data[name]
+    if result == nil then
+        return nil
+    else
+        return result.value
+    end
+end
+
+-- Convenience function for initializing a variable if nil
+function npc.data.get_or_put_if_nil(self, name, initial_value)
+	local var = npc.data.get(self, name)
+	if var == nil then
+		npc.data.put(self, name, initial_value, false)
+		return initial_value
+	else
+		return var
+	end
+end
+
+-- This function updates a value in the execution context.
+-- Returns false if the value is read-only or if key isn't found.
+-- Returns true if able to update value
+function npc.data.set(self, name, new_value)
+    local var = self.data[name]
+    if var == nil then
+        return false
+    else
+        if var.readonly == true then
+            npc.log("ERROR", "Attempt to set value of readonly variable: "..name)
+            return false
+        end
+        var.value = new_value
+    end
+    return true
+end
+
+-- This function removes a variable from the execution context.
+-- If the key doesn't exist, returns nil, otherwise, returns
+-- the value removed.
+function npc.data.remove(self, name)
+    local result = self.data[name]
+    if result == nil then
+        return nil
+    else
+        -- Clear variable
+        self.data[name] = nil
+        return result
+    end
+end
+
+---------------------------------------------------------------------------------------
+-- Monitor API: API that executes timers and registered callbacks.
+--   - Timers can be registered by programs or by code in general, and can
+--     have a callback which is executed when the timer reaches the interval.
+--   - Callbacks are for programs, instructions and for interrupts (punch, right-click,
+--     and scheduled entries). The callback is executed after a program,
+--     instruction or interrupt is executed.
+-- IMPORTANT: Please, keep *all your callbacks* as light as possible. While useful,
+--            too many timers or callbacks can deteriorate performance, as all could
+--			  run on NPC steps.
+---------------------------------------------------------------------------------------
+-- Namespace
+npc.monitor = {
+	timer = {
+		registered = {}
+	},
+	callback = {
+		registered = {},
+		-- Constant values
+		type = {
+			program = "program",
+			instruction = "instruction",
+			interaction = "interaction",
+		},
+		subtype = {
+			on_punch = "on_punch",
+			on_rightclick = "on_rightclick",
+			on_schedule = "on_schedule",
+		}
+	}
+}
+
+-- Register a timer. The timer can have the following arguments:
+--   - name: unique identifier for timer
+--   - interval: when timer reaches this value, callback will be executed
+--   - callback: function to be executed when timer reaches interval
+--   - initial_value: default is 0. Give this to start with a specific value
+function npc.monitor.timer.register(name, interval, callback)
+	if npc.monitor.timer.registered[name] ~= nil then
+		npc.log("DEBUG", "Attempt to register an existing timer: "..dump(name))
+		return false
+	else
+		local timer = {
+			interval = interval,
+			callback = callback
+		}
+		npc.monitor.timer.registered[name] = timer
+	end
+	return true
+end
+
+function npc.monitor.timer.start(self, name, interval, args)
+	if self.execution.monitor.timer[name] then
+		npc.log("DEBUG", "Attempted to start already started timer: "..dump(name))
+		return
+	end
+	local timer = npc.monitor.timer.registered[name]
+	if timer then
+		-- Activate timer by moving it into the active timer array
+		self.execution.monitor.timer[name] = {
+			value = 0,
+			interval = interval or timer.interval,
+			args = args
+		}
+	else
+		npc.log("DEBUG", "Attempted to start non-existent timer: "..dump(name))
+	end
+end
+
+function npc.monitor.timer.stop(self, name)
+	if self.execution.monitor.timer[name] == nil then
+		npc.log("DEBUG", "Attempted to stop already stopped timer: "..dump(name))
+		return
+	end
+	local timer = self.execution.monitor.timer[name]
+	if timer then
+		-- Set timer for removal on next monitor execution routine
+		self.execution.monitor.timer[name].remove = true
+	else
+		npc.log("DEBUG", "Attempted to stop non-existent timer: "..dump(name))
+	end
+end
+
+-- Name is the name of function for which callback is being registered.
+-- Use program or instruction name for corresponding programs or instructions,
+-- and "on_punch", "on_rightclick", "on_activate", "on_schedule" for interrupts
+function npc.monitor.callback.register(name, type, subtype, callback)
+	-- Initialize type and subtype if they don't exist
+	if npc.monitor.callback.registered[type] == nil then
+		npc.monitor.callback.registered[type] = {}
+	end
+	if npc.monitor.callback.registered[type][subtype] == nil then
+		npc.monitor.callback.registered[type][subtype] = {}
+	end
+	-- Check if callback already exists
+	if npc.monitor.callback.registered[type][subtype][name] ~= nil then
+		npc.log("DEBUG", "Attempt to register an existing callback: "..dump(name))
+		return
+	else
+		-- Register callback
+		npc.monitor.callback.registered[type][subtype][name] = callback
+	end
+end
+
+function npc.monitor.callback.exists(type, subtype)
+	if npc.monitor.callback.registered[type] ~= nil then
+		if npc.monitor.callback.registered[type][subtype] ~= nil then
+			return next(npc.monitor.callback.registered[type][subtype]) ~= nil
+		end
+	end
+	return false
+end
+
+function npc.monitor.callback.enqueue(self, type, subtype, name)
+	self.execution.monitor.callback.to_execute[#self.execution.monitor.callback.to_execute + 1] = {
+		name = name,
+		type = type,
+		subtype = subtype
+	}
+end
+
+function npc.monitor.callback.enqueue_all(self, type, subtype)
+	for name,_ in pairs(npc.monitor.callback.registered[type][subtype]) do
+		self.execution.monitor.callback.to_execute[#self.execution.monitor.callback.to_execute + 1] = {
+			name = name,
+			type = type,
+			subtype = subtype
+		}
+	end
+end
+
+function npc.monitor.execution_routine(self, dtime)
+	if self.execution.monitor.enabled == false then
+		return
+	end
+	-- Execute timers - traverse the array of active timers and increase
+	-- their respective values
+	for name,timer in pairs(self.execution.monitor.timer) do
+		if timer.remove == true then
+			self.execution.monitor.timer[name] = nil
+		else
+			-- Increase value
+			timer.value = timer.value + dtime
+			-- Check if interval is met
+			if timer.value >= timer.interval then
+				-- Reset value
+				timer.value = 0
+				-- Execute callback
+				npc.monitor.timer.registered[name].callback(self, timer.args)
+			end
+		end
+	end
+	-- Execute callbacks - traverse array of callbacks to execute
+	for i = #self.execution.monitor.callback.to_execute, 1, -1 do
+		local callback = self.execution.monitor.callback.to_execute[i]
+		-- Execute callback
+		npc.monitor.callback.registered[callback.type][callback.subtype][callback.name](self)
+		-- Remove callback from the execute array
+		self.execution.monitor.callback.to_execute[i] = nil
+	end
+end
+
 
 ---------------------------------------------------------------------------------------
 -- Schedule functionality
 ---------------------------------------------------------------------------------------
 -- Schedules allow the NPC to do different things depending on the time of the day.
--- The time of the day is in 24 hours and is consistent with the Minetest Game
+-- The time of the day is in 24 hours and is consistent with the Minetest
 -- /time command. Hours will be written as numbers: 1 for 1:00, 13 for 13:00 or 1:00 PM
 -- The API is as following: a schedule can be created for a specific date or for a
 -- day of the week. A date is a string in the format MM:DD
-npc.schedule_types = {
-	["generic"] = "generic",
-	["date_based"] = "date_based"
+npc.schedule = {
+	const = {
+		types = {
+			generic = "generic",
+			date_based = "date_based"
+		}
+	},
+	entry = {}
 }
 
 npc.schedule_properties = {
@@ -931,8 +1781,8 @@ end
 --  - Date-based: The date parameter should be a
 --    string of the format "MM:DD". If it already
 --    exists, function retuns nil
-function npc.create_schedule(self, schedule_type, date)
-	if schedule_type == npc.schedule_types.generic then
+function npc.schedule.create(self, schedule_type, date)
+	if schedule_type == npc.schedule.const.types.generic then
 		-- Check that there are no more than 7 schedules
 		if #self.schedules.generic == 7 then
 			-- Unable to add schedule
@@ -947,7 +1797,7 @@ function npc.create_schedule(self, schedule_type, date)
 				return nil
 			end
 		end
-	elseif schedule_type == npc.schedule_types.date then
+	elseif schedule_type == npc.schedule.const.types.date then
 		-- Check schedule doesn't exists already
 		if self.schedules.date_based[date] == nil then
 			-- Add schedule
@@ -959,7 +1809,7 @@ function npc.create_schedule(self, schedule_type, date)
 	end
 end
 
-function npc.delete_schedule(self, schedule_type, date)
+function npc.schedule.delete(self, schedule_type, date)
 	-- Delete schedule by setting entry to nil
 	self.schedules[schedule_type][date] = nil
 end
@@ -970,7 +1820,7 @@ end
 
 -- Actions is an array of actions and tasks that the NPC
 -- will perform at the scheduled time on the scheduled date
-function npc.add_schedule_entry(self, schedule_type, date, time, check, actions)
+function npc.schedule.entry.put(self, schedule_type, date, time, check, actions)
 	-- Check that schedule for date exists
 	if self.schedules[schedule_type][date] ~= nil then
 		-- Add schedule entry
@@ -985,7 +1835,7 @@ function npc.add_schedule_entry(self, schedule_type, date, time, check, actions)
 	end
 end
 
-function npc.get_schedule_entry(self, schedule_type, date, time)
+function npc.schedule.entry.get(self, schedule_type, date, time)
 	-- Check if schedule for date exists
 	if self.schedules[schedule_type][date] ~= nil then
 		-- Return schedule
@@ -996,7 +1846,7 @@ function npc.get_schedule_entry(self, schedule_type, date, time)
 	end
 end
 
-function npc.update_schedule_entry(self, schedule_type, date, time, check, actions)
+function npc.schedule.entry.set(self, schedule_type, date, time, check, actions)
 	-- Check schedule for date exists
 	if self.schedules[schedule_type][date] ~= nil then
 		-- Check that a schedule entry for that time exists
@@ -1017,7 +1867,7 @@ function npc.update_schedule_entry(self, schedule_type, date, time, check, actio
 	end
 end
 
-function npc.delete_schedule_entry(self, schedule_type, date, time)
+function npc.schedule.entry.remove(self, schedule_type, date, time)
 	-- Check schedule for date exists
 	if self.schedules[schedule_type][date] ~= nil then
 		-- Remove schedule entry by setting to nil
@@ -1028,268 +1878,91 @@ function npc.delete_schedule_entry(self, schedule_type, date, time)
 	end
 end
 
-function npc.schedule_change_property(self, property, args)
-	if property == npc.schedule_properties.trader_status then
-		-- Get status from args
-		local status = args.status
-		-- Set status to NPC
-		npc.set_trading_status(self, status)
-	elseif property == npc.schedule_properties.put_item then
-		local itemstring = args.itemstring
-		-- Add item
-		npc.add_item_to_inventory_itemstring(self, itemstring)
-	elseif property == npc.schedule_properties.put_multiple_items then
-		local itemlist = args.itemlist
-		for i = 1, #itemlist do
-			local itemlist_entry = itemlist[i]
-			local current_itemstring = itemlist[i].name
-			if itemlist_entry.random == true then
-				current_itemstring = current_itemstring
-						.." "..dump(math.random(itemlist_entry.min, itemlist_entry.max))
-			else
-				current_itemstring = current_itemstring.." "..tostring(itemlist_entry.count)
-			end
-			-- Add item to inventory
-			npc.add_item_to_inventory_itemstring(self, current_itemstring)
-		end
-	elseif property == npc.schedule_properties.take_item then
-		local itemstring = args.itemstring
-		-- Add item
-		npc.take_item_from_inventory_itemstring(self, itemstring)
-	elseif property == npc.schedule_properties.can_receive_gifts then
-		local value = args.can_receive_gifts
-		-- Set status
-		self.can_receive_gifts = value
-	elseif property == npc.schedule_properties.flag then
-		local action = args.action
-		if action == "set" then
-			-- Adds or overwrites an existing flag and sets it to the given value
-			self.flags[args.flag_name] = args.flag_value
-		elseif action == "reset" then
-			-- Sets value of flag to false or to 0
-			local flag_type = type(self.flags[args.flag_name])
-			if flag_type == "number" then
-				self.flags[args.flag_name] = 0
-			elseif flag_type == "boolean" then
-				self.flags[args.flag_name] = false
-			end
-		end
-	elseif property == npc.schedule_properties.enable_gift_item_hints then
-		self.gift_data.enable_gift_items_hints = args.value
-	elseif property == npc.schedule_properties.set_trade_list then
-		-- Insert items
-		for i = 1, #args.items do
-			-- Insert entry into trade list
-			self.trader_data.trade_list[args.items[i].name] = {
-				max_item_buy_count = args.items[i].buy,
-				max_item_sell_count = args.items[i].sell,
-				amount_to_keep = args.items[i].keep
-			}
+-- Execution routine for schedules
+-- For now, only one program per hour should be created by schedule
+function npc.schedule.execution_routine(self, dtime)
 
-		end
- 	end
-end
+	if self.schedules.enabled == true then
+		-- Get time of day
+		local time = get_time_in_hours()
+		-- Check if time is an hour
+		if ((time % 1) < dtime) and self.schedules.lock == false then
+			-- Activate lock to avoid more than one entry to this code
+			self.schedules.lock = true
+			-- Get integer part of time
+			time = (time) - (time % 1)
+			-- Check if there is a schedule entry for this time
+			-- Note: Currently only one schedule is supported, for day 0
+			npc.log("INFO", "Time: "..dump(time))
+			local schedule = self.schedules.generic[0]
+			if schedule ~= nil then
+				-- Check if schedule for this time exists
+				if schedule[time] ~= nil then
+					-- Check if schedules are enabled, and interruptions by scheduler allowed by
+					-- current state/executing script
+					local current_process = self.execution.process_queue[1]
+					--minetest.log("CURRENT PROCESS name: "..dump(current_process.program_name))
+					if current_process and current_process.interrupt_options.allow_scheduler == false then
+						-- Don't check schedules any further
+						return
+					end
+					-- Hold the programs to be enqueued
+					local programs_to_enqueue = {}
+					local entries_to_enqueue = {}
+					-- Check if a program should be enqueued or not
+					for i = 1, #schedule[time] do
+						-- Check chance
+						local execution_chance = math.random(1, 100)
+						if not schedule[time][i].chance or
+								(schedule[time][i].chance and execution_chance <= schedule[time][i].chance) then
+							-- Check if entry has dependency on other entry
+							local dependencies_met
+							if schedule[time][i].depends then
+								-- TODO: Fix dependency check issue
+								minetest.log("Programs to enqueue size: "..dump(programs_to_enqueue))
+								minetest.log("i: "..dump(i))
+								minetest.log("Dependency: "..dump(schedule[time][i].depends[1]))
+								minetest.log("programs to enqueue[1]: "..dump(programs_to_enqueue[1]))
+								for key,var in pairs(programs_to_enqueue) do
+									minetest.log("Key: "..dump(key))
+								end
+								minetest.log("entries to enqueue[i]: "..dump(entries_to_enqueue[schedule[time][i].depends[1]]))
+								if entries_to_enqueue[schedule[time][i].depends[1]] ~= nil then
+									dependencies_met = true
+								else
+									dependencies_met = false
+								end
+							end
 
-function npc.add_schedule_check(self)
-	table.insert(self.actions.queue, {action="schedule_check", args={}, is_task=false})
-end
+							minetest.log("Dependencies met for entry with name: "..dump(schedule[time][i].program_name)..": "..dump(dependencies_met))
 
-function npc.enqueue_schedule_action(self, entry)
-	if entry.task ~= nil then
-		-- Add task
-		npc.add_task(self, entry.task, entry.args)
-	elseif entry.action ~= nil then
-		-- Add action
-		npc.add_action(self, entry.action, entry.args)
-	elseif entry.property ~= nil then
-		-- Change NPC property
-		npc.schedule_change_property(self, entry.property, entry.args)
-	end
-end
-
--- Range: integer, radius in which nodes will be searched. Recommended radius is
---		  between 1-3
--- Nodes: array of node names
--- Actions: map of node names to entries {action=<action_enum>, args={}}.
---			Arguments can be empty - the check function will try to determine most
---			arguments anyways (like pos and dir).
---			Special node "any" will execute those actions on any node except the
---			already specified ones.
--- None-action: array of entries {action=<action_enum>, args={}}.
---				Will be executed when no node is found.
-function npc.schedule_check(self)
-	npc.log("DEBUG_SCHEDULE", "Prev Actions queue: "..dump(self.actions.queue))
-	local range = self.schedules.current_check_params.range
-	local walkable_nodes = self.schedules.current_check_params.walkable_nodes
-	local nodes = self.schedules.current_check_params.nodes
-	local actions = self.schedules.current_check_params.actions
-	local none_actions = self.schedules.current_check_params.none_actions
-	-- Get NPC position
-	local start_pos = self.object:getpos()
-	-- Search nodes
-	local found_nodes = npc.places.find_node_nearby(start_pos, nodes, range)
-	-- Check if any node was found
-	npc.log("DEBUG_SCHEDULE", "Found nodes using radius: "..dump(found_nodes))
-	if found_nodes and #found_nodes > 0 then
-		local node_pos
-		local node
-		-- Check if there is preference to act on nodes already acted upon
-		if self.schedules.current_check_params.prefer_last_acted_upon_node == true then
-			-- Find a node other than the acted upon - try 3 times
-			for i = 1, #found_nodes do
-				node_pos = found_nodes[i]
-				-- Get node info
-				node = minetest.get_node(node_pos)
-				if node.name == self.schedules.current_check_params.last_node_acted_upon then
-					break
+							-- Check for dependencies being met
+							if dependencies_met == nil or dependencies_met == true then
+								programs_to_enqueue[#programs_to_enqueue + 1] = schedule[time][i]
+								entries_to_enqueue[i] = i
+							else
+								npc.log("DEBUG", "Skipping schedule entry for time "..dump(time)..": "..dump(schedule[time][i]))
+							end
+						end
+					end
+					-- Enqueue all programs in programs_to_enqueue
+					if #programs_to_enqueue > 0 then
+						npc.log("INFO", "Enqueueing the following programs into process queue for time: "..dump(time).."\n"
+								..dump(programs_to_enqueue))
+						_exec.priority_enqueue(self, programs_to_enqueue)
+					end
+					-- Clear programs_to_enqueue
+					programs_to_enqueue = nil
+					entries_to_enqueue = nil
 				end
 			end
 		else
-			-- Pick a random node to act upon
-			node_pos = found_nodes[math.random(1, #found_nodes)]
-			-- Get node info
-			node = minetest.get_node(node_pos)
-		end
-		-- Save this node as the last acted upon
-		self.schedules.current_check_params.last_node_acted_upon = node.name
-		-- Set node as a place
-		-- Note: Code below isn't *adding* a node, but overwriting the
-		-- place with "schedule_target_pos" place type
-		npc.log("DEBUG_SCHEDULE", "Found "..dump(node.name).." at pos: "..minetest.pos_to_string(node_pos))
-		npc.places.add_shared_accessible_place(
-			self, {owner="", node_pos=node_pos}, npc.places.PLACE_TYPE.SCHEDULE.TARGET, true, walkable_nodes)
-		-- Get actions related to node and enqueue them
-		for i = 1, #actions[node.name] do
-			local args = {}
-			local action
-			-- Calculate arguments for the following supported actions:
-			--   - Dig
-			--   - Place
-			--   - Walk step
-			--   - Walk to position
-			--   - Use furnace
-			if actions[node.name][i].action == npc.actions.cmd.DIG then
-				-- Defaults: items will be added to inventory if not specified
-				-- otherwise, and protection will be respected, if not specified
-				-- otherwise
-				args = {
-					pos = node_pos,
-					add_to_inventory = actions[node.name][i].args.add_to_inventory or true,
-					bypass_protection = actions[node.name][i].args.bypass_protection or false
-				}
-				npc.add_action(self, actions[node.name][i].action, args)
-			elseif actions[node.name][i].action == npc.actions.cmd.PLACE then
-				-- Position: providing node_pos is because the currently planned
-				-- behavior for placing nodes is replacing digged nodes. A NPC farmer,
-				-- for instance, might dig a plant node and plant another one on the
-				-- same position.
-				-- Defaults: items will be taken from inventory if existing,
-				-- if not will be force-placed (item comes from thin air)
-				-- Protection will be respected
-				args = {
-					pos = actions[node.name][i].args.pos or node_pos,
-					source = actions[node.name][i].args.source or npc.actions.take_from_inventory_forced,
-					node = actions[node.name][i].args.node,
-					bypass_protection =  actions[node.name][i].args.bypass_protection or false
-				}
-				--minetest.log("Enqueue dig action with args: "..dump(args))
-				npc.add_action(self, actions[node.name][i].action, args)
-			elseif actions[node.name][i].action == npc.actions.cmd.ROTATE then
-				-- Set arguments
-				args = {
-					dir = actions[node.name][i].dir,
-					start_pos = actions[node.name][i].start_pos
-							or {x=start_pos.x, y=node_pos.y, z=start_pos.z},
-					end_pos = actions[node.name][i].end_pos or node_pos
-				}
-				-- Enqueue action
-				npc.add_action(self, actions[node.name][i].action, args)
-			elseif actions[node.name][i].action == npc.actions.cmd.WALK_STEP then
-				-- Defaults: direction is calculated from start node to node_pos.
-				-- Speed is default wandering speed. Target pos is node_pos
-				-- Calculate dir if dir is random
-				local dir = npc.actions.get_direction(start_pos, node_pos)
-				minetest.log("actions: "..dump(actions[node.name][i]))
-				if actions[node.name][i].args.dir == "random" then
-					dir = math.random(0,7)
-				elseif type(actions[node.name][i].args.dir) == "number" then
-					dir = actions[node.name][i].args.dir
-				end
-				args = {
-					dir = dir,
-					speed = actions[node.name][i].args.speed or npc.actions.one_nps_speed,
-					target_pos = actions[node.name][i].args.target_pos or node_pos
-				}
-				npc.add_action(self, actions[node.name][i].action, args)
-			elseif actions[node.name][i].task == npc.actions.cmd.WALK_TO_POS then
-				-- Optimize walking -- since distances can be really short,
-				-- a simple walk_step() action can do most of the times. For
-				-- this, however, we need to calculate direction
-				-- First of all, check distance
-				local distance = vector.distance(start_pos, node_pos)
-				if distance < 3 then
-					-- Will do walk_step based instead
-					if distance > 1 then
-						args = {
-							dir = npc.actions.get_direction(start_pos, node_pos),
-							speed = npc.actions.one_nps_speed
-						}
-						-- Enqueue walk step
-						npc.add_action(self, npc.actions.cmd.WALK_STEP, args)
-					end
-					-- Add standing action to look at node
-					npc.add_action(self, npc.actions.cmd.STAND,
-						{dir = npc.actions.get_direction(self.object:getpos(), node_pos)}
-					)
-				else
-					-- Set end pos to be node_pos
-					args = {
-						end_pos = actions[node.name][i].args.end_pos or node_pos,
-						walkable = actions[node.name][i].args.walkable or walkable_nodes or {}
-					}
-					-- Enqueue
-					npc.add_task(self, actions[node.name][i].task, args)
-				end
-			elseif actions[node.name][i].task == npc.actions.cmd.USE_FURNACE then
-				-- Defaults: pos is node_pos. Freeze is true
-				args = {
-					pos = actions[node.name][i].args.pos or node_pos,
-					item = actions[node.name][i].args.item,
-					freeze = actions[node.name][i].args.freeze or true
-				}
-				npc.add_task(self, actions[node.name][i].task, args)
-			else
-				-- Action or task that is not supported for value calculation
-				npc.enqueue_schedule_action(self, actions[node.name][i])
+			-- Check if lock can be released
+			if (time % 1) > dtime + 0.1 then
+				-- Release lock
+				self.schedules.lock = false
 			end
 		end
-		-- Increase execution count
-		self.schedules.current_check_params.execution_count =
-			self.schedules.current_check_params.execution_count + 1
-		-- Enqueue next schedule check
-		if self.schedules.current_check_params.execution_count
-				< self.schedules.current_check_params.execution_times then
-			npc.add_schedule_check(self)
-		end
-		npc.log("DEBUG_SCHEDULE", "Actions queue: "..dump(self.actions.queue))
-	else
-		-- No nodes found, enqueue none_actions
-		for i = 1, #none_actions do
-			-- Add start_pos to none_actions
-			none_actions[i].args["start_pos"] = start_pos
-			-- Enqueue actions
-			npc.add_action(self, none_actions[i].action, none_actions[i].args)
-		end
-		-- Increase execution count
-		self.schedules.current_check_params.execution_count =
-			self.schedules.current_check_params.execution_count + 1
-		-- Enqueue next schedule check
-		if self.schedules.current_check_params.execution_count
-				< self.schedules.current_check_params.execution_times then
-			npc.add_schedule_check(self)
-		end
-		-- No nodes found
-		npc.log("DEBUG_SCHEDULE", "Actions queue: "..dump(self.actions.queue))
 	end
 end
 
@@ -1300,28 +1973,42 @@ end
 -- and other functions that are assigned to the Lua entity definition
 -- This function is executed each time the NPC is loaded
 function npc.after_activate(self)
+	--minetest.log("Self: "..dump(self))
 	-- Reset animation
-	if self.actions and self.actions.move_state then
-		if self.actions.move_state.is_sitting == true then
-			npc.actions.execute(self, npc.actions.cmd.SIT, {pos=self.object:getpos()})
-		elseif self.actions.move_state.is_laying == true then
-			npc.actions.execute(self, npc.actions.cmd.LAY, {pos=self.object:getpos()})
+	if self.npc_state then
+		if self.npc_state.movement then
+			if self.npc_state.movement.is_sitting == true then
+				npc.programs.instr.execute(self, npc.programs.instr.default.SIT, {pos=self.object:getpos()})
+			elseif self.npc_state.movement.is_laying == true then
+				npc.programs.instr.execute(self, npc.programs.instr.default.LAY, {pos=self.object:getpos()})
+			end
+			-- Reset yaw if available
+			if self.yaw_before_interaction then
+				self.object:setyaw(self.yaw_before_interaction)
+			end
 		end
-		-- Reset yaw if available
-		if self.yaw_before_interaction then
-			self.object:setyaw(self.yaw_before_interaction)
-		end
-    else
-        -- Temporary code - adds the new state variables
-        self.actions.move_state = {
-            is_sitting = false,
-            is_laying = false
-        }
     end
 end
 
 -- This function is executed on right-click
 function npc.rightclick_interaction(self, clicker)
+	-- Disable right click interaction per execution options
+	local current_process = self.execution.process_queue[1]
+	if current_process then
+		if current_process.interrupt_options.allow_rightclick == false then
+			npc.log("WARNING", "Attempted to right-click a NPC with disabled rightlick interaction")
+			return
+		end
+	end
+
+	-- Enqueue callback if any
+	if npc.monitor.callback.exists(npc.monitor.callback.type.interaction, npc.monitor.callback.subtype.on_rightclick) then
+		-- Enqueue all right-click callbacks for execution
+		npc.monitor.callback.enqueue_all(self,
+			npc.monitor.callback.type.interaction,
+			npc.monitor.callback.subtype.on_rightclick)
+	end
+
 	-- Store original yaw
 	self.yaw_before_interaction = self.object:getyaw()
 
@@ -1332,7 +2019,7 @@ function npc.rightclick_interaction(self, clicker)
 	local item = clicker:get_wielded_item()
 	local name = clicker:get_player_name()
 
-	npc.log("DEBUG", "Right-clicked NPC: "..dump(self))
+	npc.log("INFO", "Right-clicked NPC: "..dump(self))
 
 	-- Receive gift or start chat. If player has no item in hand
 	-- then it is going to start chat directly
@@ -1364,7 +2051,7 @@ function npc.rightclick_interaction(self, clicker)
 end
 
 function npc.step(self, dtime)
-	if self.initialized == nil then
+	if self.initialized == nil or self.initialized == false then
 		-- Initialize NPC if spawned using the spawn egg built in from
 		-- mobs_redo. This functionality will be removed in the future in
 		-- favor of a better manual spawning method with customization
@@ -1395,17 +2082,6 @@ function npc.step(self, dtime)
 		end
 	end
 
-	-- Timer function for casual traders to reset their trade offers
-	self.trader_data.change_offers_timer = self.trader_data.change_offers_timer + dtime
-	-- Check if time has come to change offers
-	if self.trader_data.trader_status == npc.trade.CASUAL and
-			self.trader_data.change_offers_timer >= self.trader_data.change_offers_timer_interval then
-		-- Reset timer
-		self.trader_data.change_offers_timer = 0
-		-- Re-select casual trade offers
-		npc.trade.generate_trade_offers_by_status(self)
-	end
-
 	-- Timer function for gifts
 	for i = 1, #self.relationships do
 		local relationship = self.relationships[i]
@@ -1434,135 +2110,20 @@ function npc.step(self, dtime)
 					relationship.points = relationship.points - 1
 				end
 				relationship.relationship_decrease_timer_value = 0
-				--minetest.log(dump(self))
 			end
 		end
 	end
 
-	-- Action queue timer
-	-- Check if actions and timers aren't locked
-	if self.actions.action_timer_lock == false then
-		-- Increment action timer
-		self.actions.action_timer = self.actions.action_timer + dtime
-		if self.actions.action_timer >= self.actions.action_interval then
-			-- Reset action timer
-			self.actions.action_timer = 0
-			-- Check if NPC is walking
-			if self.actions.walking.is_walking == true then
-				-- Move NPC to expected position to ensure not getting lost
-				local pos = self.actions.walking.target_pos
-				self.object:moveto({x=pos.x, y=pos.y, z=pos.z})
-			end
-			-- Execute action
-			self.freeze = npc.execute_action(self)
-			-- Check if there are still remaining actions in the queue
-			if self.freeze == nil and table.getn(self.actions.queue) > 0 then
-				self.freeze = false
-			end
-		end
-	end
+	-- Execute monitor
+	npc.monitor.execution_routine(self, dtime)
+
+	-- Execute process scheduler
+	npc.exec.execution_routine(self, dtime)
 
 	-- Schedule timer
-	-- Check if schedules are enabled
-	if self.schedules.enabled == true then
-		-- Get time of day
-		local time = get_time_in_hours()
-		-- Check if time is an hour
-		if ((time % 1) < dtime) and self.schedules.lock == false then
-			-- Activate lock to avoid more than one entry to this code
-			self.schedules.lock = true
-			-- Get integer part of time
-			time = (time) - (time % 1)
-			-- Check if there is a schedule entry for this time
-			-- Note: Currently only one schedule is supported, for day 0
-			npc.log("DEBUG_SCHEDULE", "Time: "..dump(time))
-			local schedule = self.schedules.generic[0]
-			if schedule ~= nil then
-				-- Check if schedule for this time exists
-				if schedule[time] ~= nil then
-					npc.log("DEBUG_SCHEDULE", "Adding actions to action queue")
-					-- Add to action queue all actions on schedule
-					for i = 1, #schedule[time] do
-						-- Check if schedule has a check function
-						if schedule[time][i].check then
-							-- Add parameters for check function and run for first time
-							npc.log("DEBUG", "NPC "..dump(self.npc_id).." is starting check on "..minetest.pos_to_string(self.object:getpos()))
-							local check_params = schedule[time][i]
-							-- Calculates how many times check will be executed
-							local execution_times = check_params.count
-							if check_params.random_execution_times then
-								execution_times = math.random(check_params.min_count, check_params.max_count)
-							end
-							-- Set current parameters
-							self.schedules.current_check_params = {
-								range = check_params.range,
-								walkable_nodes = check_params.walkable_nodes,
-								nodes = check_params.nodes,
-								actions = check_params.actions,
-								none_actions = check_params.none_actions,
-								prefer_last_acted_upon_node = check_params.prefer_last_acted_upon_node or false,
-								last_node_acted_upon = "",
-								execution_count = 0,
-								execution_times = execution_times
-							}
-							-- Enqueue the schedule check
-							npc.add_schedule_check(self)
-						else
-							npc.log("DEBUG_SCHEDULE", "Executing schedule entry for NPC "..dump(self.npc_id)..": "
-									..dump(schedule[time][i]))
-							-- Run usual schedule entry
-							-- Check chance
-							local execution_chance = math.random(1, 100)
-							if not schedule[time][i].chance or
-									(schedule[time][i].chance and execution_chance <= schedule[time][i].chance) then
-								-- Check if entry has dependency on other entry
-								local dependencies_met = nil
-								if schedule[time][i].depends then
-									dependencies_met = npc.utils.array_is_subset_of_array(
-										self.schedules.temp_executed_queue,
-										schedule[time][i].depends)
-								end
+	npc.schedule.execution_routine(self, dtime)
 
-								-- Check for dependencies being met
-								if dependencies_met == nil or dependencies_met == true then
-									-- Add tasks
-									if schedule[time][i].task ~= nil then
-										-- Add task
-										npc.add_task(self, schedule[time][i].task, schedule[time][i].args)
-									elseif schedule[time][i].action ~= nil then
-										-- Add action
-										npc.add_action(self, schedule[time][i].action, schedule[time][i].args)
-									elseif schedule[time][i].property ~= nil then
-										-- Change NPC property
-										npc.schedule_change_property(self, schedule[time][i].property, schedule[time][i].args)
-									end
-									-- Backward compatibility check
-									if self.schedules.temp_executed_queue then
-										-- Add into execution queue to meet dependency
-										table.insert(self.schedules.temp_executed_queue, i)
-									end
-								end
-							else
-								-- TODO: Change to debug
-								npc.log("DEBUG", "Skipping schedule entry for time "..dump(time)..": "..dump(schedule[time][i]))
-							end
-						end
-					end
-					-- Clear execution queue
-					self.schedules.temp_executed_queue = {}
-					npc.log("DEBUG", "New action queue: "..dump(self.actions.queue))
-				end
-			end
-		else
-			-- Check if lock can be released
-			if (time % 1) > dtime + 0.1 then
-				-- Release lock
-				self.schedules.lock = false
-			end
-		end
-	end
-
-	return self.freeze
+	return false--self.freeze
 end
 
 
@@ -1672,7 +2233,7 @@ mobs:register_mob("advanced_npc:npc", {
 -- Item definitions
 -------------------------------------------------------------------------
 
-mobs:register_egg("advanced_npc:npc", S("NPC"), "default_brick.png", 1)
+--mobs:register_egg("advanced_npc:npc", S("NPC"), "default_brick.png", 1)
 
 -- compatibility
 mobs:alias_mob("mobs:npc", "advanced_npc:npc")
