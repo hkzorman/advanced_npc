@@ -1389,9 +1389,11 @@ function npc.exec.execution_routine(self, dtime)
 				if self.npc_state.movement.walking.is_walking == true then
 					-- Move NPC to expected position to ensure not getting lost
 					local pos = self.npc_state.movement.walking.target_pos
-					self.object:moveto({x=pos.x, y=pos.y, z=pos.z})
+					if vector.distance(self.object:getpos(), pos) > 0.2 then
+						npc.log("INFO", "Corrected position for walking NPC "..dump(self.npc_name))
+						self.object:moveto({x=pos.x, y=pos.y, z=pos.z})
+					end
 				end
-				--minetest.log("Executing next function :)")
 				-- Execute next instruction in process' queue
 				npc.exec.proc.execute(self)
 			end

@@ -428,6 +428,7 @@ end)
 npc.programs.instr.register("advanced_npc:stand", function(self, args)
     local pos = args.pos
     local dir = args.dir
+    local yaw = args.yaw
     -- Set is_walking = false
     npc.set_movement_state(self, {is_idle = true})
     -- Stop NPC
@@ -437,8 +438,8 @@ npc.programs.instr.register("advanced_npc:stand", function(self, args)
         self.object:moveto(pos)
     end
     -- If dir given, set to that dir
-    if dir ~= nil then
-        npc.programs.instr.execute(self, npc.programs.instr.default.ROTATE, {dir=dir})
+    if dir ~= nil or yaw ~= nil then
+        npc.programs.instr.execute(self, npc.programs.instr.default.ROTATE, {dir=dir, yaw=yaw})
     end
     -- Set stand animation
     self.object:set_animation({
