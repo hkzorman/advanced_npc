@@ -851,7 +851,7 @@ end)
 ---------------------------------------------------------------------------------------
 if minetest.get_modpath("mg_villages") ~= nil then
     local mg_villages_entity_name = ""
-    function npc.spawner.g(name)
+    function npc.spawner.set_mg_villages_entity_name(name)
         mg_villages_entity_name = name
     end
 
