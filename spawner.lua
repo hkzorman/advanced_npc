@@ -326,7 +326,7 @@ end
 -- Prerequisite for calling this function is:
 --  - In case of mg_villages, spawner.adapt_mg_villages_plotmarker(), or,
 --  - in case of custom buildings, npc.spawner.scan_area_for_spawn()
-function npc.spawner.spawn_npc_on_plotmarker(pos)
+function npc.spawner.spawn_npc_on_plotmarker(entity_name, pos)
     -- Get timer
     local timer = minetest.get_node_timer(pos)
     -- Get metadata
@@ -364,7 +364,7 @@ function npc.spawner.spawn_npc_on_plotmarker(pos)
     end
 
     -- Spawn NPC
-    local metadata = npc.spawner.spawn_npc(pos, area_info, occupation_data.name, occupation_data.node.node_pos)
+    local metadata = npc.spawner.spawn_npc(entity_name, pos, area_info, occupation_data.name, occupation_data.node.node_pos)
 
     -- Set all metadata back into the node
     -- Increase NPC spawned count
@@ -391,7 +391,7 @@ end
 
 -- This function spawns a NPC into the given pos.
 -- If area_info is given, updated area_info is returned at end
-function npc.spawner.spawn_npc(pos, area_info, occupation_name, occupation_workplace_pos)
+function npc.spawner.spawn_npc(entity_name, pos, area_info, occupation_name, occupation_workplace_pos)
     -- Get current NPC info
     local npc_table = area_info.npcs
     -- Get NPC stats
@@ -419,7 +419,7 @@ function npc.spawner.spawn_npc(pos, area_info, occupation_name, occupation_workp
     if can_spawn then
         npc.log("INFO", "Spawning NPC at "..minetest.pos_to_string(pos))
         -- Spawn a NPC
-        local ent = minetest.add_entity({x=pos.x, y=pos.y+1, z=pos.z}, "advanced_npc:npc")
+        local ent = minetest.add_entity({x=pos.x, y=pos.y+1, z=pos.z}, entity_name)
         if ent and ent:get_luaentity() then
             ent:get_luaentity().initialized = false
             -- Determine NPC occupation - use given or default
@@ -674,45 +674,52 @@ end
 --    and default values will be chosen whenever no input is provided.
 
 -- This map holds the spawning position chosen by a player at a given time.
-spawner.spawn_pos = {}
+local spawner = {
+    spawn_pos = {},
+    entity_name = ""
+}
 
 -- Spawn egg (WIP)
 -- Use for manually spawning NPCs. Up to now, supports local occupations only.
-minetest.register_craftitem("advanced_npc:spawn_egg", {
-    description = "NPC Spawner",
-    inventory_image = "mobs_chicken_egg.png^(default_brick.png^[mask:mobs_chicken_egg_overlay.png)",
-    on_place = function(itemstack, user, pointed_thing)
-        -- Store spawn pos
-        spawner.spawn_pos[user:get_player_name()] = pointed_thing.above
+function npc.spawner.register_spawn_egg(entity_name)
+    minetest.register_craftitem(entity_name.."_spawn_egg", {
+        description = "NPC Spawner",
+        inventory_image = "mobs_chicken_egg.png^(default_brick.png^[mask:mobs_chicken_egg_overlay.png)",
+        on_place = function(itemstack, user, pointed_thing)
+            -- Store spawn pos
+            spawner.spawn_pos[user:get_player_name()] = pointed_thing.above
+            -- This looks horrible - please change
+            spawner.name = string.split(itemstack:get_name(), "_spawn_egg")[1]
 
-        local occupation_names = npc.utils.get_map_keys(npc.occupations.registered_occupations)
+            local occupation_names = npc.utils.get_map_keys(npc.occupations.registered_occupations)
 
-        local building_dropdown_string = "dropdown[0.5,0.75;6;building_type;"
-        for i = 1, #npc.spawner.mg_villages_supported_building_types do
-            building_dropdown_string = building_dropdown_string
-                    ..npc.spawner.mg_villages_supported_building_types[i]..","
+            local building_dropdown_string = "dropdown[0.5,0.75;6;building_type;"
+            for i = 1, #npc.spawner.mg_villages_supported_building_types do
+                building_dropdown_string = building_dropdown_string
+                        ..npc.spawner.mg_villages_supported_building_types[i]..","
+            end
+            building_dropdown_string = building_dropdown_string..";1]"
+
+            -- Generate occupation dropdown
+            local occupation_dropdown_string = "dropdown[0.5,1.95;6;occupation_name;"
+            for i = 1, #occupation_names do
+                occupation_dropdown_string = occupation_dropdown_string..occupation_names[i]..","
+            end
+            occupation_dropdown_string = occupation_dropdown_string..";1]"
+
+            local formspec = "size[7,7]"..
+                    "label[0.1,0.25;Building type]"..
+                    building_dropdown_string..
+                    "label[0.1,1.45;Occupation]"..
+                    occupation_dropdown_string..
+                    "field[0.5,3;3,2;radius;Search radius;20]"..
+                    "field[3.5,3;3,2;height;Search height;2]"..
+                    "button_exit[2.25,6.25;2.5,0.75;exit;Spawn]"
+
+            minetest.show_formspec(user:get_player_name(), "advanced_npc:spawn_egg_main", formspec)
         end
-        building_dropdown_string = building_dropdown_string..";1]"
-
-        -- Generate occupation dropdown
-        local occupation_dropdown_string = "dropdown[0.5,1.95;6;occupation_name;"
-        for i = 1, #occupation_names do
-            occupation_dropdown_string = occupation_dropdown_string..occupation_names[i]..","
-        end
-        occupation_dropdown_string = occupation_dropdown_string..";1]"
-
-        local formspec = "size[7,7]"..
-                "label[0.1,0.25;Building type]"..
-                building_dropdown_string..
-                "label[0.1,1.45;Occupation]"..
-                occupation_dropdown_string..
-                "field[0.5,3;3,2;radius;Search radius;20]"..
-                "field[3.5,3;3,2;height;Search height;2]"..
-                "button_exit[2.25,6.25;2.5,0.75;exit;Spawn]"
-
-        minetest.show_formspec(user:get_player_name(), "advanced_npc:spawn_egg_main", formspec)
-    end
-})
+    })
+end
 
 -- This map holds the name of the player and the position of the workplace that
 -- he/she placed
@@ -768,6 +775,7 @@ minetest.register_on_player_receive_fields(function(player, formname, fields)
                 -- Handle exit (spawn) button
                 if fields.exit then
                     local pos = spawner.spawn_pos[player:get_player_name()]
+                    local name = spawner.name
                     local radius = 20
                     local y_adj = 2
                     -- Set radius if present
@@ -802,7 +810,7 @@ minetest.register_on_player_receive_fields(function(player, formname, fields)
                     end
 
                     -- Spawn NPC
-                    local metadata = npc.spawner.spawn_npc(pos, area_info, fields.occupation_name)
+                    local metadata = npc.spawner.spawn_npc(name, pos, area_info, fields.occupation_name)
                 end
             end
         end
@@ -842,6 +850,10 @@ end)
 -- Support code for mg_villages mods
 ---------------------------------------------------------------------------------------
 if minetest.get_modpath("mg_villages") ~= nil then
+    local mg_villages_entity_name = ""
+    function npc.spawner.g(name)
+        mg_villages_entity_name = name
+    end
 
     -- This function creates a table of the scannable nodes inside
     -- a mg_villages building. It needs the plotmarker position for a start
@@ -1023,12 +1035,13 @@ if minetest.get_modpath("mg_villages") ~= nil then
 
         -- TODO: Change formspec to a more detailed one.
         on_rightclick = function(pos, node, clicker, itemstack, pointed_thing)
+            minetest.log("Hi")
             return mg_villages.plotmarker_formspec( pos, nil, {}, clicker )
         end,
 
         on_timer = function(pos, elapsed)
             -- Adds timer support
-            npc.spawner.spawn_npc_on_plotmarker(pos)
+            npc.spawner.spawn_npc_on_plotmarker(mg_villages_entity_name, pos)
         end,
     })
 

@@ -128,8 +128,9 @@ end
 -- will be allowed.
 
 local function get_random_name(sex)
-	local i = math.random(#npc.random_data.FIRST_NAMES[sex])
-	return npc.random_data.FIRST_NAMES[sex][i]
+	local names = npc.info.get_names({sex}, false, false)
+	local i = math.random(#names)
+	return names[i]
 end
 
 local function initialize_inventory()
@@ -160,71 +161,76 @@ function npc.assign_sex_from_texture(self)
 end
 
 local function get_random_texture(sex, age)
-	local textures = {}
-	local filtered_textures = {}
-	-- Find textures by sex and age
-	if age == npc.age.adult then
-		--minetest.log("Registered: "..dump(minetest.registered_entities["advanced_npc:npc"]))
-		textures = minetest.registered_entities["advanced_npc:npc"].texture_list
-	elseif age == npc.age.child then
-		textures = minetest.registered_entities["advanced_npc:npc"].child_texture
-	end
 
-	for i = 1, #textures do
-		local current_texture = textures[i][1]
-		if (sex == npc.MALE
-				and string.find(current_texture, sex)
-				and not string.find(current_texture, npc.FEMALE))
-				or (sex == npc.FEMALE
-				and string.find(current_texture, sex)) then
-			table.insert(filtered_textures, current_texture)
-		end
-	end
+	local textures = npc.info.get_textures({sex, age}, false, false)
+	local i = math.random(#textures)
+	return textures[i]
 
-	-- Check if filtered textures is empty
-	if filtered_textures == {} then
-		return textures[1][1]
-	end
-
-	return filtered_textures[math.random(1,#filtered_textures)]
+--	local textures = {}
+--	local filtered_textures = {}
+--	-- Find textures by sex and age
+--	if age == npc.age.adult then
+--		--minetest.log("Registered: "..dump(minetest.registered_entities["advanced_npc:npc"]))
+--		textures = minetest.registered_entities["advanced_npc:npc"].texture_list
+--	elseif age == npc.age.child then
+--		textures = minetest.registered_entities["advanced_npc:npc"].child_texture
+--	end
+--
+--	for i = 1, #textures do
+--		local current_texture = textures[i][1]
+--		if (sex == npc.MALE
+--				and string.find(current_texture, sex)
+--				and not string.find(current_texture, npc.FEMALE))
+--				or (sex == npc.FEMALE
+--				and string.find(current_texture, sex)) then
+--			table.insert(filtered_textures, current_texture)
+--		end
+--	end
+--
+--	-- Check if filtered textures is empty
+--	if filtered_textures == {} then
+--		return textures[1][1]
+--	end
+--
+--	return filtered_textures[math.random(1,#filtered_textures)]
 end
 
-function npc.get_random_texture_from_array(age, sex, textures)
-	local filtered_textures = {}
-
-	for i = 1, #textures do
-		local current_texture = textures[i]
-		-- Filter by age
-		if (sex == npc.MALE
-				and string.find(current_texture, sex)
-				and not string.find(current_texture, npc.FEMALE)
-				and ((age == npc.age.adult
-				and not string.find(current_texture, npc.age.child))
-				or (age == npc.age.child
-				and string.find(current_texture, npc.age.child))
-		)
-		)
-				or (sex == npc.FEMALE
-				and string.find(current_texture, sex)
-				and ((age == npc.age.adult
-				and not string.find(current_texture, npc.age.child))
-				or (age == npc.age.child
-				and string.find(current_texture, npc.age.child))
-		)
-		) then
-			table.insert(filtered_textures, current_texture)
-		end
-	end
-
-	-- Check if there are no textures
-	if #filtered_textures == 0 then
-		-- Return whole array for re-evaluation
-		npc.log("DEBUG", "No textures found, returning original array")
-		return textures
-	end
-
-	return filtered_textures[math.random(1, #filtered_textures)]
-end
+--function npc.get_random_texture_from_array(age, sex, textures)
+--	local filtered_textures = {}
+--
+--	for i = 1, #textures do
+--		local current_texture = textures[i]
+--		-- Filter by age
+--		if (sex == npc.MALE
+--				and string.find(current_texture, sex)
+--				and not string.find(current_texture, npc.FEMALE)
+--				and ((age == npc.age.adult
+--				and not string.find(current_texture, npc.age.child))
+--				or (age == npc.age.child
+--				and string.find(current_texture, npc.age.child))
+--		)
+--		)
+--				or (sex == npc.FEMALE
+--				and string.find(current_texture, sex)
+--				and ((age == npc.age.adult
+--				and not string.find(current_texture, npc.age.child))
+--				or (age == npc.age.child
+--				and string.find(current_texture, npc.age.child))
+--		)
+--		) then
+--			table.insert(filtered_textures, current_texture)
+--		end
+--	end
+--
+--	-- Check if there are no textures
+--	if #filtered_textures == 0 then
+--		-- Return whole array for re-evaluation
+--		npc.log("DEBUG", "No textures found, returning original array")
+--		return textures
+--	end
+--
+--	return filtered_textures[math.random(1, #filtered_textures)]
+--end
 
 -- Choose whether NPC can have relationships. Only 30% of NPCs
 -- cannot have relationships
@@ -2132,104 +2138,104 @@ end
 ---------------------------------------------------------------------------------------
 -- NPC Definition
 ---------------------------------------------------------------------------------------
-mobs:register_mob("advanced_npc:npc", {
-	type = "npc",
-	passive = false,
-	damage = 3,
-	attack_type = "dogfight",
-	attacks_monsters = true,
-	-- Added group attack
-	group_attack = true,
-	-- Pathfinder = 2 to make NPCs more smart when attacking
-	pathfinding = 2,
-	hp_min = 10,
-	hp_max = 20,
-	armor = 100,
-	collisionbox = {-0.20,0,-0.20, 0.20,1.8,0.20},
-	--collisionbox = {-0.20,-1.0,-0.20, 0.20,0.8,0.20},
-	--collisionbox = {-0.35,-1.0,-0.35, 0.35,0.8,0.35},
-	visual = "mesh",
-	mesh = "character.b3d",
-	drawtype = "front",
-	textures = {
-		{"npc_male1.png"},
-		{"npc_male2.png"},
-		{"npc_male3.png"},
-		{"npc_male4.png"},
-		{"npc_male5.png"},
-		{"npc_male6.png"},
-		{"npc_male7.png"},
-		{"npc_male8.png"},
-		{"npc_male9.png"},
-		{"npc_male10.png"},
-		{"npc_male11.png"},
-		{"npc_male12.png"},
-		{"npc_male13.png"},
-		{"npc_male14.png"},
-		{"npc_female1.png"}, -- female by nuttmeg20
-		{"npc_female2.png"},
-		{"npc_female3.png"},
-		{"npc_female4.png"},
-		{"npc_female5.png"},
-		{"npc_female6.png"},
-		{"npc_female7.png"},
-		{"npc_female8.png"},
-		{"npc_female9.png"},
-		{"npc_female10.png"},
-		{"npc_female11.png"},
-	},
-	child_texture = {
-		{"npc_child_male1.png"},
-		{"npc_child_female1.png"},
-	},
-	makes_footstep_sound = true,
-	sounds = {},
-	-- Added walk chance
-	walk_chance = 20,
-	-- Added stepheight
-	stepheight = 0.6,
-	walk_velocity = 1,
-	run_velocity = 3,
-	jump = false,
-	drops = {
-		{name = "default:wood", chance = 1, min = 1, max = 3},
-		{name = "default:apple", chance = 2, min = 1, max = 2},
-		{name = "default:axe_stone", chance = 5, min = 1, max = 1},
-	},
-	water_damage = 0,
-	lava_damage = 2,
-	light_damage = 0,
-	--follow = {"farming:bread", "mobs:meat", "default:diamond"},
-	view_range = 15,
-	owner = "",
-	order = "follow",
-	--order = "stand",
-	fear_height = 3,
-	animation = {
-		speed_normal = 30,
-		speed_run = 30,
-		stand_start = 0,
-		stand_end = 79,
-		walk_start = 168,
-		walk_end = 187,
-		run_start = 168,
-		run_end = 187,
-		punch_start = 200,
-		punch_end = 219,
-	},
-	after_activate = function(self, staticdata, def, dtime)
-		npc.after_activate(self)
-	end,
-	on_rightclick = function(self, clicker)
-		-- Check if right-click interaction is enabled
-		if self.enable_rightclick_interaction == true then
-			npc.rightclick_interaction(self, clicker)
-		end
-	end,
-	do_custom = function(self, dtime)
-		return npc.step(self, dtime)
-	end
-})
+--mobs:register_mob("advanced_npc:npc", {
+--	type = "npc",
+--	passive = false,
+--	damage = 3,
+--	attack_type = "dogfight",
+--	attacks_monsters = true,
+--	-- Added group attack
+--	group_attack = true,
+--	-- Pathfinder = 2 to make NPCs more smart when attacking
+--	pathfinding = 2,
+--	hp_min = 10,
+--	hp_max = 20,
+--	armor = 100,
+--	collisionbox = {-0.20,0,-0.20, 0.20,1.8,0.20},
+--	--collisionbox = {-0.20,-1.0,-0.20, 0.20,0.8,0.20},
+--	--collisionbox = {-0.35,-1.0,-0.35, 0.35,0.8,0.35},
+--	visual = "mesh",
+--	mesh = "character.b3d",
+--	drawtype = "front",
+--	textures = {
+--		{"npc_male1.png"},
+--		{"npc_male2.png"},
+--		{"npc_male3.png"},
+--		{"npc_male4.png"},
+--		{"npc_male5.png"},
+--		{"npc_male6.png"},
+--		{"npc_male7.png"},
+--		{"npc_male8.png"},
+--		{"npc_male9.png"},
+--		{"npc_male10.png"},
+--		{"npc_male11.png"},
+--		{"npc_male12.png"},
+--		{"npc_male13.png"},
+--		{"npc_male14.png"},
+--		{"npc_female1.png"}, -- female by nuttmeg20
+--		{"npc_female2.png"},
+--		{"npc_female3.png"},
+--		{"npc_female4.png"},
+--		{"npc_female5.png"},
+--		{"npc_female6.png"},
+--		{"npc_female7.png"},
+--		{"npc_female8.png"},
+--		{"npc_female9.png"},
+--		{"npc_female10.png"},
+--		{"npc_female11.png"},
+--	},
+--	child_texture = {
+--		{"npc_child_male1.png"},
+--		{"npc_child_female1.png"},
+--	},
+--	makes_footstep_sound = true,
+--	sounds = {},
+--	-- Added walk chance
+--	walk_chance = 20,
+--	-- Added stepheight
+--	stepheight = 0.6,
+--	walk_velocity = 1,
+--	run_velocity = 3,
+--	jump = false,
+--	drops = {
+--		{name = "default:wood", chance = 1, min = 1, max = 3},
+--		{name = "default:apple", chance = 2, min = 1, max = 2},
+--		{name = "default:axe_stone", chance = 5, min = 1, max = 1},
+--	},
+--	water_damage = 0,
+--	lava_damage = 2,
+--	light_damage = 0,
+--	--follow = {"farming:bread", "mobs:meat", "default:diamond"},
+--	view_range = 15,
+--	owner = "",
+--	order = "follow",
+--	--order = "stand",
+--	fear_height = 3,
+--	animation = {
+--		speed_normal = 30,
+--		speed_run = 30,
+--		stand_start = 0,
+--		stand_end = 79,
+--		walk_start = 168,
+--		walk_end = 187,
+--		run_start = 168,
+--		run_end = 187,
+--		punch_start = 200,
+--		punch_end = 219,
+--	},
+--	after_activate = function(self, staticdata, def, dtime)
+--		npc.after_activate(self)
+--	end,
+--	on_rightclick = function(self, clicker)
+--		-- Check if right-click interaction is enabled
+--		if self.enable_rightclick_interaction == true then
+--			npc.rightclick_interaction(self, clicker)
+--		end
+--	end,
+--	do_custom = function(self, dtime)
+--		return npc.step(self, dtime)
+--	end
+--})
 
 -------------------------------------------------------------------------
 -- Item definitions
@@ -2238,7 +2244,7 @@ mobs:register_mob("advanced_npc:npc", {
 --mobs:register_egg("advanced_npc:npc", S("NPC"), "default_brick.png", 1)
 
 -- compatibility
-mobs:alias_mob("mobs:npc", "advanced_npc:npc")
+--mobs:alias_mob("mobs:npc", "advanced_npc:npc")
 
 -- Marriage ring
 minetest.register_craftitem("advanced_npc:marriage_ring", {
