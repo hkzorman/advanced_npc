@@ -874,10 +874,15 @@ function npc.exec.enqueue_program(self, program_name, arguments, interrupt_optio
 	if is_state_program == nil then
 		is_state_program = false
 	end
-	-- Enqueue process
-	self.execution.process_queue[#self.execution.process_queue + 1] =
-		_exec.create_process_entry(program_name, arguments, interrupt_options, is_state_program, _exec.get_new_process_id(self))
-
+	if is_state_program == true then
+		npc.exec.set_state_program(self, program_name, arguments, interrupt_options)
+		-- Enqueue state process
+		self.execution.process_queue[#self.execution.process_queue + 1] = self.execution.state_process
+	else
+		-- Enqueue process
+		self.execution.process_queue[#self.execution.process_queue + 1] =
+			_exec.create_process_entry(program_name, arguments, interrupt_options, is_state_program, _exec.get_new_process_id(self))
+	end
 end
 
 -- This function creates a state process. The state process will execute
