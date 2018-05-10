@@ -296,7 +296,7 @@ end
 --------------------------------------------------------------------------------------
 -- Dialogue methods
 --------------------------------------------------------------------------------------
--- Select random dialogue objects for an NPC based on sex
+-- Select random dialogue objects for an NPC based on gender
 -- and the relationship phase with player
 function npc.dialogue.select_random_dialogues_for_npc(self, phase)
 	local result = {
@@ -311,7 +311,7 @@ function npc.dialogue.select_random_dialogues_for_npc(self, phase)
 
 	local search_tags = {
 		"unisex",
-		self.sex,
+		self.gender,
 		phase_tag,
 		self.occupation
 	}
@@ -334,7 +334,7 @@ function npc.dialogue.select_random_dialogues_for_npc(self, phase)
 			self.gift_data.favorite_items["fav"..tostring(i)],
 			npc.dialogue.tags.GIFT_ITEM_HINT,
 			npc.dialogue.tags.GIFT_ITEM_LIKED,
-			self.sex,
+			self.gender,
 			phase_tag)
 		for key, value in pairs(hints) do
 			result.hints[i] = key
@@ -346,7 +346,7 @@ function npc.dialogue.select_random_dialogues_for_npc(self, phase)
 			self.gift_data.disliked_items["dis"..tostring(i-2)],
 			npc.dialogue.tags.GIFT_ITEM_HINT,
 			npc.dialogue.tags.GIFT_ITEM_UNLIKED,
-			self.sex)
+			self.gender)
 		for key, value in pairs(hints) do
 			result.hints[i] = key
 		end

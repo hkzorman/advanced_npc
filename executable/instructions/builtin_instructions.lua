@@ -51,8 +51,10 @@ end)
 -- Syntacic sugar to make a process wait for a specific interval
 npc.programs.instr.register("advanced_npc:wait", function(self, args)
     local wait_time = args.time
-    npc.programs.instr.execute(self, "advanced_npc:set_instruction_interval", {interval = wait_time - 1})
-    npc.exec.proc.enqueue(self, "advanced_npc:set_instruction_interval", {interval = 1})
+    npc.programs.instr.execute(self, "advanced_npc:set_process_interval", {interval = wait_time - 1})
+    npc.exec.proc.enqueue(self, "advanced_npc:set_process_interval", {interval = 1})
+    -- npc.programs.instr.execute(self, "advanced_npc:set_instruction_interval", {interval = wait_time - 1})
+    -- npc.exec.proc.enqueue(self, "advanced_npc:set_instruction_interval", {interval = 1})
 end)
 
 -- The following command is for allowing the rest of mobs redo API to be executed
@@ -379,7 +381,7 @@ npc.programs.instr.register("advanced_npc:walk_step", function(self, args)
             dir = npc.programs.helper.random_dir(start_pos, speed, 0, 3)
             --minetest.log("Returned: "..dump(dir))
         end
-
+        
         if dir == npc.direction.north then
             vel = {x=0, y=0, z=speed}
         elseif dir == npc.direction.north_east then
@@ -399,9 +401,9 @@ npc.programs.instr.register("advanced_npc:walk_step", function(self, args)
         else
             -- No direction provided or NPC is trapped, center NPC position
             -- and return
-            local npc_pos = self.object:getpos()
-            local proper_pos = {x=math.floor(npc_pos.x), y=npc_pos.y, z=math.floor(npc_pos.z)}
-            self.object:moveto(proper_pos)
+            -- local npc_pos = self.object:getpos()
+            -- local proper_pos = {x=math.floor(npc_pos.x), y=npc_pos.y, z=math.floor(npc_pos.z)}
+            -- self.object:moveto(proper_pos)
             return
         end
     end
@@ -596,7 +598,7 @@ end)
 
 -- Internal NPC properties
 -- These instructions are mostly syntactic sugar for doing certain operations.
-npc.programs.instr.register("advanced_npc:trade:change_trade_status", function(self, args)
+npc.programs.instr.register("advanced_npc:trade:change_trader_status", function(self, args)
     -- Get status from args
     local status = args.status
     -- Set status to NPC

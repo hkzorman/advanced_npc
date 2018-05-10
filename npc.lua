@@ -127,10 +127,15 @@ end
 -- defined. On a later phase, pre-defining many of the NPC values
 -- will be allowed.
 
-local function get_random_name(sex)
-	local names = npc.info.get_names({sex}, false, false)
-	local i = math.random(#names)
-	return names[i]
+local function get_random_name(gender)
+	local names = npc.info.get_names({gender}, false, false)
+	if next(names) ~= nil then
+		local i = math.random(#names)
+		return names[i]
+	else
+		-- Return a default name if no name was found
+		return "Anonymous"
+	end
 end
 
 local function initialize_inventory()
@@ -152,7 +157,7 @@ local function is_female_texture(textures)
 	return false
 end
 
-function npc.assign_sex_from_texture(self)
+function npc.assign_gender_from_texture(self)
 	if is_female_texture(self.base_texture) then
 		return npc.FEMALE
 	else
@@ -160,15 +165,19 @@ function npc.assign_sex_from_texture(self)
 	end
 end
 
-local function get_random_texture(sex, age)
+local function get_random_texture(gender, age)
 
-	local textures = npc.info.get_textures({sex, age}, false, false)
-	local i = math.random(#textures)
-	return textures[i]
+	local textures = npc.info.get_textures({gender, age}, false, false)
+	if next(textures) ~= nil then
+		local i = math.random(#textures)
+		return {textures[i]}
+	else
+		return {"default_"..gender..".png"}
+	end
 
 --	local textures = {}
 --	local filtered_textures = {}
---	-- Find textures by sex and age
+--	-- Find textures by gender and age
 --	if age == npc.age.adult then
 --		--minetest.log("Registered: "..dump(minetest.registered_entities["advanced_npc:npc"]))
 --		textures = minetest.registered_entities["advanced_npc:npc"].texture_list
@@ -178,11 +187,11 @@ local function get_random_texture(sex, age)
 --
 --	for i = 1, #textures do
 --		local current_texture = textures[i][1]
---		if (sex == npc.MALE
---				and string.find(current_texture, sex)
+--		if (gender == npc.MALE
+--				and string.find(current_texture, gender)
 --				and not string.find(current_texture, npc.FEMALE))
---				or (sex == npc.FEMALE
---				and string.find(current_texture, sex)) then
+--				or (gender == npc.FEMALE
+--				and string.find(current_texture, gender)) then
 --			table.insert(filtered_textures, current_texture)
 --		end
 --	end
@@ -195,14 +204,14 @@ local function get_random_texture(sex, age)
 --	return filtered_textures[math.random(1,#filtered_textures)]
 end
 
---function npc.get_random_texture_from_array(age, sex, textures)
+--function npc.get_random_texture_from_array(age, gender, textures)
 --	local filtered_textures = {}
 --
 --	for i = 1, #textures do
 --		local current_texture = textures[i]
 --		-- Filter by age
---		if (sex == npc.MALE
---				and string.find(current_texture, sex)
+--		if (gender == npc.MALE
+--				and string.find(current_texture, gender)
 --				and not string.find(current_texture, npc.FEMALE)
 --				and ((age == npc.age.adult
 --				and not string.find(current_texture, npc.age.child))
@@ -210,8 +219,8 @@ end
 --				and string.find(current_texture, npc.age.child))
 --		)
 --		)
---				or (sex == npc.FEMALE
---				and string.find(current_texture, sex)
+--				or (gender == npc.FEMALE
+--				and string.find(current_texture, gender)
 --				and ((age == npc.age.adult
 --				and not string.find(current_texture, npc.age.child))
 --				or (age == npc.age.child
@@ -247,12 +256,12 @@ end
 -- These items are chosen from the favorite items list.
 local function choose_spawn_items(self)
 	local number_of_items_to_add = math.random(1, 2)
---	local number_of_items = #npc.FAVORITE_ITEMS[self.sex].phase1
+--	local number_of_items = #npc.FAVORITE_ITEMS[self.gender].phase1
 --
 --	for i = 1, number_of_items_to_add do
 --		npc.add_item_to_inventory(
 --			self,
---			npc.FAVORITE_ITEMS[self.sex].phase1[math.random(1, number_of_items)].item,
+--			npc.FAVORITE_ITEMS[self.gender].phase1[math.random(1, number_of_items)].item,
 --			math.random(1,5)
 --		)
 --	end
@@ -280,7 +289,7 @@ end
 
 -- Spawn function. Initializes all variables that the
 -- NPC will have and choose random, starting values
-function npc.initialize(entity, pos, is_lua_entity, npc_stats, occupation_name)
+function npc.initialize(entity, pos, is_lua_entity, npc_stats, occupation_name, npc_info)
 	npc.log("INFO", "Initializing NPC at "..minetest.pos_to_string(pos))
 
 	-- Get variables
@@ -296,12 +305,12 @@ function npc.initialize(entity, pos, is_lua_entity, npc_stats, occupation_name)
 	-- can't be disturbed
 	ent.enable_rightclick_interaction = true
 
-	-- Determine sex and age
-	-- If there's no previous NPC data, sex and age will be randomly chosen.
+	-- Determine gender and age
+	-- If there's no previous NPC data, gender and age will be randomly chosen.
 	--   - Sex: Female or male will have each 50% of spawning
 	--   - Age: 90% chance of spawning adults, 10% chance of spawning children.
 	-- If there is previous data then:
-	--   - Sex: The unbalanced sex will get a 75% chance of spawning
+	--   - Sex: The unbalanced gender will get a 75% chance of spawning
 	--          - Example: If there's one male, then female will have 75% spawn chance.
 	--          -          If there's male and female, then each have 50% spawn chance.
 	--   - Age: For each two adults, the chance of spawning a child next will be 50%
@@ -314,7 +323,7 @@ function npc.initialize(entity, pos, is_lua_entity, npc_stats, occupation_name)
 		local female_s, female_e = 51, 100
 		local adult_s, adult_e = 0, 85
 		local child_s, child_e = 86, 100
-		-- Determine sex probabilities
+		-- Determine gender probabilities
 		if npc_stats[npc.FEMALE].total > npc_stats[npc.MALE].total then
 			male_e = 75
 			female_s, female_e = 76, 100
@@ -333,19 +342,19 @@ function npc.initialize(entity, pos, is_lua_entity, npc_stats, occupation_name)
 				adult_e = 60
 			end
 		end
-		-- Get sex and age based on the probabilities
-		local sex_chance = math.random(1, 100)
+		-- Get gender and age based on the probabilities
+		local gender_chance = math.random(1, 100)
 		local age_chance = math.random(1, 100)
-		local selected_sex = ""
+		local selected_gender = ""
 		local selected_age = ""
-		-- Select sex
-		if male_s <= sex_chance and sex_chance <= male_e then
-			selected_sex = npc.MALE
-		elseif female_s <= sex_chance and sex_chance <= female_e then
-			selected_sex = npc.FEMALE
+		-- Select gender
+		if male_s <= gender_chance and gender_chance <= male_e then
+			selected_gender = npc.MALE
+		elseif female_s <= gender_chance and gender_chance <= female_e then
+			selected_gender = npc.FEMALE
 		end
-		-- Set sex for NPC
-		ent.sex = selected_sex
+		-- Set gender for NPC
+		ent.gender = selected_gender
 		-- Select age
 		if adult_s <= age_chance and age_chance <= adult_e then
 			selected_age = npc.age.adult
@@ -364,27 +373,33 @@ function npc.initialize(entity, pos, is_lua_entity, npc_stats, occupation_name)
 		ent.age = selected_age
 
 		-- Set texture accordingly
-		local selected_texture = get_random_texture(selected_sex, selected_age)
+		local selected_texture = get_random_texture(selected_gender, selected_age)
 		--minetest.log("Selected texture: "..dump(selected_texture))
 		-- Store selected texture due to the need to restore it later
 		ent.selected_texture = selected_texture
 		-- Set texture and base texture
 		ent.textures = {selected_texture}
 		ent.base_texture = {selected_texture}
+	elseif npc_info then
+		ent.gender = npc_info.gender
+		ent.age = npc_info.age
 	else
-		-- Get sex based on texture. This is a 50% chance for
-		-- each sex as there's same amount of textures for male and female.
-		-- Do not spawn child as first NPC
-		ent.sex = npc.assign_sex_from_texture(ent)
+		-- Randomly choose gender, and spawn as adult
+		local gender_chance = math.random(1,2)
+		ent.gender = npc.FEMALE
+		if gender_chance == 1 then
+			ent.gender = npc.MALE
+			ent.gender = npc.MALE
+		end
 		ent.age = npc.age.adult
 	end
 
 	-- Initialize all gift data
 	ent.gift_data = {
 		-- Choose favorite items. Choose phase1 per default
-		favorite_items = npc.relationships.select_random_favorite_items(ent.sex, "phase1"),
+		favorite_items = npc.relationships.select_random_favorite_items(ent.gender, "phase1"),
 		-- Choose disliked items. Choose phase1 per default
-		disliked_items = npc.relationships.select_random_disliked_items(ent.sex),
+		disliked_items = npc.relationships.select_random_disliked_items(ent.gender),
 		-- Enable/disable gift item hints dialogue lines
 		enable_gift_items_hints = true
 	}
@@ -529,7 +544,7 @@ function npc.initialize(entity, pos, is_lua_entity, npc_stats, occupation_name)
 		-- Flag to enable or disable the schedules functionality
 		enabled = true,
 		-- Lock for when executing a schedule
-		lock = false,
+		lock = -1,
 		-- Queue of programs in schedule to be enqueued
 		-- Used to calculate dependencies
 		dependency_queue = {},
@@ -559,7 +574,7 @@ function npc.initialize(entity, pos, is_lua_entity, npc_stats, occupation_name)
 	ent.nametag = ""
 
 	-- Set name
-	ent.npc_name = get_random_name(ent.sex)
+	ent.npc_name = get_random_name(ent.gender)
 
 	-- Set ID
 	ent.npc_id = tostring(math.random(1000, 9999))..":"..ent.npc_name
@@ -571,7 +586,7 @@ function npc.initialize(entity, pos, is_lua_entity, npc_stats, occupation_name)
 	ent.initialized = true
 	--npc.log("WARNING", "Spawned entity: "..dump(ent))
 	npc.log("INFO", "Successfully initialized NPC with name "..dump(ent.npc_name)
-			..", sex: "..ent.sex..", is child: "..dump(ent.is_child)
+			..", gender: "..ent.gender..", is child: "..dump(ent.is_child)
 			..", texture: "..dump(ent.textures))
 	-- Refreshes entity
 	ent.object:set_properties(ent)
@@ -1045,8 +1060,7 @@ end
 -- This function handles a new process called by an interrupt.
 -- Will execute steps 1 and 2 of the above algorithm. The scheduler 
 -- will take care of handling step 3.
-function npc.exec.interrupt(self, new_program, new_arguments, interrupt_options)
-	--minetest.log("Priority enqueue")
+function npc.exec.interrupt(self, new_program, new_arguments, interrupt_options, enable_restore)
 	-- Enqueue process with priority
 	_exec.priority_enqueue(self,
 		{[1] = {program_name=new_program, arguments=new_arguments, interrupt_options=interrupt_options}})
@@ -1057,10 +1071,9 @@ function npc.exec.interrupt(self, new_program, new_arguments, interrupt_options)
 	-- Dequeue process
 	local interrupted_process = npc.exec.get_current_process(self)
 	table.remove(self.execution.process_queue, 1)
-	--minetest.log("Store")
 	-- Store interrupted process
-	local current_process = self.execution.process_queue[1]
-	current_process.interrupted_process = interrupted_process
+    local current_process = self.execution.process_queue[1]
+    current_process.interrupted_process = interrupted_process
 	-- Restore process scheduler interval
 	self.execution.scheduler_interval = 1
 	--minetest.log("Execute")
@@ -1131,10 +1144,13 @@ function _exec.restore_process(self)
 		-- Check if any instruction was interrupted
 		if current_process.current_instruction.entry
 			and current_process.current_instruction.state == npc.exec.proc.instr.state.INTERRUPTED then
+			-- TODO: Do we really want to restore position?
 			-- Restore position
 			self.object:setpos(current_process.current_instruction.pos)
-			-- Execute instruction
-			_exec.proc.execute(self, current_process.current_instruction.entry)
+			if current_process.current_instruction.entry.name ~= "advanced_npc:interrupt" then
+			    -- Execute instruction
+			    _exec.proc.execute(self, current_process.current_instruction.entry)
+			end
 		end
 	end
 end
@@ -1162,9 +1178,10 @@ end
 --   - If the instruction queue is not empty, continue
 function npc.exec.process_scheduler(self)
 	npc.log("EXECUTION", "Current process queue size: "..dump(#self.execution.process_queue))
-	for i = 1, #self.execution.process_queue do
-		minetest.log("["..dump(self.execution.process_queue[i].program_name).."]")
-	end
+	-- minetest.log("Queue for "..dump(self.npc_name))
+	-- for i = 1, #self.execution.process_queue do
+	-- 	minetest.log("["..dump(self.execution.process_queue[i].program_name).."]")
+	-- end
 	-- Check current process
 	local current_process = self.execution.process_queue[1]
 	if current_process then
@@ -1894,14 +1911,17 @@ function npc.schedule.execution_routine(self, dtime)
 		-- Get time of day
 		local time = get_time_in_hours()
 		-- Check if time is an hour
-		if ((time % 1) < dtime) and self.schedules.lock == false then
-			-- Activate lock to avoid more than one entry to this code
-			self.schedules.lock = true
+		if ((time % 1) < dtime) then
 			-- Get integer part of time
 			time = (time) - (time % 1)
+			if not(time > self.schedules.lock or (time == 0 and self.schedules.lock == 23)) then
+				return
+			end
+			npc.log("INFO", "Time: "..dump(time))
+			-- Activate lock to avoid more than one entry to this code
+			self.schedules.lock = time
 			-- Check if there is a schedule entry for this time
 			-- Note: Currently only one schedule is supported, for day 0
-			npc.log("INFO", "Time: "..dump(time))
 			local schedule = self.schedules.generic[0]
 			if schedule ~= nil then
 				-- Check if schedule for this time exists
@@ -1927,14 +1947,14 @@ function npc.schedule.execution_routine(self, dtime)
 							local dependencies_met
 							if schedule[time][i].depends then
 								-- TODO: Fix dependency check issue
-								minetest.log("Programs to enqueue size: "..dump(programs_to_enqueue))
-								minetest.log("i: "..dump(i))
-								minetest.log("Dependency: "..dump(schedule[time][i].depends[1]))
-								minetest.log("programs to enqueue[1]: "..dump(programs_to_enqueue[1]))
-								for key,var in pairs(programs_to_enqueue) do
-									minetest.log("Key: "..dump(key))
-								end
-								minetest.log("entries to enqueue[i]: "..dump(entries_to_enqueue[schedule[time][i].depends[1]]))
+								-- minetest.log("Programs to enqueue size: "..dump(programs_to_enqueue))
+								-- minetest.log("i: "..dump(i))
+								-- minetest.log("Dependency: "..dump(schedule[time][i].depends[1]))
+								-- minetest.log("programs to enqueue[1]: "..dump(programs_to_enqueue[1]))
+								-- for key,var in pairs(programs_to_enqueue) do
+								-- 	minetest.log("Key: "..dump(key))
+								-- end
+								-- minetest.log("entries to enqueue[i]: "..dump(entries_to_enqueue[schedule[time][i].depends[1]]))
 								if entries_to_enqueue[schedule[time][i].depends[1]] ~= nil then
 									dependencies_met = true
 								else
@@ -1942,7 +1962,7 @@ function npc.schedule.execution_routine(self, dtime)
 								end
 							end
 
-							minetest.log("Dependencies met for entry with name: "..dump(schedule[time][i].program_name)..": "..dump(dependencies_met))
+							-- minetest.log("Dependencies met for entry with name: "..dump(schedule[time][i].program_name)..": "..dump(dependencies_met))
 
 							-- Check for dependencies being met
 							if dependencies_met == nil or dependencies_met == true then
@@ -1961,15 +1981,15 @@ function npc.schedule.execution_routine(self, dtime)
 					end
 					-- Clear programs_to_enqueue
 					programs_to_enqueue = nil
-					entries_to_enqueue = nil
+					entries_to_enqueue = nil 
 				end
 			end
-		else
-			-- Check if lock can be released
-			if (time % 1) > dtime + 0.1 then
-				-- Release lock
-				self.schedules.lock = false
-			end
+		-- else
+		-- 	-- Check if lock can be released
+		-- 	if (time % 1) > dtime + 0.1 then
+		-- 		-- Release lock
+		-- 		self.schedules.lock = false
+		-- 	end
 		end
 	end
 end
