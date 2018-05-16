@@ -1060,20 +1060,27 @@ end
 -- This function handles a new process called by an interrupt.
 -- Will execute steps 1 and 2 of the above algorithm. The scheduler 
 -- will take care of handling step 3.
-function npc.exec.interrupt(self, new_program, new_arguments, interrupt_options, enable_restore)
+function npc.exec.interrupt(self, new_program, new_arguments, interrupt_options)
 	-- Enqueue process with priority
 	_exec.priority_enqueue(self,
 		{[1] = {program_name=new_program, arguments=new_arguments, interrupt_options=interrupt_options}})
 	--minetest.log("Pause")
+	minetest.log("Interrupted process: "..dump(self.execution.process_queue[1]))
+	-- Check process - if the instruction queue is empty, do not store
 	-- Pause current process
-	_exec.pause_process(self, false)
-	--minetest.log("Dequeue")
+	_exec.pause_process(self)
+
+	local interrupted_process = self.execution.process_queue[1]
 	-- Dequeue process
-	local interrupted_process = npc.exec.get_current_process(self)
 	table.remove(self.execution.process_queue, 1)
-	-- Store interrupted process
-    local current_process = self.execution.process_queue[1]
-    current_process.interrupted_process = interrupted_process
+
+	-- Find if interrupted process has more instructions to execute
+	local has_more_instructions = next(self.execution.process_queue[1].instruction_queue) ~= nil
+	if has_more_instructions then
+		-- Store interrupted process
+		local current_process = self.execution.process_queue[1]
+		current_process.interrupted_process = interrupted_process
+	end
 	-- Restore process scheduler interval
 	self.execution.scheduler_interval = 1
 	--minetest.log("Execute")
@@ -1114,16 +1121,36 @@ function _exec.pause_process(self, set_instruction_as_interrupted)
 	local current_process = self.execution.process_queue[1]
 	if current_process then
 		-- Check if there are instructions in the instruction queue
-		if #current_process.instruction_queue > 0 then
-			-- Check current instruction
-			if current_process.current_instruction.entry 
-				and current_process.current_instruction.state == npc.exec.proc.instr.state.EXECUTING
-                and set_instruction_as_interrupted == true then
-				-- Change instruction state
-				current_process.current_instruction.state = npc.exec.proc.instr.state.INTERRUPTED
-			elseif set_instruction_as_interrupted == nil or set_instruction_as_interrupted == false then
-                current_process.current_instruction.state = npc.exec.proc.instr.state.INACTIVE
-            end
+		if next(current_process.instruction_queue) ~= nil then
+			-- If the instruction is interrupt, then dequeue that instruction :)
+			if current_process.instruction_queue[1].name == "advanced_npc:interrupt" then
+				-- Dequeue instruction
+				table.remove(current_process.instruction_queue, 1)
+				-- Check if there are more instructions
+				if next(current_process.instruction_queue) ~= nil then
+					-- Set entry
+					current_process.current_instruction.entry = current_process.instruction_queue[1]
+					-- Set state
+					current_process.current_instruction.state = npc.exec.proc.instr.state.INACTIVE
+				else
+					-- Set entry to blank as there is no other instruction
+					current_process.current_instruction.entry = {}
+					-- Set state
+					current_process.current_instruction.state = npc.exec.proc.instr.state.INACTIVE
+				end
+			else
+				-- Check current instruction
+				if current_process.current_instruction.entry
+						and current_process.current_instruction.state == npc.exec.proc.instr.state.EXECUTING then
+						-- This condition shouldn't become true
+						--and set_instruction_as_interrupted == true then
+					-- Change instruction state
+					current_process.current_instruction.state = npc.exec.proc.instr.state.INTERRUPTED
+					-- The following flow has been commented out as it doesn't gets executed.
+					--elseif set_instruction_as_interrupted == nil or set_instruction_as_interrupted == false then
+					--	current_process.current_instruction.state = npc.exec.proc.instr.state.INACTIVE
+				end
+			end
 		end
 		-- Change process state
 		current_process.state = npc.exec.proc.state.PAUSED
@@ -1139,6 +1166,7 @@ end
 function _exec.restore_process(self)
 	local current_process = self.execution.process_queue[1]
 	if current_process then
+		minetest.log("CUrrent process: "..dump(current_process))
 		-- Change process state
 		current_process.state = npc.exec.proc.state.RUNNING
 		-- Check if any instruction was interrupted
@@ -1146,11 +1174,9 @@ function _exec.restore_process(self)
 			and current_process.current_instruction.state == npc.exec.proc.instr.state.INTERRUPTED then
 			-- TODO: Do we really want to restore position?
 			-- Restore position
-			self.object:setpos(current_process.current_instruction.pos)
-			if current_process.current_instruction.entry.name ~= "advanced_npc:interrupt" then
-			    -- Execute instruction
-			    _exec.proc.execute(self, current_process.current_instruction.entry)
-			end
+			--self.object:setpos(current_process.current_instruction.pos)
+			-- Execute instruction
+			_exec.proc.execute(self, current_process.current_instruction.entry)
 		end
 	end
 end
@@ -1285,7 +1311,7 @@ function npc.exec.process_scheduler(self)
 						-- Execute next process in queue
 						npc.exec.execute_process(self)
 					else
-						-- Execute next process in queue
+						-- Execute next process in queue which is interrupted
 						_exec.restore_process(self)
 					end
 				else

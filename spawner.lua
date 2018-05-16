@@ -1026,7 +1026,7 @@ if minetest.get_modpath("mg_villages") ~= nil then
                 meta:set_string("node_data", minetest.serialize(nodedata))
                 -- Find nearby plotmarkers, excluding current plotmarker
                 local nearby_plotmarkers = npc.locations.find_plotmarkers(pos, 35, true)
-                --minetest.log("Found nearby plotmarkers: "..dump(nearby_plotmarkers))
+                --npc.log("INFO", "SPWNER: Found nearby plotmarkers: "..dump(nearby_plotmarkers))
                 meta:set_string("nearby_plotmarkers", minetest.serialize(nearby_plotmarkers))
                 -- Check if building position data is also available (recent mg_villages)
                 if building_pos_data then

@@ -4,14 +4,7 @@
 -- Time: 9:00 AM
 --
 
-local function isMultipleOf45Degrees(radian)
-    return radian - math.pi/4 < 0.15
-            or radian - (3*math.pi)/4 < 0.15
-            or radian - (5*math.pi)/4 < 0.15
-            or radian - (7*math.pi)/4 < 0.15
-end
-
--- This function can be used to make the NPC walk from one
+-- This program can be used to make the NPC walk from one
 -- position to another. If the optional parameter walkable_nodes
 -- is included, which is a table of node names, these nodes are
 -- going to be considered walkable for the algorithm to find a
@@ -56,7 +49,7 @@ npc.programs.register("advanced_npc:walk_to_pos", function(self, args)
         end
 
         -- Find path
-        local path = npc.pathfinder.find_path(start_pos, end_pos, self, true)
+        local path = npc.pathfinder.find_path(start_pos, end_pos, self, walkable_nodes)
 
         if path ~= nil and #path > 1 then
 

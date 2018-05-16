@@ -50,14 +50,14 @@ npc.programs.register("advanced_npc:node_query", function(self, args)
             end
         else
             -- Create variable
-            npc.exec.var.set(self, "last_node_acted_upon", "")
+            npc.exec.var.put(self, "last_node_acted_upon", "")
             -- Pick a random node to act upon
             node_pos = found_nodes[math.random(1, #found_nodes)]
             -- Get node info
             node = minetest.get_node(node_pos)
         end
         -- Save this node as the last acted upon
-       npc.exec.var.set(self, "last_node_acted_upon", node.name)
+        npc.exec.var.set(self, "last_node_acted_upon", node.name)
         -- Set node as a place
         -- Note: Code below isn't *adding* a node, but overwriting the
         -- place with "schedule_target_pos" place type

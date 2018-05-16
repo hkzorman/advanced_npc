@@ -467,6 +467,7 @@ if minetest.get_modpath("mg_villages") ~= nil then
 		end
 		-- Check the other plotmarkers as well
 		local nearby_plotmarkers = minetest.deserialize(meta:get_string("nearby_plotmarkers"))
+		npc.log("DEBUG", "Nearby plotmarkers: "..dump(nearby_plotmarkers))
 		if nearby_plotmarkers then
 			for i = 1, #nearby_plotmarkers do
 				if nearby_plotmarkers[i].workplaces then
@@ -499,7 +500,8 @@ function npc.locations.find_plotmarkers(pos, radius, exclude_current_pos)
 	local start_pos = {x=pos.x - radius, y=pos.y - 1, z=pos.z - radius}
 	local end_pos = {x=pos.x + radius, y=pos.y + 1, z=pos.z + radius}
 	local nodes = minetest.find_nodes_in_area(start_pos, end_pos,
-		npc.locations.nodes.PLOTMARKER)
+		npc.locations.nodes.plotmarker)
+	npc.log("INFO", "Found "..dump(#nodes).." plotmarkers")
 	-- Scan nodes
 	for i = 1, #nodes do
 		-- Check if current plotmarker is to be excluded from the list
@@ -519,11 +521,16 @@ function npc.locations.find_plotmarkers(pos, radius, exclude_current_pos)
 				local data = npc.locations.get_mg_villages_building_data(nodes[i])
 				def["plot_nr"] = data.plot_nr
 				def["village_id"] = data.village_id
-				def["building_data"] = data.building_data
+				--def["building_data"] = data.building_data
 				def["building_type"] = data.building_type
 				if data.building_pos_data then
 					def["building_pos_data"] = data.building_pos_data
-					def["workplaces"] = data.building_pos_data.workplaces
+					if next(data.building_pos_data.workplaces) ~= nil then
+						def["workplaces"] = data.building_pos_data.workplaces
+					end
+				end
+				if data.workplaces and next(data.workplaces) ~= nil then
+					def["workplaces"] = data.workplaces
 				end
 			end
 			-- Add building
@@ -685,7 +692,7 @@ end
 function npc.locations.find_sittable_nodes_nearby(pos, radius)
 	local result = {}
 	-- Try to find sittable nodes
-	local nodes = npc.locations.find_node_nearby(pos, npc.locations.nodes.SITTABLE, radius)
+	local nodes = npc.locations.find_node_nearby(pos, npc.locations.nodes.sittable, radius)
 	-- Highly unorthodox check for emptinnes
 	if nodes[1] ~= nil then
 		for i = 1, #nodes do
