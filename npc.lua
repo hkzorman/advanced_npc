@@ -1065,7 +1065,7 @@ function npc.exec.interrupt(self, new_program, new_arguments, interrupt_options)
 	_exec.priority_enqueue(self,
 		{[1] = {program_name=new_program, arguments=new_arguments, interrupt_options=interrupt_options}})
 	--minetest.log("Pause")
-	minetest.log("Interrupted process: "..dump(self.execution.process_queue[1]))
+	minetest.log("Interrupted process: "..dump(self.execution.process_queue[1].program_name))
 	-- Check process - if the instruction queue is empty, do not store
 	-- Pause current process
 	_exec.pause_process(self)
@@ -1075,7 +1075,8 @@ function npc.exec.interrupt(self, new_program, new_arguments, interrupt_options)
 	table.remove(self.execution.process_queue, 1)
 
 	-- Find if interrupted process has more instructions to execute
-	local has_more_instructions = next(self.execution.process_queue[1].instruction_queue) ~= nil
+	local has_more_instructions = next(interrupted_process.instruction_queue) ~= nil
+	--minetest.log("Process has more instructions: "..dump())
 	if has_more_instructions then
 		-- Store interrupted process
 		local current_process = self.execution.process_queue[1]
@@ -1131,7 +1132,7 @@ function _exec.pause_process(self, set_instruction_as_interrupted)
 					-- Set entry
 					current_process.current_instruction.entry = current_process.instruction_queue[1]
 					-- Set state
-					current_process.current_instruction.state = npc.exec.proc.instr.state.INACTIVE
+					current_process.current_instruction.state = npc.exec.proc.instr.state.INTERRUPTED
 				else
 					-- Set entry to blank as there is no other instruction
 					current_process.current_instruction.entry = {}
@@ -1152,6 +1153,7 @@ function _exec.pause_process(self, set_instruction_as_interrupted)
 				end
 			end
 		end
+		--minetest.log("Process after pausing: "..dump(current_process))
 		-- Change process state
 		current_process.state = npc.exec.proc.state.PAUSED
 	end
@@ -1166,7 +1168,7 @@ end
 function _exec.restore_process(self)
 	local current_process = self.execution.process_queue[1]
 	if current_process then
-		minetest.log("CUrrent process: "..dump(current_process))
+		minetest.log("Restoring process: "..dump(current_process.program_name))
 		-- Change process state
 		current_process.state = npc.exec.proc.state.RUNNING
 		-- Check if any instruction was interrupted
@@ -1176,6 +1178,7 @@ function _exec.restore_process(self)
 			-- Restore position
 			--self.object:setpos(current_process.current_instruction.pos)
 			-- Execute instruction
+			minetest.log("Re-executing instruction: "..dump(current_process.current_instruction.entry.name))
 			_exec.proc.execute(self, current_process.current_instruction.entry)
 		end
 	end
@@ -1364,8 +1367,13 @@ function _exec.proc.execute(self, entry)
 			current_process.current_instruction.pos = self.object:getpos()
 			current_process.current_instruction.state = npc.exec.proc.instr.state.EXECUTING
 			-- Execute current instruction
-			npc.log("EXECUTION", "  Executing instruction: "..dump(entry.name))
+			npc.log("EXECUTION", "Executing instruction: "..dump(entry.name))
 			local result = npc.programs.instr.execute(self, entry.name, entry.args)
+			if entry.name == "advanced_npc:interrupt" then
+				-- Do not do anything else, the interrupt instruction was already
+				-- dequeued.
+				return
+			end
 			-- Check if var_name was given
 			if entry.var_name then
 				if npc.exec.var.get(self, entry.var_name) then
