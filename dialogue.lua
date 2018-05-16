@@ -317,38 +317,40 @@ function npc.dialogue.select_random_dialogues_for_npc(self, phase)
 	}
 
 	local dialogues = npc.dialogue.search_dialogue_by_tags(search_tags)
-	local keys = npc.utils.get_map_keys(dialogues)
+	if dialogues and next(dialogues) ~= nil then
+		local keys = npc.utils.get_map_keys(dialogues)
 
-	-- Determine how many dialogue lines the NPC will have
-	local number_of_dialogues = math.random(npc.dialogue.MIN_DIALOGUES, npc.dialogue.MAX_DIALOGUES)
+		-- Determine how many dialogue lines the NPC will have
+		local number_of_dialogues = math.random(npc.dialogue.MIN_DIALOGUES, npc.dialogue.MAX_DIALOGUES)
 
-	for i = 1, number_of_dialogues do
-		local key_id = math.random(1, #keys)
-		result.normal[i] = keys[key_id]
-		npc.log("DEBUG", "Adding dialogue: "..dump(dialogues[keys[key_id]]))
-	end
-
-	-- Add item hints.
-	for i = 1, 2 do
-		local hints = npc.relationships.get_dialogues_for_gift_item(
-			self.gift_data.favorite_items["fav"..tostring(i)],
-			npc.dialogue.tags.GIFT_ITEM_HINT,
-			npc.dialogue.tags.GIFT_ITEM_LIKED,
-			self.gender,
-			phase_tag)
-		for key, value in pairs(hints) do
-			result.hints[i] = key
+		for i = 1, number_of_dialogues do
+			local key_id = math.random(1, #keys)
+			result.normal[i] = keys[key_id]
+			npc.log("DEBUG", "Adding dialogue: "..dump(dialogues[keys[key_id]]))
 		end
-	end
 
-	for i = 3, 4 do
-		local hints = npc.relationships.get_dialogues_for_gift_item(
-			self.gift_data.disliked_items["dis"..tostring(i-2)],
-			npc.dialogue.tags.GIFT_ITEM_HINT,
-			npc.dialogue.tags.GIFT_ITEM_UNLIKED,
-			self.gender)
-		for key, value in pairs(hints) do
-			result.hints[i] = key
+		-- Add item hints.
+		for i = 1, 2 do
+			local hints = npc.relationships.get_dialogues_for_gift_item(
+				self.gift_data.favorite_items["fav"..tostring(i)],
+				npc.dialogue.tags.GIFT_ITEM_HINT,
+				npc.dialogue.tags.GIFT_ITEM_LIKED,
+				self.gender,
+				phase_tag)
+			for key, value in pairs(hints) do
+				result.hints[i] = key
+			end
+		end
+
+		for i = 3, 4 do
+			local hints = npc.relationships.get_dialogues_for_gift_item(
+				self.gift_data.disliked_items["dis"..tostring(i-2)],
+				npc.dialogue.tags.GIFT_ITEM_HINT,
+				npc.dialogue.tags.GIFT_ITEM_UNLIKED,
+				self.gender)
+			for key, value in pairs(hints) do
+				result.hints[i] = key
+			end
 		end
 	end
 

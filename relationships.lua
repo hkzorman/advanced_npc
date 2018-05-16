@@ -286,9 +286,10 @@ function npc.relationships.select_random_favorite_items(gender, phase)
     -- Select the phase
     -- items = items[phase]
     items = npc.relationships.gift_items.liked[gender][phase]
-
-    result.fav1 = items[math.random(1, #items)]
-    result.fav2 = items[math.random(1, #items)]
+    if items and next(items) ~= nil then
+        result.fav1 = items[math.random(1, #items)]
+        result.fav2 = items[math.random(1, #items)]
+    end
     return result
 end
 
@@ -306,9 +307,10 @@ function npc.relationships.select_random_disliked_items(gender)
     --   items = npc.DISLIKED_ITEMS.male
     -- end
     items = npc.relationships.gift_items.disliked[gender]
-
-    result.dis1 = items[math.random(1, #items)]
-    result.dis2 = items[math.random(1, #items)]
+    if items and next(items) ~= nil then
+        result.dis1 = items[math.random(1, #items)]
+        result.dis2 = items[math.random(1, #items)]
+    end
     return result
 end
 
