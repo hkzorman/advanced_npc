@@ -70,6 +70,21 @@ end
 
 function npc.info.register_texture(filename, tags)
     if npc.info.textures[filename] ~= nil then
+        -- Compare tags, discard same, add new
+        local existing_tags = npc.info.textures[filename]
+        for i = 1, #tags do
+            local unmatched_count = 0
+            for j = 1, #existing_tags do
+                
+                if tags[i] ~= existing_tags[j] then
+                    unmatched_count = unmatched_count + 1
+                end
+            end
+            if unmatched_count == #existing_tags then
+                -- Tag was not found, add it
+                npc.info.textures[filename][#existing_tags + 1] = tags[i]
+            end
+        end
         npc.log("WARNING", "Attempt to register an existing texture with filename: "..dump(filename))
         return
     end
@@ -77,5 +92,6 @@ function npc.info.register_texture(filename, tags)
 end
 
 function npc.info.get_textures(tags_to_search, find_only_one, exact_match)
+    minetest.log("Textures: "..dump(npc.info.textures)) 
     return search_using_tags(npc.info.textures, tags_to_search, find_only_one, exact_match)
 end

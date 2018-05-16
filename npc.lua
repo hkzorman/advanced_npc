@@ -1286,8 +1286,9 @@ function npc.exec.process_scheduler(self)
 					npc.log("EXECUTION", "State process ID: "..dump(current_process.interrupted_process.state_process_id))
 					npc.log("EXECUTION", "Valid state process ID: "..dump(self.execution.state_process.state_process_id))
 
-					if current_process.interrupted_process.is_state_process == true and
-						current_process.interrupted_process.state_process_id < self.execution.state_process.state_process_id then
+					if current_process.interrupted_process.is_state_process == true 
+						and current_process.interrupted_process.state_process_id 
+						and (current_process.interrupted_process.state_process_id < self.execution.state_process.state_process_id) then
 						-- Do nothing, just dequeue process
 						npc.log("EXECUTION", "Found an old state process that was interrupted.\n"
 								..dump(current_process.interrupted_process.program_name).." WILL NOT be re-enqueued")
