@@ -96,8 +96,21 @@ npc.programs.instr.register("advanced_npc:set_interrupt_options", function(self,
         allow_rightclick = allow_rightclick,
         allow_schedule = allow_schedule
     }
-    minetest.log("New process: "..dump(self.execution.process_queue[1]))
+    npc.log("INFO", "New process: "..dump(self.execution.process_queue[1]))
 end)
+
+-- This instructions sets the object animation
+npc.programs.instr.register("advanced_npc:set_animation", function(self, args)
+    self.object:set_animation(
+        {
+            x = args.start_frame, 
+            y = args.end_frame
+        },
+        args.frame_speed, 
+        args.frame_blend or 0,
+        args.frame_loop or true)
+end)
+
 
 -- Interaction instructions --
 -- This command digs the node at the given position
@@ -311,6 +324,73 @@ npc.programs.instr.register("advanced_npc:rightclick", function(self, args)
             -- Call the node's on_punch
             node_def.on_rightclick(target_pos, node, self, self.object:get_wielded_item(), pointed_thing)
         end
+    end
+end)
+
+-- This instruction allows the NPC to craft a certain item if it has
+-- the required items on its inventory. If the "force_craft" option is
+-- used, the NPC will get the item regardless if it has the required items
+-- or not
+npc.programs.instr.register("advanced_npc:craft", function(self, args)
+    local item = args.item
+    local source = args.source
+
+    -- Check if source is force-craft, if it is, just add the item to inventory
+    if source == npc.programs.const.craft_src.force_craft then
+        -- Add item to inventory
+        npc.add_item_to_inventory_itemstring(self, item)
+        return
+    end
+
+    local recipes = minetest.get_all_craftt_recipes(item)
+    -- Iterate through recipes, only care about those that are "normal",
+    -- we don't care about cooking or fuel recipes.
+    -- Check if required items are present
+    if recipes then
+        for i = 1, #recipes do
+            if recipe.method == "normal" then
+                local missing_items = {}
+                if recipe.items then
+                    -- Check how many items we have and which we don't
+                    for i = 1, #recipe.items do
+                        if npc.inventory_contains(self, recipe.items[i]) == nil then
+                            missing_items[#missing_items + 1] = recipe.items[i]
+                        end
+                    end
+                    -- Now, check the source for items
+                    local craftable = false
+                    if source == npc.programs.const.craft_src.take_from_inventory then
+                        -- Check if we have all
+                        if next(missing_items) == nil then
+                            craftable = true
+                        end
+                    elseif source == npc.programs.const.craft_src.take_from_inventory_forced then
+                        -- Check if we have missing items
+                        if next(missing_items) ~= nil then
+                            -- Add all missing items
+                            for j = 1, #missing_items do
+                                npc.add_item_to_inventory(self, missing_items[j], 1)
+                            end
+                            craftable = true
+                        end
+                    end
+                    -- Check if item is craftable
+                    if craftable == true then
+                        -- We have all items, craft
+                        -- First, remove all items from NPC inventory
+                        for j = 1, #recipe.items do
+                            npc.take_item_from_inventory(self, recipe.items[j], 1)
+                        end
+                        -- Then add "crafted" element
+                        npc.add_item_to_inventory_itemstring(self, item)
+                        return true
+                    end
+                    return false
+                end
+            end
+        end
+    else
+        npc.log("WARNING", "[instr][craft] Found no recipes for item: "..dump(args.item))
     end
 end)
 
