@@ -895,10 +895,15 @@ function npc.exec.enqueue_program(self, program_name, arguments, interrupt_optio
 	if is_state_program == nil then
 		is_state_program = false
 	end
-	-- Enqueue process
-	self.execution.process_queue[#self.execution.process_queue + 1] =
-		_exec.create_process_entry(program_name, arguments, interrupt_options, is_state_program, _exec.get_new_process_id(self))
-
+	if is_state_program == true then
+		npc.exec.set_state_program(self, program_name, arguments, interrupt_options)
+		-- Enqueue state process
+		self.execution.process_queue[#self.execution.process_queue + 1] = self.execution.state_process
+	else
+		-- Enqueue process
+		self.execution.process_queue[#self.execution.process_queue + 1] =
+			_exec.create_process_entry(program_name, arguments, interrupt_options, is_state_program, _exec.get_new_process_id(self))
+	end
 end
 
 -- This function creates a state process. The state process will execute
@@ -1065,7 +1070,7 @@ function npc.exec.interrupt(self, new_program, new_arguments, interrupt_options)
 	_exec.priority_enqueue(self,
 		{[1] = {program_name=new_program, arguments=new_arguments, interrupt_options=interrupt_options}})
 	--minetest.log("Pause")
-	minetest.log("Interrupted process: "..dump(self.execution.process_queue[1].program_name))
+	minetest.log("Interrupted process: "..dump(self.execution.process_queue[1]))
 	-- Check process - if the instruction queue is empty, do not store
 	-- Pause current process
 	_exec.pause_process(self)
