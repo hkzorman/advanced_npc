@@ -21,6 +21,7 @@ npc.programs.register("advanced_npc:walk_to_pos", function(self, args)
         return
     end
     local enforce_move = args.enforce_move or true
+    local optimize_one_node_distance = args.optimize_one_node_distance or true
     local walkable_nodes = args.walkable
     self.stepheight = 1.1
     self.object:set_properties(self)
@@ -38,7 +39,7 @@ npc.programs.register("advanced_npc:walk_to_pos", function(self, args)
         end
         npc.log("WARNING", "walk_to_pos Found start_pos == end_pos")
         return
-    elseif distance >= 1 and distance < 2 then
+    elseif distance >= 1 and distance < 2 and optimize_one_node_distance == true then
         -- Rotate toward end_pos
         local yaw = minetest.dir_to_yaw(vector.direction(start_pos, end_pos))
         npc.programs.instr.execute(self, npc.programs.instr.default.ROTATE, {yaw = yaw})
