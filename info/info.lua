@@ -70,12 +70,11 @@ end
 
 function npc.info.register_texture(filename, tags)
     if npc.info.textures[filename] ~= nil then
-        -- Compare tags, discard same, add new
+        -- Compare tags, ignore same, add new
         local existing_tags = npc.info.textures[filename]
         for i = 1, #tags do
             local unmatched_count = 0
             for j = 1, #existing_tags do
-                
                 if tags[i] ~= existing_tags[j] then
                     unmatched_count = unmatched_count + 1
                 end

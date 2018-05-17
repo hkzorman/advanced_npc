@@ -51,10 +51,10 @@ end)
 -- Syntacic sugar to make a process wait for a specific interval
 npc.programs.instr.register("advanced_npc:wait", function(self, args)
     local wait_time = args.time
-    npc.programs.instr.execute(self, "advanced_npc:set_process_interval", {interval = wait_time - 1})
-    npc.exec.proc.enqueue(self, "advanced_npc:set_process_interval", {interval = 1})
-    -- npc.programs.instr.execute(self, "advanced_npc:set_instruction_interval", {interval = wait_time - 1})
-    -- npc.exec.proc.enqueue(self, "advanced_npc:set_instruction_interval", {interval = 1})
+    -- npc.programs.instr.execute(self, "advanced_npc:set_process_interval", {interval = wait_time - 1})
+    -- npc.exec.proc.enqueue(self, "advanced_npc:set_process_interval", {interval = 1})
+    npc.programs.instr.execute(self, "advanced_npc:set_instruction_interval", {interval = wait_time - 1})
+    npc.exec.proc.enqueue(self, "advanced_npc:set_instruction_interval", {interval = 1})
 end)
 
 -- The following command is for allowing the rest of mobs redo API to be executed
