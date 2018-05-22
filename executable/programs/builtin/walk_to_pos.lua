@@ -52,7 +52,7 @@ npc.programs.register("advanced_npc:walk_to_pos", function(self, args)
         -- Find path
         local path = npc.pathfinder.find_path(start_pos, end_pos, self, walkable_nodes)
 
-        if path ~= nil and #path > 1 then
+        if path ~= nil and #path >= 1 then
 
             npc.log("INFO", "walk_to_pos Found path ("..dump(#path).." nodes) from "
                     ..minetest.pos_to_string(start_pos).." to: "..minetest.pos_to_string(end_pos))
