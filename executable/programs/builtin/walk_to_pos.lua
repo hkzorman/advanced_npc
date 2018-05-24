@@ -55,6 +55,7 @@ npc.programs.register("advanced_npc:walk_to_pos", function(self, args)
                 {yaw = yaw, target_pos=target_pos})
             npc.exec.proc.enqueue(self, npc.programs.instr.default.STAND, {})
         end
+        return
     else
         -- Set walkable nodes to empty if the parameter hasn't been used
         if walkable_nodes == nil then
