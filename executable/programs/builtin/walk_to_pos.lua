@@ -31,7 +31,7 @@ npc.programs.register("advanced_npc:walk_to_pos", function(self, args)
 
     -- Check if start_pos and end_pos are the same
     local distance = vector.distance(start_pos, end_pos)
-    if distance < 1 then
+    if distance < 0.75 then
         -- Check if it was using access node, if it was, rotate NPC into that direction
         if use_access_node == true then
             local yaw = minetest.dir_to_yaw(vector.direction(end_pos, node_pos))
@@ -39,10 +39,22 @@ npc.programs.register("advanced_npc:walk_to_pos", function(self, args)
         end
         npc.log("WARNING", "walk_to_pos Found start_pos == end_pos")
         return
-    elseif distance >= 1 and distance < 2 and optimize_one_node_distance == true then
-        -- Rotate toward end_pos
+    elseif distance >= 0.75 and distance < 2 then
         local yaw = minetest.dir_to_yaw(vector.direction(start_pos, end_pos))
-        npc.programs.instr.execute(self, npc.programs.instr.default.ROTATE, {yaw = yaw})
+        local target_pos = {x=end_pos.x, y=self.object:getpos().y, z=end_pos.z}
+        -- Check if it is using access node
+        if use_access_node == true then
+            -- Walk to end_pos, rotate to node_pos
+            local final_yaw = minetest.dir_to_yaw(vector.direction(end_pos, node_pos))
+            npc.programs.instr.execute(self, npc.programs.instr.default.WALK_STEP,
+                {yaw = yaw, target_pos=target_pos})
+            npc.exec.proc.enqueue(self, npc.programs.instr.default.STAND, {yaw=final_yaw})
+        else
+            -- Walk to end_pos
+            npc.programs.instr.execute(self, npc.programs.instr.default.WALK_STEP,
+                {yaw = yaw, target_pos=target_pos})
+            npc.exec.proc.enqueue(self, npc.programs.instr.default.STAND, {})
+        end
     else
         -- Set walkable nodes to empty if the parameter hasn't been used
         if walkable_nodes == nil then
@@ -56,6 +68,8 @@ npc.programs.register("advanced_npc:walk_to_pos", function(self, args)
 
             npc.log("INFO", "walk_to_pos Found path ("..dump(#path).." nodes) from "
                     ..minetest.pos_to_string(start_pos).." to: "..minetest.pos_to_string(end_pos))
+            -- Add start pos to path
+            table.insert(path, 1, {pos=start_pos, type=2})
             -- Store path
             self.npc_state.movement.walking.path = path
 
@@ -69,9 +83,7 @@ npc.programs.register("advanced_npc:walk_to_pos", function(self, args)
             npc.programs.instr.execute(self, npc.programs.instr.default.SET_INTERVAL, {interval=0.5, freeze=true})
 
             -- Set the initial last and target positions
-            self.npc_state.movement.walking.target_pos = path[1].pos
-            -- Add start pos to path
-            table.insert(path, 1, {pos=start_pos, type=2})
+            --self.npc_state.movement.walking.target_pos = path[2].pos
 
             -- Add steps to path
             for i = 1, #path do
