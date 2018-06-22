@@ -91,6 +91,6 @@ function npc.info.register_texture(filename, tags)
 end
 
 function npc.info.get_textures(tags_to_search, find_only_one, exact_match)
-    minetest.log("Textures: "..dump(npc.info.textures)) 
+    --minetest.log("Textures: "..dump(npc.info.textures))
     return search_using_tags(npc.info.textures, tags_to_search, find_only_one, exact_match)
 end

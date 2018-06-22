@@ -255,13 +255,26 @@ function npc.spawner.determine_npc_occupation(building_type, workplace_nodes, np
                         -- Check if there is building_type match between the def's local
                         -- building_types and the current workplace node's building_type
                         if #local_building_types > 0 then
-                            local_building_match =
-                                npc.utils.array_contains(local_building_types, workplace_nodes[j].building_type)
+                            -- New matching algorithm
+                            for i = 1, #occupation_names do
+                                for j = 1, #local_building_types do
+                                    if building_type == local_building_types[j] then
+                                        npc.log("INFO", "Found suitable occupation: "..dump(result))
+                                        -- Forget about workplace location - let NPC find it
+                                        local_building_match = true
+                                        result[#result + 1] = {name=occupation_names[i], node={}}
+                                        break
+                                    end
+                                end
+                            end
+--                            local_building_match =
+--                                npc.utils.array_contains(local_building_types, workplace_nodes[j].building_type)
                         end
 
                         -- Check if there is building_type match between the def's surrounding
                         -- building_types and the current workplace node's building_type
                         if #surrounding_building_types > 0 then
+                            npc.log("DEBUG", "Scanning "..dump(#workplace_nodes).." plotmarkers for surrounding workplaces")
                             for k = 1, #surrounding_building_types do
                                 if surrounding_building_types[k].type == workplace_nodes[j].building_type then
                                     surrounding_building_match = true
@@ -382,13 +395,18 @@ function npc.spawner.spawn_npc_on_plotmarker(entity_name, pos)
             if area_info.node_data.workplace_type[i].node_pos == occupation_data.node.node_pos then
                 -- Found node, mark it as being used by NPC
                 area_info.node_data.workplace_type[i]["occupation"] = occupation_data.name
+                break
             end
         end
     end
 
-    -- Spawn NPC
-    local metadata = npc.spawner.spawn_npc(entity_name, pos, area_info, occupation_data.name, occupation_data.node.node_pos)
+    npc.log("INFO", "Attempting spawning of "..dump(entity_name).." at "..minetest.pos_to_string(pos))
 
+    -- Spawn NPC
+    local metadata = npc.spawner.spawn_npc(entity_name, pos, area_info, {occupation_name=occupation_data.name, occupation_workplace_pos=occupation_data.node.node_pos})
+    if type(metadata) == "boolean" then
+        return
+    end
     -- Set all metadata back into the node
     -- Increase NPC spawned count
     area_info.spawned_npc_count = metadata.spawned_npc_count + 1
@@ -414,7 +432,10 @@ end
 
 -- This function spawns a NPC into the given pos.
 -- If area_info is given, updated area_info is returned at end
-function npc.spawner.spawn_npc(entity_name, pos, area_info, occupation_name, occupation_workplace_pos)
+function npc.spawner.spawn_npc(entity_name, pos, area_info, npc_info)
+    -- Get occupation data
+    local occupation_name = npc_info.occupation_name
+    local occupation_workplace_pos = npc_info.occupation_workplace_pos
     -- Get current NPC info
     local npc_table = area_info.npcs
     -- Get NPC stats
@@ -450,9 +471,9 @@ function npc.spawner.spawn_npc(entity_name, pos, area_info, occupation_name, occ
             -- Initialize NPC
             -- Call with stats if there are NPCs
             if npc_table and #npc_table > 0 then
-                npc.initialize(ent, pos, false, npc_stats, occupation)
+                npc.initialize(ent, pos, false, npc_stats, npc_info)
             else
-                npc.initialize(ent, pos, nil, nil, occupation)
+                npc.initialize(ent, pos, nil, nil, npc_info)
             end
             -- If node_data is present, assign nodes
             npc.log("DEBUG", "Node data: "..dump(node_data))
@@ -602,14 +623,17 @@ function npc.spawner.assign_places(self, entrance, node_data, pos)
 
     -- Assign workplace nodes
     -- Beware: More incomprehensibe code lies ahead!
+    npc.log("INFO", "Assigning workplace node to NPC "..self.npc_name.." with occupation "..dump(self.occupation_name))
     if #node_data.workplace_type > 0 then
+        npc.log("DEBUG", "Node Data workplace nodes: "..dump(node_data.workplace_type))
         -- First, find the workplace_node that was marked
         for i = 1, #node_data.workplace_type do
-            minetest.log("In assign places: workplace nodes: "..dump(node_data.workplace_type))
-            minetest.log("Condition? "..dump(node_data.workplace_type[i].occupation
-                    and node_data.workplace_type[i].occupation == self.occupation_name))
+--            minetest.log("In assign places: workplace nodes: "..dump(node_data.workplace_type))
+--            minetest.log("Condition? "..dump(node_data.workplace_type[i].occupation
+--                    and node_data.workplace_type[i].occupation == self.occupation_name))
             if node_data.workplace_type[i].occupation
                     and node_data.workplace_type[i].occupation == self.occupation_name then
+                npc.log("INFO", "Found a workplace node that is match to NPC occupation: "..dump(node_data.workplace_type[i]))
                 -- Walkable nodes from occupation
                 local walkables = npc.occupations.registered_occupations[self.occupation_name].walkable_nodes
                 -- Found the node. Assign only this node to the NPC.
@@ -833,7 +857,7 @@ minetest.register_on_player_receive_fields(function(player, formname, fields)
                     end
 
                     -- Spawn NPC
-                    local metadata = npc.spawner.spawn_npc(name, pos, area_info, fields.occupation_name)
+                    local metadata = npc.spawner.spawn_npc(name, pos, area_info, {occupation_name=fields.occupation_name})
                 end
             end
         end
@@ -1025,7 +1049,7 @@ if minetest.get_modpath("mg_villages") ~= nil then
                 -- Store nodedata into the spawner's metadata
                 meta:set_string("node_data", minetest.serialize(nodedata))
                 -- Find nearby plotmarkers, excluding current plotmarker
-                local nearby_plotmarkers = npc.locations.find_plotmarkers(pos, 35, true)
+                local nearby_plotmarkers = npc.locations.find_plotmarkers(pos, 40, true)
                 --npc.log("INFO", "SPWNER: Found nearby plotmarkers: "..dump(nearby_plotmarkers))
                 meta:set_string("nearby_plotmarkers", minetest.serialize(nearby_plotmarkers))
                 -- Check if building position data is also available (recent mg_villages)
@@ -1069,13 +1093,17 @@ if minetest.get_modpath("mg_villages") ~= nil then
 
         -- TODO: Change formspec to a more detailed one.
         on_rightclick = function(pos, node, clicker, itemstack, pointed_thing)
-            minetest.log("Hi")
+            local meta = minetest.get_meta(pos)
+            minetest.log("NPCs: "..dump(minetest.deserialize(meta:get_string("npcs"))))
+            minetest.log("Node data: "..dump(minetest.deserialize(meta:get_string("node_data"))))
             return mg_villages.plotmarker_formspec( pos, nil, {}, clicker )
         end,
 
         on_timer = function(pos, elapsed)
             -- Adds timer support
-            npc.spawner.spawn_npc_on_plotmarker(mg_villages_entity_name, pos)
+            if mg_villages_entity_name ~= nil and mg_villages_entity_name ~= "" then
+                npc.spawner.spawn_npc_on_plotmarker(mg_villages_entity_name, pos)
+            end
         end,
     })
 

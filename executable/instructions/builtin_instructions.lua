@@ -407,6 +407,8 @@ npc.programs.instr.register("advanced_npc:rotate", function(self, args)
     end
     -- Only yaw was given
     if yaw and not dir and not start_pos and not end_pos then
+        if (yaw ~= yaw) then yaw = 0 end
+        --if type(yaw) == "table" then yaw = 0 end
         self.object:setyaw(yaw)
         return
     end
@@ -429,6 +431,7 @@ npc.programs.instr.register("advanced_npc:rotate", function(self, args)
     elseif dir == npc.direction.north_west then
         yaw = math.pi / 4
     end
+    if (yaw ~= yaw) then yaw = 0 end
     self.object:setyaw(yaw)
 end)
 

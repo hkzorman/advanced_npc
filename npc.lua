@@ -127,8 +127,8 @@ end
 -- defined. On a later phase, pre-defining many of the NPC values
 -- will be allowed.
 
-local function get_random_name(gender)
-	local names = npc.info.get_names({gender}, false, false)
+local function get_random_name(gender, tags)
+	local names = npc.info.get_names({gender, "unisex", unpack(tags)}, false, false)
 	if next(names) ~= nil then
 		local i = math.random(#names)
 		return names[i]
@@ -268,7 +268,7 @@ local function choose_spawn_items(self)
 	-- Add currency to the items spawned with. Will add 5-10 tier 3
 	-- currency items
 	local currency_item_count = math.random(5, 10)
-	npc.add_item_to_inventory(self, npc.trade.prices.currency.tier3.string, currency_item_count)
+	npc.add_item_to_inventory(self, npc.trade.prices.get_currency_itemstring("tier3"), currency_item_count)
 
 	-- For test
 	--npc.add_item_to_inventory(self, "default:tree", 10)
@@ -289,7 +289,7 @@ end
 
 -- Spawn function. Initializes all variables that the
 -- NPC will have and choose random, starting values
-function npc.initialize(entity, pos, is_lua_entity, npc_stats, occupation_name, npc_info)
+function npc.initialize(entity, pos, is_lua_entity, npc_stats, npc_info)
 	npc.log("INFO", "Initializing NPC at "..minetest.pos_to_string(pos))
 
 	-- Get variables
@@ -297,6 +297,7 @@ function npc.initialize(entity, pos, is_lua_entity, npc_stats, occupation_name, 
 	if not is_lua_entity then
 		ent = entity:get_luaentity()
 	end
+	local occupation_name = npc_info.occupation_name
 
 	-- Avoid NPC to be removed by mobs_redo API
 	ent.remove_ok = false
@@ -381,14 +382,27 @@ function npc.initialize(entity, pos, is_lua_entity, npc_stats, occupation_name, 
 		ent.textures = {selected_texture}
 		ent.base_texture = {selected_texture}
 	elseif npc_info then
-		ent.gender = npc_info.gender
-		ent.age = npc_info.age
+		-- Attempt to assign gender from npc_info
+		if npc_info.gender then
+		    ent.gender = npc_info.gender
+		else
+			local gender_chance = math.random(1,2)
+			ent.gender = npc.FEMALE
+			if gender_chance == 1 then
+				ent.gender = npc.MALE
+			end
+		end
+		-- Attempt to assign age from npc_info
+		if npc_info.age then
+			ent.age = npc_info.age
+		else
+			ent.age = npc.age.adult
+		end
 	else
 		-- Randomly choose gender, and spawn as adult
 		local gender_chance = math.random(1,2)
 		ent.gender = npc.FEMALE
 		if gender_chance == 1 then
-			ent.gender = npc.MALE
 			ent.gender = npc.MALE
 		end
 		ent.age = npc.age.adult
@@ -574,7 +588,17 @@ function npc.initialize(entity, pos, is_lua_entity, npc_stats, occupation_name, 
 	ent.nametag = ""
 
 	-- Set name
-	ent.npc_name = get_random_name(ent.gender)
+	if npc_info and npc_info.name then 
+		if npc_info.name.value then
+			ent.npc_name = npc_info.name.value
+		elseif npc_info.name.tags then
+			ent.npc_name = get_random_name(ent.gender, npc_info.name.tags)
+		else
+			ent.npc_name = get_random_name(ent.gender)
+		end
+	else
+		ent.npc_name = get_random_name(ent.gender)
+	end
 
 	-- Set ID
 	ent.npc_id = tostring(math.random(1000, 9999))..":"..ent.npc_name
@@ -1453,7 +1477,7 @@ function npc.exec.execution_routine(self, dtime)
 					-- Move NPC to expected position to ensure not getting lost
 					local pos = self.npc_state.movement.walking.target_pos
 					if vector.distance(self.object:getpos(), pos) > 0.2 then
-						npc.log("INFO", "Corrected position for walking NPC "..dump(self.npc_name))
+						npc.log("INFO", "Corrected position for walking NPC "..dump(self.npc_name).." to "..minetest.pos_to_string(pos))
 						self.object:moveto({x=pos.x, y=pos.y, z=pos.z})
 					end
 				end

@@ -428,9 +428,11 @@ if minetest.get_modpath("mg_villages") ~= nil then
 		-- Get building data
 		if mg_villages.get_plot_and_building_data then
 			local all_data = mg_villages.get_plot_and_building_data(result.village_id, result.plot_nr)
-			result.building_data = all_data.building_data
-			result.building_type = result.building_data.typ
-			result["building_pos_data"] = all_data.bpos
+			if all_data then
+				result.building_data = all_data.building_data
+				result.building_type = result.building_data.typ
+				result["building_pos_data"] = all_data.bpos
+			end
 		else
 			-- Following line from mg_villages mod, protection.lua
 			local btype = mg_villages.all_villages[result.village_id].to_add_data.bpos[result.plot_nr].btype
@@ -523,6 +525,7 @@ function npc.locations.find_plotmarkers(pos, radius, exclude_current_pos)
 				def["village_id"] = data.village_id
 				--def["building_data"] = data.building_data
 				def["building_type"] = data.building_type
+				npc.log("INFO", "["..dump(data.building_type).."]")
 				if data.building_pos_data then
 					def["building_pos_data"] = data.building_pos_data
 					if next(data.building_pos_data.workplaces) ~= nil then
@@ -606,17 +609,21 @@ end
 
 function npc.locations.clear_metadata_usable_nodes_in_area(node_data)
 	local count = 0
-	count = count + clear_metadata(node_data.bed_type)
-	count = count + clear_metadata(node_data.sittable_type)
-	count = count + clear_metadata(node_data.furnace_type)
-	count = count + clear_metadata(node_data.storage_type)
-	count = count + clear_metadata(node_data.openable_type)
-	-- Clear workplace nodes
-	for i = 1, #node_data.workplace_type do
-		local meta = minetest.get_meta(node_data.workplace_type[i].node_pos)
-		meta:set_string("work_data", nil)
-		count = count + 1
-	end
+    if node_data then
+        count = count + clear_metadata(node_data.bed_type)
+        count = count + clear_metadata(node_data.sittable_type)
+        count = count + clear_metadata(node_data.furnace_type)
+        count = count + clear_metadata(node_data.storage_type)
+        count = count + clear_metadata(node_data.openable_type)
+        -- Clear workplace nodes
+        if node_data.workplace_type then
+            for i = 1, #node_data.workplace_type do
+                local meta = minetest.get_meta(node_data.workplace_type[i].node_pos)
+                meta:set_string("work_data", nil)
+                count = count + 1
+            end
+        end
+    end
 	return count
 end
 

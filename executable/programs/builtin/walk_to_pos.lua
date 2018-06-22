@@ -33,7 +33,7 @@ npc.programs.register("advanced_npc:walk_to_pos", function(self, args)
     local distance = vector.distance(start_pos, end_pos)
     if distance < 0.75 then
         -- Check if it was using access node, if it was, rotate NPC into that direction
-        if use_access_node == true then
+        if use_access_node == true and node_pos then
             local yaw = minetest.dir_to_yaw(vector.direction(end_pos, node_pos))
             npc.programs.instr.execute(self, npc.programs.instr.default.ROTATE, {yaw = yaw})
         end
@@ -43,7 +43,7 @@ npc.programs.register("advanced_npc:walk_to_pos", function(self, args)
         local yaw = minetest.dir_to_yaw(vector.direction(start_pos, end_pos))
         local target_pos = {x=end_pos.x, y=self.object:getpos().y, z=end_pos.z}
         -- Check if it is using access node
-        if use_access_node == true then
+        if use_access_node == true and node_pos then
             -- Walk to end_pos, rotate to node_pos
             local final_yaw = minetest.dir_to_yaw(vector.direction(end_pos, node_pos))
             npc.programs.instr.execute(self, npc.programs.instr.default.WALK_STEP,
@@ -93,13 +93,18 @@ npc.programs.register("advanced_npc:walk_to_pos", function(self, args)
                 if (i+1) == #path then
                     -- Add direction to last node
                     local dir = vector.direction(path[i].pos, end_pos)
+                    local yaw = minetest.dir_to_yaw(dir)
                     -- Add the last step
                     npc.exec.proc.enqueue(self, npc.programs.instr.default.WALK_STEP,
                         {yaw = minetest.dir_to_yaw(dir), speed = speed, target_pos = path[i+1].pos})
                     -- Add stand animation at end
-                    if use_access_node == true then
+                    -- This is not the proper fix (and node_pos), but for now
+                    -- it will avoid crashes
+                    if use_access_node == true and node_pos then
                         --dir = npc.programs.helper.get_direction(end_pos, node_pos)
-                        dir = minetest.dir_to_yaw(vector.direction(end_pos, node_pos))
+                        --minetest.log("end pos: "..dump(end_pos))
+                        --minetest.log("Node pos: "..dump(node_pos))
+                        yaw = minetest.dir_to_yaw(vector.direction(end_pos, node_pos))
                     end
 
                     -- If door is opened, close it
@@ -112,7 +117,7 @@ npc.programs.register("advanced_npc:walk_to_pos", function(self, args)
                     end
 
                     -- Change dir if using access_node
-                    npc.exec.proc.enqueue(self, npc.programs.instr.default.STAND, {yaw = dir})
+                    npc.exec.proc.enqueue(self, npc.programs.instr.default.STAND, {yaw = yaw})
                     break
                 end
                 -- Get direction to move from path[i] to path[i+1]
