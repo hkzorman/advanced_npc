@@ -297,7 +297,9 @@ function npc.initialize(entity, pos, is_lua_entity, npc_stats, npc_info)
 	if not is_lua_entity then
 		ent = entity:get_luaentity()
 	end
-	local occupation_name = npc_info.occupation_name
+	if npc_info then
+		local occupation_name = npc_info.occupation_name
+	end
 
 	-- Avoid NPC to be removed by mobs_redo API
 	ent.remove_ok = false
