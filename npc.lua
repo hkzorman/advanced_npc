@@ -128,12 +128,12 @@ end
 -- will be allowed.
 
 local function get_random_name(gender, tags)
-	local search_tags = {gender, "unisex" }
+	local search_tags = {gender}
 	if tags then
-		search_tags = {gender, "unisex", unpack(tags) }
+		search_tags = { gender, unpack(tags) }
 	end
 
-	local names = npc.info.get_names(search_tags, false, false)
+	local names = npc.info.get_names(search_tags, "all_match")
 	if next(names) ~= nil then
 		local i = math.random(#names)
 		return names[i]
@@ -172,7 +172,7 @@ end
 
 local function get_random_texture(gender, age)
 
-	local textures = npc.info.get_textures({gender, age}, false, false)
+	local textures = npc.info.get_textures({gender, age}, "all_match")
 	if next(textures) ~= nil then
 		local i = math.random(#textures)
 		return {textures[i]}

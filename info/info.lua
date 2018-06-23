@@ -11,6 +11,12 @@ npc.info = {
     gift_items = {}
 }
 
+npc.info.search_criteria = {
+    any_match = "any_match",
+    all_match = "all_match",
+    exact_match = "exact_match"
+}
+
 function npc.info.register_name(name, tags)
     if npc.info.names[name] ~= nil then
         npc.log("WARNING", "Attempt to register an existing name: "..dump(name))
@@ -19,7 +25,7 @@ function npc.info.register_name(name, tags)
     npc.info.names[name] = tags
 end
 
-local function search_using_tags(map, tags_to_search, find_only_one, exact_match)
+local function search_using_tags(map, tags_to_search, search_criteria)
     local result = {}
     -- Do a very inefficient search - need to see how to organize this better
     -- Traverse all tags for each name, one by one
@@ -44,19 +50,17 @@ local function search_using_tags(map, tags_to_search, find_only_one, exact_match
         -- Check if exact match true is true. If it is, tags_for_name and
         -- tags_to_search need to have same number of tags and all match
         if tags_found > 0 then
-            if exact_match == true then
+            if search_criteria == npc.info.search_criteria.exact_match then
                 if tags_found == #tags_to_search and tags_found == #tags_for_name then
                     result[#result + 1] = name
-                    if find_only_one == true then
-                        return result
-                    end
                 end
-            elseif tags_found == #tags_to_search then
-                result[#result + 1] = name
+            elseif search_criteria == npc.info.search_criteria.all_match then
+                if tags_found == #tags_to_search then
+                    result[#result + 1] = name
+                end
                 -- minetest.log("Result: "..dump(result))
-                if find_only_one == true then
-                    return result
-                end
+            elseif search_criteria == npc.info.search_criteria.any_match then
+                result[#result + 1] = name
             end
         end
     end
@@ -64,8 +68,8 @@ local function search_using_tags(map, tags_to_search, find_only_one, exact_match
     return result
 end
 
-function npc.info.get_names(tags_to_search, find_only_one, exact_match)
-    return search_using_tags(npc.info.names, tags_to_search, find_only_one, exact_match)
+function npc.info.get_names(tags_to_search, search_criteria)
+    return search_using_tags(npc.info.names, tags_to_search, search_criteria)
 end
 
 function npc.info.register_texture(filename, tags)
@@ -90,7 +94,7 @@ function npc.info.register_texture(filename, tags)
     npc.info.textures[filename] = tags
 end
 
-function npc.info.get_textures(tags_to_search, find_only_one, exact_match)
+function npc.info.get_textures(tags_to_search, search_criteria)
     --minetest.log("Textures: "..dump(npc.info.textures))
-    return search_using_tags(npc.info.textures, tags_to_search, find_only_one, exact_match)
+    return search_using_tags(npc.info.textures, tags_to_search, search_criteria)
 end

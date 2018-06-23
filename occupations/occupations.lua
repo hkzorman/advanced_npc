@@ -370,7 +370,7 @@ function npc.occupations.initialize_occupation_values(self, occupation_name)
 	-- Pick them from tags
 	if def.textures and table.getn(def.textures) > 0 then
 		-- Select a texture
-		local available_textures = npc.info.get_textures({self.gender, self.age, occupation_name}, false, false)
+		local available_textures = npc.info.get_textures({self.gender, self.age, occupation_name}, "all_match")
 
 		-- Set texture if it found for gender and age
 		-- If an array was returned, select a random texture from it
@@ -380,7 +380,7 @@ function npc.occupations.initialize_occupation_values(self, occupation_name)
 	else
 		-- Try to choose a random texture - if exists
 		if next(npc.info.textures) ~= nil then
-			local available_textures = npc.info.get_textures({self.gender, self.age}, false, false)
+			local available_textures = npc.info.get_textures({self.gender, self.age}, "all_match")
 			self.selected_texture = available_textures[math.random(1, #available_textures)]
 		else
 			-- Return a default texture
