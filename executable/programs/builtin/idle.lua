@@ -124,38 +124,43 @@ npc.programs.register("advanced_npc:idle", function(self, args)
         npc.programs.instr.execute(self, npc.programs.instr.default.STAND, {})
     end
 
+    local objs_found = false
     if search_nearby_objs == true then
         -- Search nearby objects and acknowledge them
-        local objs_found = npc.programs.instr.execute(self, "advanced_npc:idle:acknowledge_objects", {
+        objs_found = npc.programs.instr.execute(self, "advanced_npc:idle:acknowledge_objects", {
             obj_search_radius = obj_search_radius,
             acknowledge_burnout = max_acknowledge_time
         })
 
-        if objs_found == true then
-            -- Shorten interval to rotate accurately towards object
-            --npc.programs.instr.execute(self, npc.programs.instr.default.SET_PROCESS_INTERVAL, {interval=0.5})
-        else
-            -- Calculate wandering chance
-            local calculated_wander_chance = math.random(0, 100)
-            if calculated_wander_chance < wander_chance then
-                npc.log("INFO", "Switching to wander state")
-                -- Change to wander state process with mostly default args
-                npc.exec.set_state_program(self, "advanced_npc:wander", {
-                    max_radius = max_wandering_radius,
-                    idle_chance = 0,
-                    acknowledge_nearby_objs = true
-                }, {})
-                return
-            else
-                -- Set interval
-                npc.programs.instr.execute(self, "advanced_npc:wait", {time=5})
-                --npc.programs.instr.execute(self, npc.programs.instr.default.SET_PROCESS_INTERVAL, {interval=obj_search_interval})
-                minetest.log("No obj found")
-            end
-        end
+        -- if objs_found == true then
+        --     -- Shorten interval to rotate accurately towards object
+        --     --npc.programs.instr.execute(self, npc.programs.instr.default.SET_PROCESS_INTERVAL, {interval=0.5})
+        -- else
+        
+        -- end
     else
         -- Stop all acknowledging timers
         npc.monitor.timer.stop(self, "advanced_npc:idle:acknowledge_burnout")
         npc.monitor.timer.stop(self, "advanced_npc:idle:burnout_reversal")
+    end
+
+    -- Calculate wandering chance
+    if objs_found == false then
+        local calculated_wander_chance = math.random(0, 100)
+        if calculated_wander_chance < wander_chance then
+            npc.log("INFO", "Switching to wander state")
+            -- Change to wander state process with mostly default args
+            npc.exec.set_state_program(self, "advanced_npc:wander", {
+                max_radius = max_wandering_radius,
+                idle_chance = 0,
+                acknowledge_nearby_objs = search_nearby_objs
+            }, {})
+            return
+        else
+            -- Set interval
+            npc.programs.instr.execute(self, "advanced_npc:wait", {time=5})
+            --npc.programs.instr.execute(self, npc.programs.instr.default.SET_PROCESS_INTERVAL, {interval=obj_search_interval})
+            minetest.log("No obj found")
+        end
     end
 end)

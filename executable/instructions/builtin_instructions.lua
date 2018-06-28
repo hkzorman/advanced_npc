@@ -51,6 +51,8 @@ end)
 -- Syntacic sugar to make a process wait for a specific interval
 npc.programs.instr.register("advanced_npc:wait", function(self, args)
     local wait_time = args.time
+    -- npc.programs.instr.execute(self, "advanced_npc:set_process_interval", {interval = wait_time - 1})
+    -- npc.exec.proc.enqueue(self, "advanced_npc:set_process_interval", {interval = 1})
     npc.programs.instr.execute(self, "advanced_npc:set_instruction_interval", {interval = wait_time - 1})
     npc.exec.proc.enqueue(self, "advanced_npc:set_instruction_interval", {interval = 1})
 end)
@@ -94,8 +96,21 @@ npc.programs.instr.register("advanced_npc:set_interrupt_options", function(self,
         allow_rightclick = allow_rightclick,
         allow_schedule = allow_schedule
     }
-    minetest.log("New process: "..dump(self.execution.process_queue[1]))
+    npc.log("INFO", "New process: "..dump(self.execution.process_queue[1]))
 end)
+
+-- This instructions sets the object animation
+npc.programs.instr.register("advanced_npc:set_animation", function(self, args)
+    self.object:set_animation(
+        {
+            x = args.start_frame, 
+            y = args.end_frame
+        },
+        args.frame_speed, 
+        args.frame_blend or 0,
+        args.frame_loop or true)
+end)
+
 
 -- Interaction instructions --
 -- This command digs the node at the given position
@@ -312,6 +327,73 @@ npc.programs.instr.register("advanced_npc:rightclick", function(self, args)
     end
 end)
 
+-- This instruction allows the NPC to craft a certain item if it has
+-- the required items on its inventory. If the "force_craft" option is
+-- used, the NPC will get the item regardless if it has the required items
+-- or not
+npc.programs.instr.register("advanced_npc:craft", function(self, args)
+    local item = args.item
+    local source = args.source
+
+    -- Check if source is force-craft, if it is, just add the item to inventory
+    if source == npc.programs.const.craft_src.force_craft then
+        -- Add item to inventory
+        npc.add_item_to_inventory_itemstring(self, item)
+        return
+    end
+
+    local recipes = minetest.get_all_craftt_recipes(item)
+    -- Iterate through recipes, only care about those that are "normal",
+    -- we don't care about cooking or fuel recipes.
+    -- Check if required items are present
+    if recipes then
+        for i = 1, #recipes do
+            if recipe.method == "normal" then
+                local missing_items = {}
+                if recipe.items then
+                    -- Check how many items we have and which we don't
+                    for i = 1, #recipe.items do
+                        if npc.inventory_contains(self, recipe.items[i]) == nil then
+                            missing_items[#missing_items + 1] = recipe.items[i]
+                        end
+                    end
+                    -- Now, check the source for items
+                    local craftable = false
+                    if source == npc.programs.const.craft_src.take_from_inventory then
+                        -- Check if we have all
+                        if next(missing_items) == nil then
+                            craftable = true
+                        end
+                    elseif source == npc.programs.const.craft_src.take_from_inventory_forced then
+                        -- Check if we have missing items
+                        if next(missing_items) ~= nil then
+                            -- Add all missing items
+                            for j = 1, #missing_items do
+                                npc.add_item_to_inventory(self, missing_items[j], 1)
+                            end
+                            craftable = true
+                        end
+                    end
+                    -- Check if item is craftable
+                    if craftable == true then
+                        -- We have all items, craft
+                        -- First, remove all items from NPC inventory
+                        for j = 1, #recipe.items do
+                            npc.take_item_from_inventory(self, recipe.items[j], 1)
+                        end
+                        -- Then add "crafted" element
+                        npc.add_item_to_inventory_itemstring(self, item)
+                        return true
+                    end
+                    return false
+                end
+            end
+        end
+    else
+        npc.log("WARNING", "[instr][craft] Found no recipes for item: "..dump(args.item))
+    end
+end)
+
 -- This command is to rotate a mob to a specifc direction. Currently, the code
 -- contains also for diagonals, but remaining in the orthogonal domain is preferrable.
 npc.programs.instr.register("advanced_npc:rotate", function(self, args)
@@ -325,6 +407,8 @@ npc.programs.instr.register("advanced_npc:rotate", function(self, args)
     end
     -- Only yaw was given
     if yaw and not dir and not start_pos and not end_pos then
+        if (yaw ~= yaw) then yaw = 0 end
+        --if type(yaw) == "table" then yaw = 0 end
         self.object:setyaw(yaw)
         return
     end
@@ -347,6 +431,7 @@ npc.programs.instr.register("advanced_npc:rotate", function(self, args)
     elseif dir == npc.direction.north_west then
         yaw = math.pi / 4
     end
+    if (yaw ~= yaw) then yaw = 0 end
     self.object:setyaw(yaw)
 end)
 
@@ -379,7 +464,7 @@ npc.programs.instr.register("advanced_npc:walk_step", function(self, args)
             dir = npc.programs.helper.random_dir(start_pos, speed, 0, 3)
             --minetest.log("Returned: "..dump(dir))
         end
-
+        
         if dir == npc.direction.north then
             vel = {x=0, y=0, z=speed}
         elseif dir == npc.direction.north_east then
@@ -399,9 +484,9 @@ npc.programs.instr.register("advanced_npc:walk_step", function(self, args)
         else
             -- No direction provided or NPC is trapped, center NPC position
             -- and return
-            local npc_pos = self.object:getpos()
-            local proper_pos = {x=math.floor(npc_pos.x), y=npc_pos.y, z=math.floor(npc_pos.z)}
-            self.object:moveto(proper_pos)
+            -- local npc_pos = self.object:getpos()
+            -- local proper_pos = {x=math.floor(npc_pos.x), y=npc_pos.y, z=math.floor(npc_pos.z)}
+            -- self.object:moveto(proper_pos)
             return
         end
     end
@@ -596,7 +681,7 @@ end)
 
 -- Internal NPC properties
 -- These instructions are mostly syntactic sugar for doing certain operations.
-npc.programs.instr.register("advanced_npc:trade:change_trade_status", function(self, args)
+npc.programs.instr.register("advanced_npc:trade:change_trader_status", function(self, args)
     -- Get status from args
     local status = args.status
     -- Set status to NPC

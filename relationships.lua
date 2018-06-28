@@ -4,7 +4,7 @@
 ---------------------------------------------------------------------------------------
 -- Each NPCs has 2 favorite and 2 disliked items. These items are chosen at spawn
 -- time and will be re-chosen when the age changes (from child to adult, for example).
--- The items are chosen from the npc.FAVORITE_ITEMS table, and depends on sex and age.
+-- The items are chosen from the npc.FAVORITE_ITEMS table, and depends on gender and age.
 -- A player, via right-click, or another NPC, can gift an item to a NPC. In the case
 -- of the player, the player will give one of the currently wielded item. Gifts can be
 -- given only once per some time period, the NPC will reject the given item if still 
@@ -132,10 +132,10 @@ end
 --  	dialogues = {
 --			liked = {
 --			-- ^ This is an array of the following table:
---				[1] = {dialogue_type="", sex="", text=""}
+--				[1] = {dialogue_type="", gender="", text=""}
 --				-- ^ dialogue_type: defines is this is a hint or a response.
 --				--		   valid values are: "hint", "response"
---				--   sex: valid values are: "male", female"
+--				--   gender: valid values are: "male", female"
 --				--   text: the dialogue text
 --			},
 --			disliked = {
@@ -144,21 +144,21 @@ end
 --		}
 --  }
 
-function npc.relationships.register_favorite_item(item_name, phase, sex, def)
+function npc.relationships.register_favorite_item(item_name, phase, gender, def)
     local dialogues = {}
     -- Register dialogues based on the hints and responses
     -- Liked
     for i = 1, #def.hints do
         table.insert(dialogues, {
             text = def.hints[i],
-            tags = {phase, item_name, sex,
+            tags = {phase, item_name, gender,
                 npc.dialogue.tags.GIFT_ITEM_HINT, npc.dialogue.tags.GIFT_ITEM_LIKED}
         })
     end
     for i = 1, #def.responses do
         table.insert(dialogues, {
             text = def.responses[i],
-            tags = {phase, item_name, sex,
+            tags = {phase, item_name, gender,
                 npc.dialogue.tags.GIFT_ITEM_RESPONSE, npc.dialogue.tags.GIFT_ITEM_LIKED}
         })
     end
@@ -168,24 +168,24 @@ function npc.relationships.register_favorite_item(item_name, phase, sex, def)
     end
 
     -- Insert item into table
-    table.insert(npc.relationships.gift_items.liked[sex][phase], item_name)
+    table.insert(npc.relationships.gift_items.liked[gender][phase], item_name)
 end
 
-function npc.relationships.register_disliked_item(item_name, sex, def)
+function npc.relationships.register_disliked_item(item_name, gender, def)
     local dialogues = {}
     -- Register dialogues based on the hints and responses
     -- Liked
     for i = 1, #def.hints do
         table.insert(dialogues, {
             text = def.hints[i],
-            tags = {item_name, sex,
+            tags = {item_name, gender,
                 npc.dialogue.tags.GIFT_ITEM_HINT, npc.dialogue.tags.GIFT_ITEM_UNLIKED}
         })
     end
     for i = 1, #def.responses do
         table.insert(dialogues, {
             text = def.responses[i],
-            tags = {item_name, sex,
+            tags = {item_name, gender,
                 npc.dialogue.tags.GIFT_ITEM_RESPONSE, npc.dialogue.tags.GIFT_ITEM_UNLIKED}
         })
     end
@@ -195,16 +195,16 @@ function npc.relationships.register_disliked_item(item_name, sex, def)
     end
 
     -- Insert item into table
-    table.insert(npc.relationships.gift_items.disliked[sex], item_name)
+    table.insert(npc.relationships.gift_items.disliked[gender], item_name)
 end
 
 
-function npc.relationships.get_dialogues_for_gift_item(item_name, dialogue_type, item_type, sex, phase)
+function npc.relationships.get_dialogues_for_gift_item(item_name, dialogue_type, item_type, gender, phase)
     local tags = {
         [1] = item_name,
         [2] = dialogue_type,
         [3] = item_type,
-        [4] = sex
+        [4] = gender
     }
     if phase ~= nil then
         tags[5] = phase
@@ -215,9 +215,9 @@ function npc.relationships.get_dialogues_for_gift_item(item_name, dialogue_type,
 end
 
 -- Returns the response message for a given item
-function npc.relationships.get_response_for_favorite_item(item_name, sex, phase)
+function npc.relationships.get_response_for_favorite_item(item_name, gender, phase)
     local items = npc.FAVORITE_ITEMS.female
-    if sex == npc.MALE then
+    if gender == npc.MALE then
         items = npc.FAVORITE_ITEMS.male
     end
 
@@ -230,9 +230,9 @@ function npc.relationships.get_response_for_favorite_item(item_name, sex, phase)
 end
 
 -- Returns the response message for a disliked item
-function npc.relationships.get_response_for_disliked_item(item_name, sex)
+function npc.relationships.get_response_for_disliked_item(item_name, gender)
     local items = npc.DISLIKED_ITEMS.female
-    if sex == npc.MALE then
+    if gender == npc.MALE then
         items = npc.DISLIKED_ITEMS.male
     end
 
@@ -247,20 +247,20 @@ function npc.relationships.get_response_for_disliked_item(item_name, sex)
 end
 
 -- Gets the item hint for a favorite item
-function npc.relationships.get_hint_for_favorite_item(item_name, sex, phase)
-    for i = 1, #npc.FAVORITE_ITEMS[sex][phase] do
-        if npc.FAVORITE_ITEMS[sex][phase][i].item == item_name then
-            return npc.FAVORITE_ITEMS[sex][phase][i].hint
+function npc.relationships.get_hint_for_favorite_item(item_name, gender, phase)
+    for i = 1, #npc.FAVORITE_ITEMS[gender][phase] do
+        if npc.FAVORITE_ITEMS[gender][phase][i].item == item_name then
+            return npc.FAVORITE_ITEMS[gender][phase][i].hint
         end
     end
     return nil
 end
 
 -- Gets the item hint for a disliked item
-function npc.relationships.get_hint_for_disliked_item(item_name, sex)
-    for i = 1, #npc.DISLIKED_ITEMS[sex] do
-        if npc.DISLIKED_ITEMS[sex][i].item == item_name then
-            return npc.DISLIKED_ITEMS[sex][i].hint
+function npc.relationships.get_hint_for_disliked_item(item_name, gender)
+    for i = 1, #npc.DISLIKED_ITEMS[gender] do
+        if npc.DISLIKED_ITEMS[gender][i].item == item_name then
+            return npc.DISLIKED_ITEMS[gender][i].hint
         end
     end
     return nil
@@ -271,13 +271,13 @@ end
 -----------------------------------------------------------------------------
 
 -- This function selects two random items from the npc.favorite_items table
--- It checks for sex and phase for choosing the items
-function npc.relationships.select_random_favorite_items(sex, phase)
+-- It checks for gender and phase for choosing the items
+function npc.relationships.select_random_favorite_items(gender, phase)
     local result = {}
     local items = {}
 
-    -- -- Filter sex
-    -- if sex == npc.FEMALE then
+    -- -- Filter gender
+    -- if gender == npc.FEMALE then
     --   items = npc.FAVORITE_ITEMS.female
     -- else
     --   items = npc.FAVORITE_ITEMS.male
@@ -285,30 +285,32 @@ function npc.relationships.select_random_favorite_items(sex, phase)
 
     -- Select the phase
     -- items = items[phase]
-    items = npc.relationships.gift_items.liked[sex][phase]
-
-    result.fav1 = items[math.random(1, #items)]
-    result.fav2 = items[math.random(1, #items)]
+    items = npc.relationships.gift_items.liked[gender][phase]
+    if items and next(items) ~= nil then
+        result.fav1 = items[math.random(1, #items)]
+        result.fav2 = items[math.random(1, #items)]
+    end
     return result
 end
 
 -- This function selects two random items from the npc.disliked_items table
--- It checks for sex for choosing the items. They stay the same for all
+-- It checks for gender for choosing the items. They stay the same for all
 -- phases
-function npc.relationships.select_random_disliked_items(sex)
+function npc.relationships.select_random_disliked_items(gender)
     local result = {}
     local items = {}
 
-    -- -- Filter sex
-    -- if sex == npc.FEMALE then
+    -- -- Filter gender
+    -- if gender == npc.FEMALE then
     --   items = npc.DISLIKED_ITEMS.female
     -- else
     --   items = npc.DISLIKED_ITEMS.male
     -- end
-    items = npc.relationships.gift_items.disliked[sex]
-
-    result.dis1 = items[math.random(1, #items)]
-    result.dis2 = items[math.random(1, #items)]
+    items = npc.relationships.gift_items.disliked[gender]
+    if items and next(items) ~= nil then
+        result.dis1 = items[math.random(1, #items)]
+        result.dis2 = items[math.random(1, #items)]
+    end
     return result
 end
 
@@ -356,7 +358,7 @@ local function update_relationship(self, clicker_name, modifier)
             if current_phase ~= self.relationships[i].phase then
                 -- Re-select favorite items per new phase
                 self.gift_data.favorite_items =
-                npc.relationships.select_random_favorite_items(self.sex, self.relationships[i].phase)
+                npc.relationships.select_random_favorite_items(self.gender, self.relationships[i].phase)
                 -- Re-select dialogues per new
                 self.dialogues =
                 npc.dialogue.select_random_dialogues_for_npc(self,
@@ -475,12 +477,12 @@ local function show_receive_gift_reaction(self, item_name, modifier, clicker_nam
         end
         -- Send message
         -- TODO: There might be an error with getting the message...
-        --minetest.log("Item_name: "..dump(item_name)..", sex: "..dump(self.sex)..", phase: "..dump(phase))
+        --minetest.log("Item_name: "..dump(item_name)..", gender: "..dump(self.gender)..", phase: "..dump(phase))
         local dialogues_found = npc.relationships.get_dialogues_for_gift_item(
             item_name,
             npc.dialogue.tags.GIFT_ITEM_RESPONSE,
             npc.dialogue.tags.GIFT_ITEM_LIKED,
-            self.sex,
+            self.gender,
             phase)
         for _, item_dialogue in pairs(dialogues_found) do
             npc.chat(self.npc_name, clicker_name, item_dialogue.text)
@@ -488,14 +490,14 @@ local function show_receive_gift_reaction(self, item_name, modifier, clicker_nam
         -- Disliked items reactions
     elseif modifier < 0 then
         npc.effect({x = pos.x, y = pos.y + 1, z = pos.z}, 8, "default_item_smoke.png")
-        --minetest.log("Item name: "..item_name..", sex: "..self.sex)
+        --minetest.log("Item name: "..item_name..", gender: "..self.gender)
         -- There should be only one dialogue, however, it returns a key-value
         -- result where we will have to do one loop
         local dialogues_found = npc.relationships.get_dialogues_for_gift_item(
             item_name,
             npc.dialogue.tags.GIFT_ITEM_RESPONSE,
             npc.dialogue.tags.GIFT_ITEM_UNLIKED,
-            self.sex)
+            self.gender)
 --        minetest.log("Message: "..dump(message_to_send))
         for _, item_dialogue in pairs(dialogues_found) do
             npc.chat(self.npc_name, clicker_name, item_dialogue.text)

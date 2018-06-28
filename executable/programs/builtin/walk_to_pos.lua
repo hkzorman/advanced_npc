@@ -4,14 +4,7 @@
 -- Time: 9:00 AM
 --
 
-local function isMultipleOf45Degrees(radian)
-    return radian - math.pi/4 < 0.15
-            or radian - (3*math.pi)/4 < 0.15
-            or radian - (5*math.pi)/4 < 0.15
-            or radian - (7*math.pi)/4 < 0.15
-end
-
--- This function can be used to make the NPC walk from one
+-- This program can be used to make the NPC walk from one
 -- position to another. If the optional parameter walkable_nodes
 -- is included, which is a table of node names, these nodes are
 -- going to be considered walkable for the algorithm to find a
@@ -28,6 +21,7 @@ npc.programs.register("advanced_npc:walk_to_pos", function(self, args)
         return
     end
     local enforce_move = args.enforce_move or true
+    local optimize_one_node_distance = args.optimize_one_node_distance or true
     local walkable_nodes = args.walkable
     self.stepheight = 1.1
     self.object:set_properties(self)
@@ -37,18 +31,31 @@ npc.programs.register("advanced_npc:walk_to_pos", function(self, args)
 
     -- Check if start_pos and end_pos are the same
     local distance = vector.distance(start_pos, end_pos)
-    if distance < 1 then
+    if distance < 0.75 then
         -- Check if it was using access node, if it was, rotate NPC into that direction
-        if use_access_node == true then
+        if use_access_node == true and node_pos then
             local yaw = minetest.dir_to_yaw(vector.direction(end_pos, node_pos))
             npc.programs.instr.execute(self, npc.programs.instr.default.ROTATE, {yaw = yaw})
         end
         npc.log("WARNING", "walk_to_pos Found start_pos == end_pos")
         return
-    elseif distance >= 1 and distance < 2 then
-        -- Rotate toward end_pos
+    elseif distance >= 0.75 and distance < 2 then
         local yaw = minetest.dir_to_yaw(vector.direction(start_pos, end_pos))
-        npc.programs.instr.execute(self, npc.programs.instr.default.ROTATE, {yaw = yaw})
+        local target_pos = {x=end_pos.x, y=self.object:getpos().y, z=end_pos.z}
+        -- Check if it is using access node
+        if use_access_node == true and node_pos then
+            -- Walk to end_pos, rotate to node_pos
+            local final_yaw = minetest.dir_to_yaw(vector.direction(end_pos, node_pos))
+            npc.programs.instr.execute(self, npc.programs.instr.default.WALK_STEP,
+                {yaw = yaw, target_pos=target_pos})
+            npc.exec.proc.enqueue(self, npc.programs.instr.default.STAND, {yaw=final_yaw})
+        else
+            -- Walk to end_pos
+            npc.programs.instr.execute(self, npc.programs.instr.default.WALK_STEP,
+                {yaw = yaw, target_pos=target_pos})
+            npc.exec.proc.enqueue(self, npc.programs.instr.default.STAND, {})
+        end
+        return
     else
         -- Set walkable nodes to empty if the parameter hasn't been used
         if walkable_nodes == nil then
@@ -56,12 +63,14 @@ npc.programs.register("advanced_npc:walk_to_pos", function(self, args)
         end
 
         -- Find path
-        local path = npc.pathfinder.find_path(start_pos, end_pos, self, true)
+        local path = npc.pathfinder.find_path(start_pos, end_pos, self, walkable_nodes)
 
-        if path ~= nil and #path > 1 then
+        if path ~= nil and #path >= 1 then
 
             npc.log("INFO", "walk_to_pos Found path ("..dump(#path).." nodes) from "
                     ..minetest.pos_to_string(start_pos).." to: "..minetest.pos_to_string(end_pos))
+            -- Add start pos to path
+            table.insert(path, 1, {pos=start_pos, type=2})
             -- Store path
             self.npc_state.movement.walking.path = path
 
@@ -75,9 +84,7 @@ npc.programs.register("advanced_npc:walk_to_pos", function(self, args)
             npc.programs.instr.execute(self, npc.programs.instr.default.SET_INTERVAL, {interval=0.5, freeze=true})
 
             -- Set the initial last and target positions
-            self.npc_state.movement.walking.target_pos = path[1].pos
-            -- Add start pos to path
-            table.insert(path, 1, {pos=start_pos, type=2})
+            --self.npc_state.movement.walking.target_pos = path[2].pos
 
             -- Add steps to path
             for i = 1, #path do
@@ -86,13 +93,18 @@ npc.programs.register("advanced_npc:walk_to_pos", function(self, args)
                 if (i+1) == #path then
                     -- Add direction to last node
                     local dir = vector.direction(path[i].pos, end_pos)
+                    local yaw = minetest.dir_to_yaw(dir)
                     -- Add the last step
                     npc.exec.proc.enqueue(self, npc.programs.instr.default.WALK_STEP,
                         {yaw = minetest.dir_to_yaw(dir), speed = speed, target_pos = path[i+1].pos})
                     -- Add stand animation at end
-                    if use_access_node == true then
+                    -- This is not the proper fix (and node_pos), but for now
+                    -- it will avoid crashes
+                    if use_access_node == true and node_pos then
                         --dir = npc.programs.helper.get_direction(end_pos, node_pos)
-                        dir = minetest.dir_to_yaw(vector.direction(end_pos, node_pos))
+                        --minetest.log("end pos: "..dump(end_pos))
+                        --minetest.log("Node pos: "..dump(node_pos))
+                        yaw = minetest.dir_to_yaw(vector.direction(end_pos, node_pos))
                     end
 
                     -- If door is opened, close it
@@ -105,7 +117,7 @@ npc.programs.register("advanced_npc:walk_to_pos", function(self, args)
                     end
 
                     -- Change dir if using access_node
-                    npc.exec.proc.enqueue(self, npc.programs.instr.default.STAND, {yaw = dir})
+                    npc.exec.proc.enqueue(self, npc.programs.instr.default.STAND, {yaw = yaw})
                     break
                 end
                 -- Get direction to move from path[i] to path[i+1]

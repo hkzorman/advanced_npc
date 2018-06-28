@@ -46,7 +46,7 @@
 --		textures = {},
 --			-- Textures are an array of textures, as usually given on
 -- 			-- an entity definition. If given, the NPC will be guaranteed
---			-- to have one of the given textures. Also, ensure they have sex
+--			-- to have one of the given textures. Also, ensure they have gender
 --			-- as well in the filename so they can be chosen appropriately.
 --			-- If left empty, it can spawn with any texture.
 --		building_types = {},
@@ -249,6 +249,14 @@ npc.occupations.basic_def = {
 
 -- This function registers an occupation
 function npc.occupations.register_occupation(name, def)
+	-- Register all textures per definition
+	if def.textures and next(def.textures) ~= nil then
+		-- These are in the format: {name="", tags={"tag1","tag2", ...}}
+		for i = 1, #def.textures do
+			npc.info.register_texture(def.textures[i].name, def.textures[i].tags)
+		end
+	end
+
 	-- Register all dialogues per definition
 	local dialogue_keys = {}
 	if def.dialogues then
@@ -308,7 +316,6 @@ function npc.occupations.get_for_building(building_type, surrounding_building_ty
 		-- Check for empty or nil building types, in that case, any building
 		if def.building_types == nil or def.building_types == {}
 				and def.surrounding_building_types == nil or def.surrounding_building_types == {} then
-			--minetest.log("Empty")
 			-- Empty building types, add to result
 			table.insert(result, name)
 		elseif def.building_types ~= nil and #def.building_types > 0 then
@@ -360,23 +367,33 @@ function npc.occupations.initialize_occupation_values(self, occupation_name)
 	npc.log("INFO", "Overriding NPC values using occupation '"..dump(occupation_name).."' values")
 
 	-- Initialize textures, else it will leave the current textures
+	-- Pick them from tags
 	if def.textures and table.getn(def.textures) > 0 then
-		self.selected_texture =
-		npc.get_random_texture_from_array(self.sex, self.age, def.textures)
-		-- Set texture if it found for sex and age
+		-- Select a texture
+		local available_textures = npc.info.get_textures({self.gender, self.age, occupation_name}, "all_match")
+
+		-- Set texture if it found for gender and age
 		-- If an array was returned, select a random texture from it
-		if type(self.selected_texture) == "table" then
-			local selected_texture = self.selected_texture[math.random(1, #self.selected_texture)]
-			self.selected_texture = selected_texture
+		if next(available_textures) ~= nil then
+			self.selected_texture = available_textures[math.random(1, #available_textures)]
 		end
-		-- Set texture and base texture
-		self.textures = {self.selected_texture}
-		self.base_texture = {self.selected_texture }
-		-- Assign sex based on texture
-		self.sex = npc.assign_sex_from_texture(self)
-		-- Refresh entity
-		self.object:set_properties(self)
+	else
+		-- Try to choose a random texture - if exists
+		if next(npc.info.textures) ~= nil then
+			local available_textures = npc.info.get_textures({self.gender, self.age}, "all_match")
+			self.selected_texture = available_textures[math.random(1, #available_textures)]
+		else
+			-- Return a default texture
+			self.selected_texture = "default_"..self.gender..".png"
+		end
 	end
+	minetest.log("Result: "..dump(self.selected_texture))
+
+	-- Set texture and base texture
+	self.textures = {self.selected_texture}
+	self.base_texture = {self.selected_texture}
+	-- Refresh entity
+	self.object:set_properties(self)
 
 	-- Initialize inventory
 	if def.initial_inventory and table.getn(def.initial_inventory) > 0 then
@@ -419,7 +436,7 @@ function npc.occupations.initialize_occupation_values(self, occupation_name)
 				end
 			end
 			-- Find dialogues using tags
-			local dialogues = npc.search_dialogue_by_tags(def.dialogues.tags, true)
+			local dialogues = npc.dialogue.search_dialogue_by_tags(def.dialogues.tags, true)
 			-- Add keys to set of dialogue keys
 			for _, key in pairs(npc.utils.get_map_keys(dialogues)) do
 				table.insert(dialogue_keys, key)
@@ -427,7 +444,7 @@ function npc.occupations.initialize_occupation_values(self, occupation_name)
 		elseif def.dialogues.type == "tags" then
 			-- We need to find the dialogues from tags. def.dialogues.tags contains
 			-- an array of tags that we will use to search.
-			local dialogues = npc.search_dialogue_by_tags(def.dialogues.tags, true)
+			local dialogues = npc.dialogue.search_dialogue_by_tags(def.dialogues.tags, true)
 			-- Add keys to set of dialogue keys
 			dialogue_keys = npc.utils.get_map_keys(dialogues)
 		end

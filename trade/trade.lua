@@ -27,7 +27,7 @@ npc.trade.CUSTOM_TRADES_PROMPT_TEXT = "Hi there, how can I help you today?"
 -- Casual trader NPC dialogues definition
 -- Casual buyer
 npc.dialogue.register_dialogue({
-    text = "I'm looking to buy some items, are  you interested?",
+    text = "I'm looking to buy some items, are you interested?",
     --casual_trade_type = npc.trade.OFFER_BUY,
     tags = {"default_casual_trade_dialogue", "buy_offer"},
     --dialogue_type = npc.dialogue.dialogue_type.casual_trade,
@@ -224,7 +224,7 @@ function npc.trade.show_dedicated_trade_formspec(self, player, offers_type)
         end
         formspec = formspec..
                 "box["..current_x..","..current_y..";2,2.3;#212121]"..
-                "item_image["..(current_x + 0.45)..","..(current_y + 0.15)..";1.3,1.3;"..npc.get_item_name(offers[i].item).."]"..
+                "item_image_button["..(current_x + 0.45)..","..(current_y + 0.15)..";1.3,1.3;"..npc.get_item_name(offers[i].item)..";item"..i..";]"..
                 count_label..
                 "item_image_button["..(current_x + 1.15)..","..(current_y + 1.4)..";1,1;"..offers[i].price[1]..";price"..i..";]"..
                 "label["..(current_x + 0.15)..","..(current_y + 1.7)..";Price]"
@@ -357,9 +357,9 @@ end
 -- items that a NPC has on his/her inventory
 function npc.trade.get_currencies_in_inventory(self)
     local result = {}
-    local tier3 = npc.inventory_contains(self, npc.trade.prices.currency.tier3.string)
-    local tier2 = npc.inventory_contains(self, npc.trade.prices.currency.tier2.string)
-    local tier1 = npc.inventory_contains(self, npc.trade.prices.currency.tier1.string)
+    local tier3 = npc.inventory_contains(self, npc.trade.prices.get_currency_itemstring("tier3"))
+    local tier2 = npc.inventory_contains(self, npc.trade.prices.get_currency_itemstring("tier2"))
+    local tier1 = npc.inventory_contains(self, npc.trade.prices.get_currency_itemstring("tier1"))
     if tier3 ~= nil then
         table.insert(result, {name = npc.get_item_name(tier3.item_string),
             count = npc.get_item_count(tier3.item_string)} )
@@ -549,7 +549,11 @@ function npc.trade.create_offer(offer_type, item, price, min_price_item_count, c
     else
         -- Make sell offer, NPC will sell items to player at regular price
         -- Get and calculate price for this object
-        local price_object = npc.trade.prices.table[item]
+        local price_object = npc.trade.prices.get(item)
+        if price_object == nil then
+            npc.log("WARNING", "Found nil price for item: "..dump(item))
+            return nil
+        end
         -- Check price object, if price < 1 then offer to sell for 1
         if price_object.count < 1 then
             price_object.count = 1
@@ -705,7 +709,7 @@ minetest.register_on_player_receive_fields(function (player, formname, fields)
                     local trade_result = npc.trade.perform_trade(player_response.npc, player_name, trade_offers[i])
                     if trade_result == true then
                         -- Lock actions
-                        npc.lock_actions(player_response.npc)
+                        npc.exec.set_input_wait_state(player_response.npc)
                         -- Account for buyed items
                         if player_response.offers_type == npc.trade.OFFER_BUY then
                             -- Increase the item bought count

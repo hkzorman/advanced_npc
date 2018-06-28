@@ -76,6 +76,11 @@ npc.programs.const = {
         take_from_inventory = "take_from_inventory",
         take_from_inventory_forced = "take_from_inventory_forced",
         force_place = "force_place"
+    },
+    craft_src = {
+        take_from_inventory = "take_from_inventory",
+        take_from_inventory_forced = "take_from_inventory_forced",
+        force_craft = "force_craft"
     }
 }
 

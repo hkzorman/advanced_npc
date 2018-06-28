@@ -18,7 +18,7 @@ npc.programs.register("advanced_npc:wander", function(self, args)
 
     -- First check if there's any object to acknowledge
     local objs_found = false
-    if acknowledge_nearby_objs then
+    if acknowledge_nearby_objs == true then
         objs_found = npc.programs.instr.execute(self, "advanced_npc:idle:acknowledge_objects", {
             obj_search_radius = obj_search_radius,
             acknowledge_burnout = max_acknowledge_time
@@ -70,7 +70,7 @@ npc.programs.register("advanced_npc:wander", function(self, args)
     if calculated_idle_chance < idle_chance then
         npc.log("INFO", "Switching BACK to idle state")
         -- Change to idle state process
-        npc.exec.set_state_program(self, "advanced_npc:idle", {acknowledge_nearby_objs = true}, {})
+        npc.exec.set_state_program(self, "advanced_npc:idle", {acknowledge_nearby_objs = acknowledge_nearby_objs}, {})
     end
 
 end)

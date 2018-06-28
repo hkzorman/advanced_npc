@@ -215,11 +215,11 @@ function npc.spawner.determine_npc_occupation(building_type, workplace_nodes, np
         building_type,
         surrounding_buildings_map
     )
-    npc.log("DEBUG", "Found occupations: "..dump(occupation_names).."\nfor local building type: "
+    npc.log("INFO", "Found occupations: "..dump(occupation_names).."\nfor local building type: "
         ..dump(building_type).."\nAnd surrounding building types: "..dump(surrounding_buildings_map))
 
     -- Insert default occupation into result
-    table.insert(result, {name=npc.occupations.basic_name, node={node_pos={}}})
+    result[#result + 1] = {name=npc.occupations.basic_name, node={node_pos={}}}
 
     ---------------------------------------------------------------------------------------
     -- Determine occupation
@@ -239,49 +239,79 @@ function npc.spawner.determine_npc_occupation(building_type, workplace_nodes, np
             -- Check if someone already works on this
             if npc.utils.array_contains(current_building_npc_occupations, occupation_names[i]) == false then
                 -- Check if someone else already has this occupation at the same workplace
-                for j = 1, #workplace_nodes do
-                    -- Get building types from occupation
-                    local local_building_types =
-                        npc.occupations.registered_occupations[occupation_names[i]].building_types or {}
-                    local surrounding_building_types =
-                        npc.occupations.registered_occupations[occupation_names[i]].surrounding_building_types or {}
+                 -- Get building types from occupation
+                local local_building_types =
+                    npc.occupations.registered_occupations[occupation_names[i]].building_types or {}
+                local surrounding_building_types =
+                    npc.occupations.registered_occupations[occupation_names[i]].surrounding_building_types or {}
 
-                    -- Attempt to match the occupation definition's local and surrounding types
-                    -- to the workplace node's building type.
-                    local local_building_match = false
-                    local surrounding_building_match = false
+                if #workplace_nodes > 0 then
+                    for j = 1, #workplace_nodes do
+                        -- Attempt to match the occupation definition's local and surrounding types
+                        -- to the workplace node's building type.
+                        local local_building_match = false
+                        local surrounding_building_match = false
 
-                    -- Check if there is building_type match between the def's local
-                    -- building_types and the current workplace node's building_type
-                    if #local_building_types > 0 then
-                        local_building_match =
-                            npc.utils.array_contains(local_building_types, workplace_nodes[j].building_type)
+                        -- Check if there is building_type match between the def's local
+                        -- building_types and the current workplace node's building_type
+                        if #local_building_types > 0 then
+                            -- New matching algorithm
+                            for i = 1, #occupation_names do
+                                for j = 1, #local_building_types do
+                                    if building_type == local_building_types[j] then
+                                        npc.log("INFO", "Found suitable occupation: "..dump(result))
+                                        -- Forget about workplace location - let NPC find it
+                                        local_building_match = true
+                                        result[#result + 1] = {name=occupation_names[i], node={}}
+                                        break
+                                    end
+                                end
+                            end
+--                            local_building_match =
+--                                npc.utils.array_contains(local_building_types, workplace_nodes[j].building_type)
+                        end
+
+                        -- Check if there is building_type match between the def's surrounding
+                        -- building_types and the current workplace node's building_type
+                        if #surrounding_building_types > 0 then
+                            npc.log("DEBUG", "Scanning "..dump(#workplace_nodes).." plotmarkers for surrounding workplaces")
+                            for k = 1, #surrounding_building_types do
+                                if surrounding_building_types[k].type == workplace_nodes[j].building_type then
+                                    surrounding_building_match = true
+                                    break
+                                end
+                            end
+                        end
+                        -- Check if there was a match
+                        if local_building_match == true or surrounding_building_match == true then
+                            -- Match found, attempt to map this workplace node to the
+                            -- current occupation. How? Well, if the workplace isn't being
+                            -- used by another NPC, then, use it
+                            local meta = minetest.get_meta(workplace_nodes[j].node_pos)
+                            local worker_data = minetest.deserialize(meta:get_string("work_data") or "")
+                            npc.log("DEBUG", "Found worker data: "..dump(worker_data))
+                            -- If no worker data is found, then create it
+                            if not worker_data then
+                                npc.log("INFO", "Found suitable occupation and workplace: "..dump(result))
+                                table.insert(result, {name=occupation_names[i], node=workplace_nodes[j]})
+                            end
+                        end
                     end
-
-                    -- Check if there is building_type match between the def's surrounding
-                    -- building_types and the current workplace node's building_type
-                    if #surrounding_building_types > 0 then
-                        for k = 1, #surrounding_building_types do
-                            if surrounding_building_types[k].type == workplace_nodes[j].building_type then
-                                surrounding_building_match = true
+                else
+                    -- Try to match building type with the occupation local building types
+                    minetest.log("Building type: "..dump(building_type))
+                    minetest.log("Occupation local building types: "..dump(local_building_types))
+                    for i = 1, #occupation_names do
+                        for j = 1, #local_building_types do
+                            if building_type == local_building_types[j] then
+                                npc.log("INFO", "Found suitable occupation: "..dump(result))
+                                -- Forget about workplace location - let NPC find it
+                                result[#result + 1] = {name=occupation_names[i], node={}}
                                 break
                             end
                         end
                     end
-                    -- Check if there was a match
-                    if local_building_match == true or surrounding_building_match == true then
-                        -- Match found, attempt to map this workplace node to the
-                        -- current occupation. How? Well, if the workplace isn't being
-                        -- used by another NPC, then, use it
-                        local meta = minetest.get_meta(workplace_nodes[j].node_pos)
-                        local worker_data = minetest.deserialize(meta:get_string("work_data") or "")
-                        npc.log("DEBUG", "Found worker data: "..dump(worker_data))
-                        -- If no worker data is found, then create it
-                        if not worker_data then
-                            npc.log("INFO", "Found suitable occupation and workplace: "..dump(result))
-                            table.insert(result, {name=occupation_names[i], node=workplace_nodes[j]})
-                        end
-                    end
+                    minetest.log("Local building match after: "..dump(result))
                 end
             end
         end
@@ -293,7 +323,10 @@ function npc.spawner.determine_npc_occupation(building_type, workplace_nodes, np
     --      - If count is less than three (only two NPCs), default_basic occupation.
     --      - If count is greater than two, assign any eligible occupation with 50% chance
     --  - If not NPC is working, choose an occupation that is not default_basic
-    if #current_building_npc_occupations > 0 then
+    minetest.log("Current building occupations: "..dump(current_building_npc_occupations))
+    minetest.log("Result #: "..dump(#result))
+    minetest.log("Result: "..dump(result))
+    if next(current_building_npc_occupations) ~= nil then
         for i = 1, #current_building_npc_occupations do
             if current_building_npc_occupations[i] ~= npc.occupations.basic_name then
                 if #current_building_npc_occupations < 3 then
@@ -310,6 +343,9 @@ function npc.spawner.determine_npc_occupation(building_type, workplace_nodes, np
         if #result == 1 then
             -- Choose basic default occupation
             return result[1]
+        elseif #result == 2 then
+            -- Return other than the basic default
+            return result[2]
         else
             -- Choose an occupation with equal chance each
             return result[math.random(2, #result)]
@@ -326,7 +362,7 @@ end
 -- Prerequisite for calling this function is:
 --  - In case of mg_villages, spawner.adapt_mg_villages_plotmarker(), or,
 --  - in case of custom buildings, npc.spawner.scan_area_for_spawn()
-function npc.spawner.spawn_npc_on_plotmarker(pos)
+function npc.spawner.spawn_npc_on_plotmarker(entity_name, pos)
     -- Get timer
     local timer = minetest.get_node_timer(pos)
     -- Get metadata
@@ -359,13 +395,18 @@ function npc.spawner.spawn_npc_on_plotmarker(pos)
             if area_info.node_data.workplace_type[i].node_pos == occupation_data.node.node_pos then
                 -- Found node, mark it as being used by NPC
                 area_info.node_data.workplace_type[i]["occupation"] = occupation_data.name
+                break
             end
         end
     end
 
-    -- Spawn NPC
-    local metadata = npc.spawner.spawn_npc(pos, area_info, occupation_data.name, occupation_data.node.node_pos)
+    npc.log("INFO", "Attempting spawning of "..dump(entity_name).." at "..minetest.pos_to_string(pos))
 
+    -- Spawn NPC
+    local metadata = npc.spawner.spawn_npc(entity_name, pos, area_info, {occupation_name=occupation_data.name, occupation_workplace_pos=occupation_data.node.node_pos})
+    if type(metadata) == "boolean" then
+        return
+    end
     -- Set all metadata back into the node
     -- Increase NPC spawned count
     area_info.spawned_npc_count = metadata.spawned_npc_count + 1
@@ -391,7 +432,10 @@ end
 
 -- This function spawns a NPC into the given pos.
 -- If area_info is given, updated area_info is returned at end
-function npc.spawner.spawn_npc(pos, area_info, occupation_name, occupation_workplace_pos)
+function npc.spawner.spawn_npc(entity_name, pos, area_info, npc_info)
+    -- Get occupation data
+    local occupation_name = npc_info.occupation_name
+    local occupation_workplace_pos = npc_info.occupation_workplace_pos
     -- Get current NPC info
     local npc_table = area_info.npcs
     -- Get NPC stats
@@ -419,7 +463,7 @@ function npc.spawner.spawn_npc(pos, area_info, occupation_name, occupation_workp
     if can_spawn then
         npc.log("INFO", "Spawning NPC at "..minetest.pos_to_string(pos))
         -- Spawn a NPC
-        local ent = minetest.add_entity({x=pos.x, y=pos.y+1, z=pos.z}, "advanced_npc:npc")
+        local ent = minetest.add_entity({x=pos.x, y=pos.y+1, z=pos.z}, entity_name)
         if ent and ent:get_luaentity() then
             ent:get_luaentity().initialized = false
             -- Determine NPC occupation - use given or default
@@ -427,12 +471,12 @@ function npc.spawner.spawn_npc(pos, area_info, occupation_name, occupation_workp
             -- Initialize NPC
             -- Call with stats if there are NPCs
             if npc_table and #npc_table > 0 then
-                npc.initialize(ent, pos, false, npc_stats, occupation)
+                npc.initialize(ent, pos, false, npc_stats, npc_info)
             else
-                npc.initialize(ent, pos, nil, nil, occupation)
+                npc.initialize(ent, pos, nil, nil, npc_info)
             end
             -- If node_data is present, assign nodes
-            minetest.log("Node data: "..dump(node_data))
+            npc.log("DEBUG", "Node data: "..dump(node_data))
             if node_data then
                 npc.spawner.assign_places(ent:get_luaentity(), entrance, node_data, pos)
             end
@@ -445,23 +489,23 @@ function npc.spawner.spawn_npc(pos, area_info, occupation_name, occupation_workp
                 status = npc.spawner.spawn_data.status.alive,
                 name = ent:get_luaentity().name,
                 id = ent:get_luaentity().npc_id,
-                sex = ent:get_luaentity().sex,
+                gender = ent:get_luaentity().gender,
                 age = age,
                 occupation = occupation,
                 workplace = occupation_workplace_pos,
                 born_day = minetest.get_day_count()
             }
-            minetest.log("Area info: "..dump(area_info))
+            npc.log("DEBUG", "Area info: "..dump(area_info))
             table.insert(area_info.npcs, entry)
             -- Update and store stats
-            -- Increase total of NPCs for specific sex
-            npc_stats[ent:get_luaentity().sex].total =
-            npc_stats[ent:get_luaentity().sex].total + 1
+            -- Increase total of NPCs for specific gender
+            npc_stats[ent:get_luaentity().gender].total =
+            npc_stats[ent:get_luaentity().gender].total + 1
             -- Increase total number of NPCs by age
             npc_stats[age.."_total"] = npc_stats[age.."_total"] + 1
-            -- Increase number of NPCs by age and sex
-            npc_stats[ent:get_luaentity().sex][age] =
-            npc_stats[ent:get_luaentity().sex][age] + 1
+            -- Increase number of NPCs by age and gender
+            npc_stats[ent:get_luaentity().gender][age] =
+            npc_stats[ent:get_luaentity().gender][age] + 1
             area_info.npc_stats = npc_stats
             -- Return
             npc.log("INFO", "Spawning successful!")
@@ -579,14 +623,17 @@ function npc.spawner.assign_places(self, entrance, node_data, pos)
 
     -- Assign workplace nodes
     -- Beware: More incomprehensibe code lies ahead!
+    npc.log("INFO", "Assigning workplace node to NPC "..self.npc_name.." with occupation "..dump(self.occupation_name))
     if #node_data.workplace_type > 0 then
+        npc.log("DEBUG", "Node Data workplace nodes: "..dump(node_data.workplace_type))
         -- First, find the workplace_node that was marked
         for i = 1, #node_data.workplace_type do
-            minetest.log("In assign places: workplace nodes: "..dump(node_data.workplace_type))
-            minetest.log("Condition? "..dump(node_data.workplace_type[i].occupation
-                    and node_data.workplace_type[i].occupation == self.occupation_name))
+--            minetest.log("In assign places: workplace nodes: "..dump(node_data.workplace_type))
+--            minetest.log("Condition? "..dump(node_data.workplace_type[i].occupation
+--                    and node_data.workplace_type[i].occupation == self.occupation_name))
             if node_data.workplace_type[i].occupation
                     and node_data.workplace_type[i].occupation == self.occupation_name then
+                npc.log("INFO", "Found a workplace node that is match to NPC occupation: "..dump(node_data.workplace_type[i]))
                 -- Walkable nodes from occupation
                 local walkables = npc.occupations.registered_occupations[self.occupation_name].walkable_nodes
                 -- Found the node. Assign only this node to the NPC.
@@ -674,45 +721,52 @@ end
 --    and default values will be chosen whenever no input is provided.
 
 -- This map holds the spawning position chosen by a player at a given time.
-spawner.spawn_pos = {}
+local spawner = {
+    spawn_pos = {},
+    entity_name = ""
+}
 
 -- Spawn egg (WIP)
 -- Use for manually spawning NPCs. Up to now, supports local occupations only.
-minetest.register_craftitem("advanced_npc:spawn_egg", {
-    description = "NPC Spawner",
-    inventory_image = "mobs_chicken_egg.png^(default_brick.png^[mask:mobs_chicken_egg_overlay.png)",
-    on_place = function(itemstack, user, pointed_thing)
-        -- Store spawn pos
-        spawner.spawn_pos[user:get_player_name()] = pointed_thing.above
+function npc.spawner.register_spawn_egg(entity_name)
+    minetest.register_craftitem(entity_name.."_spawn_egg", {
+        description = "NPC Spawner",
+        inventory_image = "mobs_chicken_egg.png^(default_brick.png^[mask:mobs_chicken_egg_overlay.png)",
+        on_place = function(itemstack, user, pointed_thing)
+            -- Store spawn pos
+            spawner.spawn_pos[user:get_player_name()] = pointed_thing.above
+            -- This looks horrible - please change
+            spawner.name = string.split(itemstack:get_name(), "_spawn_egg")[1]
 
-        local occupation_names = npc.utils.get_map_keys(npc.occupations.registered_occupations)
+            local occupation_names = npc.utils.get_map_keys(npc.occupations.registered_occupations)
 
-        local building_dropdown_string = "dropdown[0.5,0.75;6;building_type;"
-        for i = 1, #npc.spawner.mg_villages_supported_building_types do
-            building_dropdown_string = building_dropdown_string
-                    ..npc.spawner.mg_villages_supported_building_types[i]..","
+            local building_dropdown_string = "dropdown[0.5,0.75;6;building_type;"
+            for i = 1, #npc.spawner.mg_villages_supported_building_types do
+                building_dropdown_string = building_dropdown_string
+                        ..npc.spawner.mg_villages_supported_building_types[i]..","
+            end
+            building_dropdown_string = building_dropdown_string..";1]"
+
+            -- Generate occupation dropdown
+            local occupation_dropdown_string = "dropdown[0.5,1.95;6;occupation_name;"
+            for i = 1, #occupation_names do
+                occupation_dropdown_string = occupation_dropdown_string..occupation_names[i]..","
+            end
+            occupation_dropdown_string = occupation_dropdown_string..";1]"
+
+            local formspec = "size[7,7]"..
+                    "label[0.1,0.25;Building type]"..
+                    building_dropdown_string..
+                    "label[0.1,1.45;Occupation]"..
+                    occupation_dropdown_string..
+                    "field[0.5,3;3,2;radius;Search radius;20]"..
+                    "field[3.5,3;3,2;height;Search height;2]"..
+                    "button_exit[2.25,6.25;2.5,0.75;exit;Spawn]"
+
+            minetest.show_formspec(user:get_player_name(), "advanced_npc:spawn_egg_main", formspec)
         end
-        building_dropdown_string = building_dropdown_string..";1]"
-
-        -- Generate occupation dropdown
-        local occupation_dropdown_string = "dropdown[0.5,1.95;6;occupation_name;"
-        for i = 1, #occupation_names do
-            occupation_dropdown_string = occupation_dropdown_string..occupation_names[i]..","
-        end
-        occupation_dropdown_string = occupation_dropdown_string..";1]"
-
-        local formspec = "size[7,7]"..
-                "label[0.1,0.25;Building type]"..
-                building_dropdown_string..
-                "label[0.1,1.45;Occupation]"..
-                occupation_dropdown_string..
-                "field[0.5,3;3,2;radius;Search radius;20]"..
-                "field[3.5,3;3,2;height;Search height;2]"..
-                "button_exit[2.25,6.25;2.5,0.75;exit;Spawn]"
-
-        minetest.show_formspec(user:get_player_name(), "advanced_npc:spawn_egg_main", formspec)
-    end
-})
+    })
+end
 
 -- This map holds the name of the player and the position of the workplace that
 -- he/she placed
@@ -768,6 +822,7 @@ minetest.register_on_player_receive_fields(function(player, formname, fields)
                 -- Handle exit (spawn) button
                 if fields.exit then
                     local pos = spawner.spawn_pos[player:get_player_name()]
+                    local name = spawner.name
                     local radius = 20
                     local y_adj = 2
                     -- Set radius if present
@@ -802,7 +857,7 @@ minetest.register_on_player_receive_fields(function(player, formname, fields)
                     end
 
                     -- Spawn NPC
-                    local metadata = npc.spawner.spawn_npc(pos, area_info, fields.occupation_name)
+                    local metadata = npc.spawner.spawn_npc(name, pos, area_info, {occupation_name=fields.occupation_name})
                 end
             end
         end
@@ -842,6 +897,10 @@ end)
 -- Support code for mg_villages mods
 ---------------------------------------------------------------------------------------
 if minetest.get_modpath("mg_villages") ~= nil then
+    local mg_villages_entity_name = ""
+    function npc.spawner.set_mg_villages_entity_name(name)
+        mg_villages_entity_name = name
+    end
 
     -- This function creates a table of the scannable nodes inside
     -- a mg_villages building. It needs the plotmarker position for a start
@@ -897,6 +956,11 @@ if minetest.get_modpath("mg_villages") ~= nil then
 
             result = npc.locations.scan_area_for_usable_nodes(start_pos, end_pos)
             if result and result.bed_type and #result.bed_type > 0 then
+                -- Store start and end pos in plotmarker metadata for any future use
+                local meta = minetest.get_meta(pos)
+                meta:set_string("advanced_npc:area_pos1", minetest.serialize(start_pos))
+                meta:set_string("advanced_npc:area_pos2", minetest.serialize(end_pos))
+                meta:mark_as_private({"advanced_npc:area_pos1", "advanced_npc:area_pos2"})
                 return result
             else
                 npc.log("WARNING", "Failed attempt "..dump(i).." in finding usable nodes. "..dump(4-i).." attempts left.")
@@ -958,14 +1022,20 @@ if minetest.get_modpath("mg_villages") ~= nil then
                 -- Store plot information
                 local plot_info = mg_villages.all_villages[village_id].to_add_data.bpos[plot_nr]
                 plot_info["ysize"] = building_data.ysize
-                 minetest.log("Plot info at replacement time: "..dump(plot_info))
+                npc.log("DEBUG", "Plot info at replacement time: "..dump(plot_info))
                 meta:set_string("plot_info", minetest.serialize(plot_info))
                 -- Scan building for nodes
                 local nodedata = spawner.scan_mg_villages_building(pos, plot_info)
+
+                if not nodedata then
+                    npc.log("ERROR", "Unable to find usable nodes in building.")
+                    return
+                end
+
                 -- Find building entrance
                 local doors = nodedata.openable_type
                 --minetest.log("Found "..dump(#doors).." openable nodes")
-                minetest.log("Nodedata: "..dump(nodedata))
+                npc.log("DEBUG", "Nodedata: "..dump(nodedata))
                 local entrance = npc.locations.find_building_entrance(nodedata.bed_type, pos)
                 --minetest.log("Found good entrance: "..dump(entrance1))
                 --local entrance = npc.locations.find_entrance_from_openable_nodes(doors, pos)
@@ -979,8 +1049,8 @@ if minetest.get_modpath("mg_villages") ~= nil then
                 -- Store nodedata into the spawner's metadata
                 meta:set_string("node_data", minetest.serialize(nodedata))
                 -- Find nearby plotmarkers, excluding current plotmarker
-                local nearby_plotmarkers = npc.locations.find_plotmarkers(pos, 35, true)
-                --minetest.log("Found nearby plotmarkers: "..dump(nearby_plotmarkers))
+                local nearby_plotmarkers = npc.locations.find_plotmarkers(pos, 40, true)
+                --npc.log("INFO", "SPWNER: Found nearby plotmarkers: "..dump(nearby_plotmarkers))
                 meta:set_string("nearby_plotmarkers", minetest.serialize(nearby_plotmarkers))
                 -- Check if building position data is also available (recent mg_villages)
                 if building_pos_data then
@@ -1023,12 +1093,17 @@ if minetest.get_modpath("mg_villages") ~= nil then
 
         -- TODO: Change formspec to a more detailed one.
         on_rightclick = function(pos, node, clicker, itemstack, pointed_thing)
+            local meta = minetest.get_meta(pos)
+            minetest.log("NPCs: "..dump(minetest.deserialize(meta:get_string("npcs"))))
+            minetest.log("Node data: "..dump(minetest.deserialize(meta:get_string("node_data"))))
             return mg_villages.plotmarker_formspec( pos, nil, {}, clicker )
         end,
 
         on_timer = function(pos, elapsed)
             -- Adds timer support
-            npc.spawner.spawn_npc_on_plotmarker(pos)
+            if mg_villages_entity_name ~= nil and mg_villages_entity_name ~= "" then
+                npc.spawner.spawn_npc_on_plotmarker(mg_villages_entity_name, pos)
+            end
         end,
     })
 

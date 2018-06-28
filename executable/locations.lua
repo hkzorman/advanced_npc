@@ -323,10 +323,10 @@ end
 
 -- This function searches on a squared are of the given radius
 -- for nodes of the given type. The type should be npc.locations.nodes
-function npc.locations.find_node_nearby(pos, type, radius, fixed_vertical)
-	local y_offset = 1
-	if not fixed_vertical then
-		y_offset = radius
+function npc.locations.find_node_nearby(pos, type, radius, vertical_range_limit)
+	local y_offset = radius
+	if vertical_range_limit then
+		y_offset = vertical_range_limit
 	end
 	-- Determine area points
 	local start_pos = {x=pos.x - radius, y=pos.y - y_offset, z=pos.z - radius}
@@ -428,9 +428,11 @@ if minetest.get_modpath("mg_villages") ~= nil then
 		-- Get building data
 		if mg_villages.get_plot_and_building_data then
 			local all_data = mg_villages.get_plot_and_building_data(result.village_id, result.plot_nr)
-			result.building_data = all_data.building_data
-			result.building_type = result.building_data.typ
-			result["building_pos_data"] = all_data.bpos
+			if all_data then
+				result.building_data = all_data.building_data
+				result.building_type = result.building_data.typ
+				result["building_pos_data"] = all_data.bpos
+			end
 		else
 			-- Following line from mg_villages mod, protection.lua
 			local btype = mg_villages.all_villages[result.village_id].to_add_data.bpos[result.plot_nr].btype
@@ -467,6 +469,7 @@ if minetest.get_modpath("mg_villages") ~= nil then
 		end
 		-- Check the other plotmarkers as well
 		local nearby_plotmarkers = minetest.deserialize(meta:get_string("nearby_plotmarkers"))
+		npc.log("DEBUG", "Nearby plotmarkers: "..dump(nearby_plotmarkers))
 		if nearby_plotmarkers then
 			for i = 1, #nearby_plotmarkers do
 				if nearby_plotmarkers[i].workplaces then
@@ -499,7 +502,8 @@ function npc.locations.find_plotmarkers(pos, radius, exclude_current_pos)
 	local start_pos = {x=pos.x - radius, y=pos.y - 1, z=pos.z - radius}
 	local end_pos = {x=pos.x + radius, y=pos.y + 1, z=pos.z + radius}
 	local nodes = minetest.find_nodes_in_area(start_pos, end_pos,
-		npc.locations.nodes.PLOTMARKER)
+		npc.locations.nodes.plotmarker)
+	npc.log("INFO", "Found "..dump(#nodes).." plotmarkers")
 	-- Scan nodes
 	for i = 1, #nodes do
 		-- Check if current plotmarker is to be excluded from the list
@@ -519,11 +523,17 @@ function npc.locations.find_plotmarkers(pos, radius, exclude_current_pos)
 				local data = npc.locations.get_mg_villages_building_data(nodes[i])
 				def["plot_nr"] = data.plot_nr
 				def["village_id"] = data.village_id
-				def["building_data"] = data.building_data
+				--def["building_data"] = data.building_data
 				def["building_type"] = data.building_type
+				npc.log("INFO", "["..dump(data.building_type).."]")
 				if data.building_pos_data then
 					def["building_pos_data"] = data.building_pos_data
-					def["workplaces"] = data.building_pos_data.workplaces
+					if next(data.building_pos_data.workplaces) ~= nil then
+						def["workplaces"] = data.building_pos_data.workplaces
+					end
+				end
+				if data.workplaces and next(data.workplaces) ~= nil then
+					def["workplaces"] = data.workplaces
 				end
 			end
 			-- Add building
@@ -599,17 +609,21 @@ end
 
 function npc.locations.clear_metadata_usable_nodes_in_area(node_data)
 	local count = 0
-	count = count + clear_metadata(node_data.bed_type)
-	count = count + clear_metadata(node_data.sittable_type)
-	count = count + clear_metadata(node_data.furnace_type)
-	count = count + clear_metadata(node_data.storage_type)
-	count = count + clear_metadata(node_data.openable_type)
-	-- Clear workplace nodes
-	for i = 1, #node_data.workplace_type do
-		local meta = minetest.get_meta(node_data.workplace_type[i].node_pos)
-		meta:set_string("work_data", nil)
-		count = count + 1
-	end
+    if node_data then
+        count = count + clear_metadata(node_data.bed_type)
+        count = count + clear_metadata(node_data.sittable_type)
+        count = count + clear_metadata(node_data.furnace_type)
+        count = count + clear_metadata(node_data.storage_type)
+        count = count + clear_metadata(node_data.openable_type)
+        -- Clear workplace nodes
+        if node_data.workplace_type then
+            for i = 1, #node_data.workplace_type do
+                local meta = minetest.get_meta(node_data.workplace_type[i].node_pos)
+                meta:set_string("work_data", nil)
+                count = count + 1
+            end
+        end
+    end
 	return count
 end
 
@@ -685,7 +699,7 @@ end
 function npc.locations.find_sittable_nodes_nearby(pos, radius)
 	local result = {}
 	-- Try to find sittable nodes
-	local nodes = npc.locations.find_node_nearby(pos, npc.locations.nodes.SITTABLE, radius)
+	local nodes = npc.locations.find_node_nearby(pos, npc.locations.nodes.sittable, radius)
 	-- Highly unorthodox check for emptinnes
 	if nodes[1] ~= nil then
 		for i = 1, #nodes do
