@@ -323,10 +323,10 @@ end
 
 -- This function searches on a squared are of the given radius
 -- for nodes of the given type. The type should be npc.locations.nodes
-function npc.locations.find_node_nearby(pos, type, radius, fixed_vertical)
-	local y_offset = 1
-	if not fixed_vertical then
-		y_offset = radius
+function npc.locations.find_node_nearby(pos, type, radius, vertical_range_limit)
+	local y_offset = radius
+	if vertical_range_limit then
+		y_offset = vertical_range_limit
 	end
 	-- Determine area points
 	local start_pos = {x=pos.x - radius, y=pos.y - y_offset, z=pos.z - radius}

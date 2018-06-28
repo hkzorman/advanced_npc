@@ -13,6 +13,7 @@ npc.programs.register("advanced_npc:node_query", function(self, args)
     local min_count = args.min_count
     local state_program_on_finished = args.state_program_on_finished
     local range = args.range
+    local vertical_range_limit = args.vertical_range_limit or args.range
     local walkable_nodes = args.walkable_nodes
     local nodes = args.nodes
     local prefer_last_acted_upon_node = args.prefer_last_acted_upon_node
@@ -30,7 +31,7 @@ npc.programs.register("advanced_npc:node_query", function(self, args)
     -- Get NPC position
     local start_pos = self.object:getpos()
     -- Search nodes
-    local found_nodes = npc.locations.find_node_nearby(start_pos, nodes, range)
+    local found_nodes = npc.locations.find_node_nearby(start_pos, nodes, range, vertical_range_limit)
     -- Check if any node was found
     npc.log("DEBUG_SCHEDULE", "Found nodes using radius: "..dump(found_nodes))
     if found_nodes and #found_nodes > 0 then
