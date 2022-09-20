@@ -7,6 +7,9 @@ Introduction
 Advanced NPC is a mod for Minetest using mobs_redo API.
 The goal of this mod is to be able to have live villages in Minetest. These NPCs are highly inspired by the typical NPCs of _Harvest Moon_ games. The general idea is that on almost all buildings of a village there are NPCs that are kind of intelligent: they have daily tasks they perform, can speak to players, can trade with the player, can use their own items (chests and furnaces for example), know where to go around their house and village, can be lumbers, miners or any other Minetest-suitable profession and can ultimately engage into relationships with the player. And while basically only players are mentioned here, the ultimate goal is that they can do all of this also among themselves, so that villages are alive and evolving by themselves, without player intervention.
 
+Advanced NPC is an API, and there are curently two mods that uses it:
+  * [Sociedades](https://forum.minetest.net/viewtopic.php?t=15382)
+  * [mg_villages_npc](https://github.com/hkzorman/mg_villages_npc)
 
 Installation
 ------------
